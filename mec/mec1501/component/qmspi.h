@@ -38,11 +38,11 @@
 
 #include "regaccess.h"
 
-#define QMPSPI_HW_VER		3u
+#define QMPSPI_HW_VER	3u
 
-#define MCHP_QMSPI_BASE_ADDR		0x40070000ul
+#define MCHP_QMSPI_BASE_ADDR	0x40070000ul
 
-#define MCHP_QMSPI_MAX_DESCR		16ul
+#define MCHP_QMSPI_MAX_DESCR	16ul
 
 #define MCHP_QMSPI_INPUT_CLOCK_FREQ_HZ	48000000ul
 #define MCHP_QMSPI_MAX_FREQ_KHZ	((MCHP_QMSPI_INPUT_CLOCK_FREQ_HZ) / 1000ul)
@@ -50,6 +50,7 @@
 
 #define MCHP_QMSPI_GIRQ_NUM		18u
 #define MCHP_QMSPI_GIRQ_POS		1u
+#define MCHP_QMSPI_GIRQ_VAL		BIT(MCHP_QMSPI_GIRQ_POS)
 #define MCHP_QMSPI_GIRQ_OFS		(((MCHP_QMSPI0_GIRQ_NUM) - 8) * 20u)
 
 #define MCHP_QMSPI_GIRQ_NVIC_AGGR	10u
@@ -118,23 +119,24 @@
 	(MCHP_QMSPI_BASE_ADDR + (0x30 + (((uint32_t)(n) & 0x0Ful) << 2)))
 
 /* Mode Register */
-#define MCHP_QMSPI_M_SRST		0x02ul
-#define MCHP_QMSPI_M_ACTIVATE		0x01ul
+#define MCHP_QMSPI_M_ACTIVATE		BIT(0)
+#define MCHP_QMSPI_M_SRST		BIT(1)
+#define MCHP_QMSPI_M_SAF_DMA_MODE_EN	BIT(2)
 #define MCHP_QMSPI_M_CPOL_POS		8u
-#define MCHP_QMSPI_M_CPOL_CLK_IDLE_LO	(0ul << 8)
-#define MCHP_QMSPI_M_CPOL_CLK_IDLE_HI	(0ul << 8)
+#define MCHP_QMSPI_M_CPOL_CLK_IDLE_LO	0
+#define MCHP_QMSPI_M_CPOL_CLK_IDLE_HI	BIT(8)
 
 #define MCHP_QMSPI_M_CPHA_MOSI_POS	9u
 /* MOSI data changes on first clock edge of clock pulse */
 #define MCHP_QMSPI_M_CPHA_MOSI_CE1	(0ul << 9)
 /* MOSI data changes on second clock edge of clock pulse */
-#define MCHP_QMSPI_M_CPHA_MOSI_CE2	(1ul << 9)
+#define MCHP_QMSPI_M_CPHA_MOSI_CE2	BIT(9)
 
 #define MCHP_QMSPI_M_CPHA_MIS0_POS	10u
 /* MISO data capture on first clock edge of clock pulse */
-#define MCHP_QMSPI_M_CPHA_MISO_CE1	(0ul << 9)
+#define MCHP_QMSPI_M_CPHA_MISO_CE1	0ul
 /* MISO data capture on second clock edge of clock pulse */
-#define MCHP_QMSPI_M_CPHA_MISO_CE2	(1ul << 9)
+#define MCHP_QMSPI_M_CPHA_MISO_CE2	BIT(10)
 
 #define MCHP_QMSPI_M_SIG_POS		8u
 #define MCHP_QMSPI_M_SIG_MASK0		0x07ul
@@ -226,25 +228,33 @@
 
 /* Interface Control */
 #define MCHP_QMSPI_IFC_DFLT		0x00ul
+#define MCHP_QMSPI_IFC_WP_OUT_HI	BIT(0)
+#define MCHP_QMSPI_IFC_WP_OUT_EN	BIT(1)
+#define MCHP_QMSPI_IFC_HOLD_OUT_HI	BIT(2)
+#define MCHP_QMSPI_IFC_HOLD_OUT_EN	BIT(3)
+#define MCHP_QMSPI_IFC_PD_ON_NS		BIT(4)
+#define MCHP_QMSPI_IFC_PU_ON_NS		BIT(5)
+#define MCHP_QMSPI_IFC_PD_ON_ND		BIT(6)
+#define MCHP_QMSPI_IFC_PU_ON_ND		BIT(7)
 
 /* Status Register */
 #define MCHP_QMSPI_STS_REG_MASK		0x0F01FF1Ful
 #define MCHP_QMSPI_STS_RO_MASK		0x0F013300ul
 #define MCHP_QMSPI_STS_RW1C_MASK	0x0000CC1Ful
-#define MCHP_QMSPI_STS_DONE		(1ul << 0)
-#define MCHP_QMSPI_STS_DMA_DONE		(1ul << 1)
-#define MCHP_QMSPI_STS_TXB_ERR		(1ul << 2)
-#define MCHP_QMSPI_STS_RXB_ERR		(1ul << 3)
-#define MCHP_QMSPI_STS_PROG_ERR		(1ul << 4)
-#define MCHP_QMSPI_STS_TXBF_RO		(1ul << 8)
-#define MCHP_QMSPI_STS_TXBE_RO		(1ul << 9)
-#define MCHP_QMSPI_STS_TXBR		(1ul << 10)
-#define MCHP_QMSPI_STS_TXBS		(1ul << 11)
-#define MCHP_QMSPI_STS_RXBF_RO		(1ul << 12)
-#define MCHP_QMSPI_STS_RXBE_RO		(1ul << 13)
-#define MCHP_QMSPI_STS_RXBR		(1ul << 14)
-#define MCHP_QMSPI_STS_RXBS		(1ul << 15)
-#define MCHP_QMSPI_STS_ACTIVE_RO	(1ul << 16)
+#define MCHP_QMSPI_STS_DONE		BIT(0)
+#define MCHP_QMSPI_STS_DMA_DONE		BIT(1)
+#define MCHP_QMSPI_STS_TXB_ERR		BIT(2)
+#define MCHP_QMSPI_STS_RXB_ERR		BIT(3)
+#define MCHP_QMSPI_STS_PROG_ERR		BIT(4)
+#define MCHP_QMSPI_STS_TXBF_RO		BIT(8)
+#define MCHP_QMSPI_STS_TXBE_RO		BIT(9)
+#define MCHP_QMSPI_STS_TXBR		BIT(10)
+#define MCHP_QMSPI_STS_TXBS		BIT(11)
+#define MCHP_QMSPI_STS_RXBF_RO		BIT(12)
+#define MCHP_QMSPI_STS_RXBE_RO		BIT(13)
+#define MCHP_QMSPI_STS_RXBR		BIT(14)
+#define MCHP_QMSPI_STS_RXBS		BIT(15)
+#define MCHP_QMSPI_STS_ACTIVE_RO	BIT(16)
 #define MCHP_QMSPI_STS_CD_POS		24u
 #define MCHP_QMSPI_STS_CD_MASK0		0x0Ful
 #define MCHP_QMSPI_STS_CD_MASK		(0x0Ful << 24)
@@ -256,17 +266,17 @@
 #define MCHP_QMSPI_RX_BUF_CNT_STS_MASK	0xffff0000ul
 
 /* Interrupt Enable Register */
-#define MCHP_QMSPI_IEN_XFR_DONE		(1ul << 0)
-#define MCHP_QMSPI_IEN_DMA_DONE		(1ul << 1)
-#define MCHP_QMSPI_IEN_TXB_ERR		(1ul << 2)
-#define MCHP_QMSPI_IEN_RXB_ERR		(1ul << 3)
-#define MCHP_QMSPI_IEN_PROG_ERR		(1ul << 4)
-#define MCHP_QMSPI_IEN_TXB_FULL		(1ul << 8)
-#define MCHP_QMSPI_IEN_TXB_EMPTY	(1ul << 9)
-#define MCHP_QMSPI_IEN_TXB_REQ		(1ul << 10)
-#define MCHP_QMSPI_IEN_RXB_FULL		(1ul << 12)
-#define MCHP_QMSPI_IEN_RXB_EMPTY	(1ul << 13)
-#define MCHP_QMSPI_IEN_RXB_REQ		(1ul << 14)
+#define MCHP_QMSPI_IEN_XFR_DONE		BIT(0)
+#define MCHP_QMSPI_IEN_DMA_DONE		BIT(1)
+#define MCHP_QMSPI_IEN_TXB_ERR		BIT(2)
+#define MCHP_QMSPI_IEN_RXB_ERR		BIT(3)
+#define MCHP_QMSPI_IEN_PROG_ERR		BIT(4)
+#define MCHP_QMSPI_IEN_TXB_FULL		BIT(8)
+#define MCHP_QMSPI_IEN_TXB_EMPTY	BIT(9)
+#define MCHP_QMSPI_IEN_TXB_REQ		BIT(10)
+#define MCHP_QMSPI_IEN_RXB_FULL		BIT(12)
+#define MCHP_QMSPI_IEN_RXB_EMPTY	BIT(13)
+#define MCHP_QMSPI_IEN_RXB_REQ		BIT(14)
 
 /* Buffer Count Trigger (RW) */
 #define MCHP_QMSPI_TX_BUF_CNT_TRIG_POS	0u
@@ -381,6 +391,8 @@ typedef struct qmspi_regs {
 	__IOM uint32_t RX_FIFO; /*!< (@ 0x0024) QMSPI RX FIFO */
 	__IOM uint32_t CSTM; /*!< (@ 0x0028) QMSPI Chip select timing */
 	uint8_t RSVD1[4];
+	__IOM uint32_t DESCR[MCHP_QMSPI_MAX_DESCR];
+#if 0
 	__IOM uint32_t DESCR0; /*!< (@ 0x0030) QMSPI Descriptor 0 */
 	__IOM uint32_t DESCR1; /*!< (@ 0x0034) QMSPI Descriptor 1 */
 	__IOM uint32_t DESCR2; /*!< (@ 0x0038) QMSPI Descriptor 2 */
@@ -397,6 +409,7 @@ typedef struct qmspi_regs {
 	__IOM uint32_t DESCR13; /*!< (@ 0x0064) QMSPI Descriptor 13 */
 	__IOM uint32_t DESCR14; /*!< (@ 0x0068) QMSPI Descriptor 14 */
 	__IOM uint32_t DESCR15; /*!< (@ 0x006C) QMSPI Descriptor 15 */
+#endif
 } QMSPI_Type;
 
 #endif				/* #ifndef _QMSPI_H */

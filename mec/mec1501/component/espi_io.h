@@ -42,6 +42,15 @@
 
 #define MCHP_ESPI_IO_BASE_ADDR	0x400F3400ul
 
+/* Offsets from base for various register groups */
+#define MCHP_ESPI_IO_PC_OFS 0x0100ul
+#define MCHP_ESPI_IO_HOST_BAR_OFS 0x0120ul
+#define MCHP_ESPI_IO_LTR_OFS 0x0220ul
+#define MCHP_ESPI_IO_OOB_OFS 0x0240ul
+#define MCHP_ESPI_IO_FC_OFS 0x0280ul
+#define MCHP_ESPI_IO_CAP_OFS 0x02b0ul
+#define MCHP_ESPI_IO_SIRQ_OFS 0x03a0ul
+
 /*
  * ESPI IO Component interrupts
  */
@@ -79,24 +88,24 @@
 #define MCHP_ESPI_SAF_DONE_GIRQ_POS	9u	/* No direct NVIC connection */
 #define MCHP_ESPI_SAF_ERR_GIRQ_POS	10u	/* No direct NVIC connection */
 
-#define MCHP_ESPI_PC_GIRQ_VAL		(1ul << 0)
-#define MCHP_ESPI_BM1_GIRQ_VAL		(1ul << 1)
-#define MCHP_ESPI_BM2_GIRQ_VAL		(1ul << 2)
-#define MCHP_ESPI_LTR_GIRQ_VAL		(1ul << 3)
-#define MCHP_ESPI_OOB_UP_GIRQ_VAL	(1ul << 4)
-#define MCHP_ESPI_OOB_DN_GIRQ_VAL	(1ul << 5)
-#define MCHP_ESPI_FC_GIRQ_VAL		(1ul << 6)
-#define MCHP_ESPI_ESPI_RST_GIRQ_VAL	(1ul << 7)
-#define MCHP_ESPI_VW_EN_GIRQ_VAL	(1ul << 8)
-#define MCHP_ESPI_SAF_DONE_GIRQ_VAL	(1ul << 9)
-#define MCHP_ESPI_SAF_ERR_GIRQ_VAL	(1ul << 10)
+#define MCHP_ESPI_PC_GIRQ_VAL		BIT(0)
+#define MCHP_ESPI_BM1_GIRQ_VAL		BIT(1)
+#define MCHP_ESPI_BM2_GIRQ_VAL		BIT(2)
+#define MCHP_ESPI_LTR_GIRQ_VAL		BIT(3)
+#define MCHP_ESPI_OOB_UP_GIRQ_VAL	BIT(4)
+#define MCHP_ESPI_OOB_DN_GIRQ_VAL	BIT(5)
+#define MCHP_ESPI_FC_GIRQ_VAL		BIT(6)
+#define MCHP_ESPI_ESPI_RST_GIRQ_VAL	BIT(7)
+#define MCHP_ESPI_VW_EN_GIRQ_VAL	BIT(8)
+#define MCHP_ESPI_SAF_DONE_GIRQ_VAL	BIT(9)
+#define MCHP_ESPI_SAF_ERR_GIRQ_VAL	BIT(10)
 
 /* eSPI Global Capabilities 0 */
 #define MCHP_ESPI_GBL_CAP0_MASK		0x0Fu
-#define MCHP_ESPI_GBL_CAP0_PC_SUPP	(1u << 0)
-#define MCHP_ESPI_GBL_CAP0_VW_SUPP	(1u << 1)
-#define MCHP_ESPI_GBL_CAP0_OOB_SUPP	(1u << 2)
-#define MCHP_ESPI_GBL_CAP0_FC_SUPP	(1u << 3)
+#define MCHP_ESPI_GBL_CAP0_PC_SUPP	BIT(0)
+#define MCHP_ESPI_GBL_CAP0_VW_SUPP	BIT(1)
+#define MCHP_ESPI_GBL_CAP0_OOB_SUPP	BIT(2)
+#define MCHP_ESPI_GBL_CAP0_FC_SUPP	BIT(3)
 
 /* eSPI Global Capabilities 1 */
 #define MCHP_ESPI_GBL_CAP1_MASK			0xFFu
@@ -220,6 +229,25 @@
 #define MCHP_ESPI_VW_READY_MASK		0x01ul
 #define MCHP_ESPI_VW_READY		0x01ul
 
+/* SAF Erase Block size */
+#define MCHP_ESPI_SERASE_SZ_1K_BITPOS	0
+#define MCHP_ESPI_SERASE_SZ_2K_BITPOS	1
+#define MCHP_ESPI_SERASE_SZ_4K_BITPOS	2
+#define MCHP_ESPI_SERASE_SZ_8K_BITPOS	3
+#define MCHP_ESPI_SERASE_SZ_16K_BITPOS	4
+#define MCHP_ESPI_SERASE_SZ_32K_BITPOS	5
+#define MCHP_ESPI_SERASE_SZ_64K_BITPOS	6
+#define MCHP_ESPI_SERASE_SZ_128K_BITPOS	7
+#define MCHP_ESPI_SERASE_SZ_1K		BIT(0)
+#define MCHP_ESPI_SERASE_SZ_2K		BIT(1)
+#define MCHP_ESPI_SERASE_SZ_4K		BIT(2)
+#define MCHP_ESPI_SERASE_SZ_8K		BIT(3)
+#define MCHP_ESPI_SERASE_SZ_16K		BIT(4)
+#define MCHP_ESPI_SERASE_SZ_32K		BIT(5)
+#define MCHP_ESPI_SERASE_SZ_64K		BIT(6)
+#define MCHP_ESPI_SERASE_SZ_128K	BIT(7)
+#define MCHP_ESPI_SERASE_SZ(bitpos) (1ul << ((bitpos)+10))
+
 /* VW Error Status */
 #define MCHP_ESPI_VW_ERR_STS_MASK		0x33ul
 #define MCHP_ESPI_VW_ERR_STS_FATAL_POS		0u
@@ -258,17 +286,18 @@ typedef struct espi_io_cap_regs {
 	__IOM uint8_t CAP_ID;	/*! (@ 0x36E0) Capabilities ID */
 	__IOM uint8_t GLB_CAP0;	/*! (@ 0x36E1) Global Capabilities 0 */
 	__IOM uint8_t GLB_CAP1;	/*! (@ 0x36E2) Global Capabilities 1 */
-	__IOM uint8_t PC_CAP;	/*! (@ 0x3633) Periph Chan Capabilities */
-	__IOM uint8_t VW_CAP;	/*! (@ 0x3634) Virtual Wire Chan Capabilities */
-	__IOM uint8_t OOB_CAP;	/*! (@ 0x3635) OOB Chan Capabilities */
-	__IOM uint8_t FC_CAP;	/*! (@ 0x3636) Flash Chan Capabilities */
-	__IOM uint8_t PC_RDY;	/*! (@ 0x3637) PC ready */
-	__IOM uint8_t OOB_RDY;	/*! (@ 0x3638) OOB ready */
-	__IOM uint8_t FC_RDY;	/*! (@ 0x3639) OOB ready */
-	__IOM uint8_t ERST_STS;	/*! (@ 0x363A) eSPI Reset interrupt status */
-	__IOM uint8_t ERST_IEN;	/*! (@ 0x363B) eSPI Reset interrupt enable */
-	__IOM uint8_t PLTRST_SRC;	/*! (@ 0x363C) Platform Reset Source */
-	__IOM uint8_t VW_RDY;	/*! (@ 0x363D) VW ready */
+	__IOM uint8_t PC_CAP;	/*! (@ 0x36E3) Periph Chan Capabilities */
+	__IOM uint8_t VW_CAP;	/*! (@ 0x36E4) Virtual Wire Chan Capabilities */
+	__IOM uint8_t OOB_CAP;	/*! (@ 0x36E5) OOB Chan Capabilities */
+	__IOM uint8_t FC_CAP;	/*! (@ 0x36E6) Flash Chan Capabilities */
+	__IOM uint8_t PC_RDY;	/*! (@ 0x36E7) PC ready */
+	__IOM uint8_t OOB_RDY;	/*! (@ 0x36E8) OOB ready */
+	__IOM uint8_t FC_RDY;	/*! (@ 0x36E9) OOB ready */
+	__IOM uint8_t ERST_STS;	/*! (@ 0x36EA) eSPI Reset interrupt status */
+	__IOM uint8_t ERST_IEN;	/*! (@ 0x36EB) eSPI Reset interrupt enable */
+	__IOM uint8_t PLTRST_SRC; /*! (@ 0x36EC) Platform Reset Source */
+	__IOM uint8_t VW_RDY; /*! (@ 0x36ED) VW ready */
+	__IOM uint8_t FC_SERBZ; /*! (@ 0x36EE) S-Erase Block Size */
 	uint8_t RSVD2[0x37F0u - 0x36EE];
 	__IOM uint32_t VW_ERR_STS;	/*! (@ 0x37F0) IO Virtual Wire Error */
 } ESPI_IO_CAP_Type;
@@ -382,15 +411,15 @@ typedef struct espi_io_ltr_regs
 /* RX_LEN register */
 /* Number of bytes received (RO) */
 #define MCHP_ESPI_OOB_RX_LEN_POS	0u
-#define MCHP_ESPI_OOB_RX_LEN_MASK	0x3FFFul
+#define MCHP_ESPI_OOB_RX_LEN_MASK	0x1FFFul
 /* Recieve buffer length field (RW) */
 #define MCHP_ESPI_OOB_RX_BUF_LEN_POS	16u
-#define MCHP_ESPI_OOB_RX_BUF_LEN_MASK0	0x3FFFul
-#define MCHP_ESPI_OOB_RX_BUF_LEN_MASK	(0x3FFFul << 16)
+#define MCHP_ESPI_OOB_RX_BUF_LEN_MASK0	0x1FFFul
+#define MCHP_ESPI_OOB_RX_BUF_LEN_MASK	(0x1FFFul << 16)
 
 /* TX_LEN register */
 #define MCHP_ESPI_OOB_TX_MSG_LEN_POS	0u
-#define MCHP_ESPI_OOB_TX_MSG_LEN_MASK	0x3FFFul
+#define MCHP_ESPI_OOB_TX_MSG_LEN_MASK	0x1FFFul
 
 /* RX_CTRL */
 /* Set AVAIL bit to indicate SRAM Buffer and size has been configured */
@@ -420,7 +449,8 @@ typedef struct espi_io_ltr_regs
 #define MCHP_ESPI_OOB_RX_STS_TAG_MASK0	0x0Ful
 #define MCHP_ESPI_OOB_RX_STS_TAG_MASK	(0x0Ful << 8)	/* RO */
 
-#define MCHP_ESPI_OOB_RX_STS_ALL_RW1C	0x0Ful
+#define MCHP_ESPI_OOB_RX_STS_ALL_RW1C	0x07ul
+#define MCHP_ESPI_OOB_RX_STS_ALL	0x0Ful
 
 /* TX_CTRL */
 #define MCHP_ESPI_OOB_TX_CTRL_START_POS	0u
