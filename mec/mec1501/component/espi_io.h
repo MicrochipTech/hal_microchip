@@ -709,6 +709,45 @@ typedef struct espi_io_fc_regs {
 #define MCHP_ESPI_IO_BAR_HOST_ADDR_MASK0	0xFFFFul
 #define MCHP_ESPI_IO_BAR_HOST_ADDR_MASK		(0xFFFFul << 16)
 
+/* Array indices for eSPI IO BAR Host and EC-only register structures */
+enum espi_io_bar_idx {
+	IOB_IOC = 0,
+	IOB_MEM,
+	IOB_MBOX,
+	IOB_KBC,
+	IOB_ACPI_EC0,
+	IOB_ACPI_EC1,
+	IOB_ACPI_EC2,
+	IOB_ACPI_EC3,
+	IOB_RSVD_34,
+	IOB_ACPI_PM1,
+	IOB_PORT92,
+	IOB_UART0,
+	IOB_UART1,
+	IOB_EMI0,
+	IOB_EMI1,
+	IOB_RSVD_50,
+	IOB_P80CAP_0,
+	IOB_P80CAP_1,
+	IOB_RTC,
+	IOB_RSVD_60,
+	IOB_T32B,
+	IOB_UART2,
+	IOB_GLUE,
+	IOB_MAX
+};
+
+/** @brief Serial IRQ byte register indices */
+enum espi_io_sirq_idx {
+	SIRQ_MBOX = 0,	   SIRQ_MBOX_SMI,     SIRQ_KBC_KIRQ,
+	SIRQ_KBC_MIRQ,	   SIRQ_ACPI_EC0_OBF, SIRQ_ACPI_EC1_OBF,
+	SIRQ_ACPI_EC2_OBF, SIRQ_ACPI_EC3_OBF, SIRQ_RSVD_8,
+	SIRQ_UART0,	   SIRQ_UART1,	      SIRQ_EMI0_HEV,
+	SIRQ_EMI0_E2H,	   SIRQ_EMI1_HEV,     SIRQ_EMI1_E2H,
+	SIRQ_RSVD_15,	   SIRQ_RSVD_16,      SIRQ_RTC,
+	SIRQ_EC,	   SIRQ_UART2,        SIRQ_MAX
+};
+
 /*
  * eSPI IO BAR Host registers.
  * These registers contain the Host side IO address for each peripheral.

@@ -407,7 +407,7 @@ typedef enum pcr_id {
 	PCR_ESPI_SAF = (256u + 27u),
 	PCR_UART2 = (256u + 28u),
 	PCR_HDMI_CEC = (384u + 1u),	/* 12 << 5 = 384 */
-	PCR_ADC = (384u + 3u),
+	PCR_ADC_0 = (384u + 3u),
 	PCR_PS2_0 = (384u + 5u),
 	PCR_PS2_1 = (384u + 6u),
 	PCR_HTMR0 = (384u + 10u),

@@ -345,7 +345,17 @@ typedef struct espi_msvw_reg {
 	__IOM uint32_t SRC;
 } ESPI_MSVW_REG;
 
-typedef struct {
+/** @brief eSPI 96-bit Host-to-Target Virtual Wire register as bytes */
+struct espi_msvwb_reg {
+	volatile uint8_t HTVWB[12];
+};
+
+/** @brief HW implements 11 Master-to-Slave VW registers as an array */
+typedef struct espi_msvw_ar_regs {
+	ESPI_MSVW_REG MSVW[11];
+} ESPI_M2S_VW_AR_Type;
+
+typedef struct espi_msvw_named_regs {
 	ESPI_MSVW_REG MSVW00;
 	ESPI_MSVW_REG MSVW01;
 	ESPI_MSVW_REG MSVW02;
@@ -369,7 +379,17 @@ typedef struct espi_smvw_reg {
 	__IOM uint32_t SRC;
 } ESPI_SMVW_REG;
 
-typedef struct {
+/** @brief eSPI 64-bit Target-to-Host Virtual Wire register as bytes */
+struct espi_smvwb_reg {
+	volatile uint8_t THVWB[8];
+};
+
+/** @brief HW implements 11 Slave-to-Master VW registers as an array */
+typedef struct espi_smvw_ar_regs {
+	ESPI_SMVW_REG SMVW[11];
+} ESPI_S2M_VW_AR_Type;
+
+typedef struct espi_smvw_named_regs {
 	ESPI_SMVW_REG SMVW00;
 	ESPI_SMVW_REG SMVW01;
 	ESPI_SMVW_REG SMVW02;
@@ -414,6 +434,34 @@ enum espi_vw_rst_src {
 	VW_RST_SRC_SYS_RESET,
 	VW_RST_SRC_SIO_RESET,
 	VW_RST_SRC_PLTRST,
+};
+
+enum espi_msvw_byte_idx {
+	MSVW_BI_INDEX = 0,
+	MSVW_BI_MTOS,
+	MSVW_BI_RSVD2,
+	MSVW_BI_RSVD3,
+	MSVW_BI_IRQ_SEL0,
+	MSVW_BI_IRQ_SEL1,
+	MSVW_BI_IRQ_SEL2,
+	MSVW_BI_IRQ_SEL3,
+	MSVW_BI_SRC0,
+	MSVW_BI_SRC1,
+	MSVW_BI_SRC2,
+	MSVW_BI_SRC3,
+	MSVW_IDX_MAX
+};
+
+enum espi_smvw_byte_idx {
+	SMVW_BI_INDEX = 0,
+	SMVW_BI_STOM,
+	SMVW_BI_SRC_CHG,
+	SMVW_BI_RSVD3,
+	SMVW_BI_SRC0,
+	SMVW_BI_SRC1,
+	SMVW_BI_SRC2,
+	SMVW_BI_SRC3,
+	SMVW_IDX_MAX
 };
 
 /*
