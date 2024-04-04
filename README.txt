@@ -39,3 +39,14 @@ The following changes were made:
 
  - platform-2021.08 top folder renamed to mpfs and located at modules/hal/microchip
  - The applications/mpfs-pmp-demo/mpfs-pmp-app-u54-1/src/boards folder is copied to modules/hal/microchip/mpfs
+ 
+========================================================================
+Microchip MEC5 HAL for MEC1743 and MEC1753 CMSIS based headers using
+common peripheral headers is located at:
+
+https://github.com/MicrochipTech/hal_microchip
+
+Refer to the mec5 subdirectory.
+
+Initial version 1.0.0
+
