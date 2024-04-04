@@ -21,14 +21,16 @@ static uint32_t xlat_intr_to_hw(uint32_t bitmap)
 {
     uint32_t hwbm = 0;
 
+    if (bitmap & BIT(MEC_ESPI_PC_INTR_CHEN_CHG_POS)) {
+        hwbm |= BIT(ESPI_IO_PCSTS_PCEN_CHG_Pos);
+    }
+
+    if (bitmap & BIT(MEC_ESPI_PC_INTR_BMEN_CHG_POS)) {
+        hwbm |= BIT(ESPI_IO_PCSTS_PCBMEN_CHG_Pos);
+    }
+
     if (bitmap & BIT(MEC_ESPI_PC_INTR_BERR_POS)) {
-        hwbm |= BIT(MEC_ESPI_PC_INTR_BERR_POS);
-    }
-    if (bitmap & BIT(ESPI_IO_PCSTS_PCEN_CHG_Pos)) {
-        hwbm |= BIT(MEC_ESPI_PC_INTR_CHEN_CHG_POS);
-    }
-    if (bitmap & BIT(ESPI_IO_PCSTS_PCBMEN_CHG_Pos)) {
-        hwbm |= BIT(MEC_ESPI_PC_INTR_BMEN_CHG_POS);
+        hwbm |= BIT(ESPI_IO_PCSTS_EC_BUS_ERR_Pos);
     }
 
     return hwbm;
