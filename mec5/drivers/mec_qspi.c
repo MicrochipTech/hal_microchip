@@ -27,6 +27,10 @@
                                 | BIT(QSPI_STATUS_LDRXERR_Pos) \
                                 | BIT(QSPI_STATUS_LDTXERR_Pos))
 
+#define MEC_QSPI_SIG_MODE_POS QSPI_MODE_CPOL_Pos
+#define MEC_QSPI_SIG_MODE_MSK                                           \
+    (QSPI_MODE_CPOL_Msk | QSPI_MODE_CPHA_MOSI_Msk | QSPI_MODE_CPHA_MISO_Msk)
+
 #define MEC5_QSPI_START_DESCR_MSK0 ((uint32_t)QSPI_CTRL_DPTR_Msk >> QSPI_CTRL_DPTR_Pos)
 #define MEC5_QSPI_NEXT_DESCR_MSK0 ((uint32_t)QSPI_DESCR_NEXT_Msk >> QSPI_DESCR_NEXT_Pos)
 
@@ -210,6 +214,23 @@ static void qspi_reset(struct qspi_regs *base)
     qspi_intr_clr_dis(base);
 }
 
+/* Clear GIRQ source status. Current SoC's have one QSPI instance */
+void mec_qspi_girq_clr(struct qspi_regs *base)
+{
+    mec_girq_clr_src(MEC_QSPI0_ECIA_INFO);
+}
+
+void mec_qspi_girq_ctrl(struct qspi_regs *base, uint8_t enable)
+{
+    mec_girq_ctrl(MEC_QSPI0_ECIA_INFO, enable);
+}
+
+/* Returns non-zero if QSPI0 GIRQ result bit is set else 0 */
+uint32_t mec_qspi_girq_is_result(struct qspi_regs *base)
+{
+    return mec_girq_result(MEC_QSPI0_ECIA_INFO);
+}
+
 int mec_qspi_reset(struct qspi_regs *base)
 {
     if (!base) {
@@ -217,6 +238,35 @@ int mec_qspi_reset(struct qspi_regs *base)
     }
 
     qspi_reset(base);
+
+    return MEC_RET_OK;
+}
+
+int mec_qspi_reset_sr(struct qspi_regs *base)
+{
+    uint32_t saved[5];
+
+    if (!base) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    mec_girq_ctrl(MEC_QSPI0_ECIA_INFO, 0);
+
+    saved[0] = base->MODE & (QSPI_MODE_CPOL_Msk | QSPI_MODE_CPHA_MOSI_Msk
+                             | QSPI_MODE_CPHA_MISO_Msk | QSPI_MODE_CLKDIV_Msk);
+    saved[1] = base->CSTM;
+    saved[2] = base->TAPSS;
+    saved[3] = base->TAPSA;
+    saved[4] = base->TAPSC;
+
+    qspi_reset(base);
+    mec_girq_clr_src(MEC_QSPI0_ECIA_INFO);
+
+    base->MODE = saved[0];
+    base->CSTM = saved[1];
+    base->TAPSS = saved[2];
+    base->TAPSA = saved[3];
+    base->TAPSC = saved[4];
 
     return MEC_RET_OK;
 }
@@ -321,6 +371,17 @@ int mec_qspi_spi_signal_mode(struct qspi_regs *base, enum mec_qspi_signal_mode s
     return MEC_RET_OK;
 }
 
+int mec_qspi_sampling_phase_pol(struct qspi_regs *base, uint8_t phpol)
+{
+    if (!base) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    base->MODE = (base->MODE & ~0x700u) | ((uint32_t)(phpol & 0x7u) << 8);
+
+    return MEC_RET_OK;
+}
+
 static uint32_t qspi_ifm(enum mec_qspi_io iom)
 {
     uint32_t ifm;
@@ -389,6 +450,21 @@ int mec_qspi_cs_timing(struct qspi_regs *base, uint32_t cs_timing)
     return MEC_RET_OK;
 }
 
+int mec_qspi_tap_select(struct qspi_regs *base, uint8_t sel_sck_tap, uint8_t sel_ctrl_tap)
+{
+    uint32_t tapss = sel_sck_tap | ((uint32_t)sel_ctrl_tap << 8);
+
+    if (!base) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    tapss = ((uint32_t)sel_sck_tap << QSPI_TAPSS_TSCK_Pos) & QSPI_TAPSS_TSCK_Msk;
+    tapss |= (((uint32_t)sel_ctrl_tap << QSPI_TAPSS_TCTRL_Pos) & QSPI_TAPSS_TCTRL_Msk);
+    base->TAPSS = (base->TAPSS & (uint32_t)~(QSPI_TAPSS_TSCK_Msk | QSPI_TAPSS_TSCK_Msk)) | tapss;
+
+    return MEC_RET_OK;
+}
+
 /* Initialize QMSPI controller using local DMA. */
 int mec_qspi_init(struct qspi_regs *base,
                   uint32_t freq_hz,
@@ -403,7 +479,7 @@ int mec_qspi_init(struct qspi_regs *base,
     }
 
     mec_pcr_clr_blk_slp_en(info->pcr_id); /* clocks gated ON */
-    qspi_reset(base);
+    mec_qspi_reset_sr(base);
     qspi_set_freq(base, freq_hz);
     qspi_spi_signal_mode(base, spi_signal_mode);
     qspi_io(base, iom);
@@ -417,10 +493,47 @@ int mec_qspi_init(struct qspi_regs *base,
     return MEC_RET_OK;
 }
 
+int mec_qspi_options(struct qspi_regs *regs, uint8_t en, uint32_t options)
+{
+    uint32_t val = 0, msk = 0;
+
+    if (!regs) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    if (options & BIT(MEC_QSPI_OPT_ACTV_EN_POS)) {
+        msk |= BIT(QSPI_MODE_ACTV_Pos);
+        if (en) {
+            val |= BIT(QSPI_MODE_ACTV_Pos);
+        }
+    }
+    if (options & BIT(MEC_QSPI_OPT_TAF_DMA_EN_POS)) {
+        msk |= BIT(QSPI_MODE_TAFDMA_Pos);
+        if (en) {
+            val |= BIT(QSPI_MODE_TAFDMA_Pos);
+        }
+    }
+    if (options & BIT(MEC_QSPI_OPT_RX_LDMA_EN_POS)) {
+        msk |= BIT(QSPI_MODE_RX_LDMA_Pos);
+        if (en) {
+            val |= BIT(QSPI_MODE_RX_LDMA_Pos);
+        }
+    }
+    if (options & BIT(MEC_QSPI_OPT_TX_LDMA_EN_POS)) {
+        msk |= BIT(QSPI_MODE_TX_LDMA_Pos);
+        if (en) {
+            val |= BIT(QSPI_MODE_TX_LDMA_Pos);
+        }
+    }
+
+    regs->MODE = (regs->MODE & ~msk) | (val & msk);
+
+    return MEC_RET_OK;
+}
+
 /* Force QSPI to stop an on-going transaction.
  * If QSPI is generating clocks, it will stop at the next byte boundary
  * and de-assert chip select.
- *
  */
 int mec_qspi_force_stop(struct qspi_regs *base)
 {
@@ -1149,12 +1262,32 @@ int mec_qspi_load_descrs(struct qspi_regs *regs, struct mec_qspi_context *ctx, u
     return 0;
 }
 
-/* Load descriptors starting at struct mec_qspi_context .ndescrs or should we specify the load index */
-int mec_qspi_load_descrs_at(struct qspi_regs *regs, struct mec_qspi_context *ctx, uint32_t flags,
-                            uint8_t load_descr_index)
+/* Load descriptors register only. Does not touch other QSPI registers */
+int mec_qspi_load_descrs_at(struct qspi_regs *regs, const uint32_t *descrs, uint8_t ndescr,
+                            uint8_t start_descr_idx)
 {
-    /* TODO */
-    return 0;
+    uint32_t didx, didx_lim, n;
+
+    if (!regs || !descrs || !ndescr || (start_descr_idx >= MEC5_QSPI_NUM_DESCRS)) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    if (mec_qspi_done(regs) == MEC_RET_ERR_BUSY) {
+        return MEC_RET_ERR_BUSY;
+    }
+
+    didx = start_descr_idx;
+    didx_lim = didx + ndescr;
+    if (didx_lim > MEC5_QSPI_NUM_DESCRS) {
+        didx_lim = MEC5_QSPI_NUM_DESCRS;
+    }
+
+    n = 0;
+    while (didx < didx_lim) {
+        regs->DESCR[didx++] = descrs[n++];
+    }
+
+    return MEC_RET_OK;
 }
 
 /* end mec_qspi.c */

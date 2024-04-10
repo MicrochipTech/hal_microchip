@@ -104,6 +104,13 @@ enum mec_qspi_intr_enables {
     MEC_QSPI_IEN_RXB_REQ = BIT(14),
 };
 
+enum mec_qspi_options {
+    MEC_QSPI_OPT_ACTV_EN_POS = 0,
+    MEC_QSPI_OPT_TAF_DMA_EN_POS,
+    MEC_QSPI_OPT_RX_LDMA_EN_POS,
+    MEC_QSPI_OPT_TX_LDMA_EN_POS,
+};
+
 #define MEC_QSPI_STATE_CLOSED  0
 #define MEC_QSPI_STATE_OPEN_TX 1
 #define MEC_QSPI_STATE_OPEN_RX 2
@@ -130,21 +137,6 @@ struct mec_qspi_buf {
     uint8_t flags;
 };
 
-#if 0 /* TODO not used */
-struct mec_qspi_context {
-    uintptr_t qspi_base;
-    uint32_t devi;
-    uint32_t mode;
-    uint32_t cstm;
-    uint32_t flags;
-    uint32_t ien;
-    uint8_t state;
-    uint8_t ldma_rd_chan;
-    uint8_t ldma_wr_chan;
-    uint8_t dir;
-};
-#endif
-
 struct mec_qspi_timing {
     uint32_t freqhz;
     uint8_t dly_csa_to_clk;
@@ -165,8 +157,17 @@ uint32_t mec_qspi_get_freq(struct qspi_regs *base);
 int mec_qspi_set_freq(struct qspi_regs *base, uint32_t freqhz);
 int mec_qspi_byte_time_ns(struct qspi_regs *base, uint32_t *btime_ns);
 
-/* Reset QMSPI block and clear interrupt status. */
+/* Reset QSPI block and clear interrupt status. */
 int mec_qspi_reset(struct qspi_regs *base);
+
+/* Reset QSPI block with save/restore of frequency, signalling mode,
+ * CS timing, and taps select.
+ */
+int mec_qspi_reset_sr(struct qspi_regs *base);
+
+void mec_qspi_girq_clr(struct qspi_regs *base);
+void mec_qspi_girq_ctrl(struct qspi_regs *base, uint8_t enable);
+uint32_t mec_qspi_girq_is_result(struct qspi_regs *base);
 
 /* 1 = enable clock input to QMSPI block
  * 0 = disable clock input to QMSPI block
@@ -179,15 +180,20 @@ int mec_qspi_init(struct qspi_regs *base,
                   enum mec_qspi_io iom,
                   enum mec_qspi_cs cs);
 
+int mec_qspi_options(struct qspi_regs *regs, uint8_t en, uint32_t options);
+
 int mec_qspi_cs_select(struct qspi_regs *base, enum mec_qspi_cs cs);
 
 int mec_qspi_spi_signal_mode(struct qspi_regs *base, enum mec_qspi_signal_mode spi_mode);
+int mec_qspi_sampling_phase_pol(struct qspi_regs *base, uint8_t phpol);
 
 int mec_qspi_io(struct qspi_regs *base, enum mec_qspi_io io);
 
 int mec_qspi_cs_timing_adjust(struct qspi_regs *base, enum mec_qspi_cstm field, uint8_t val);
 
 int mec_qspi_cs_timing(struct qspi_regs *base, uint32_t cs_timing);
+
+int mec_qspi_tap_select(struct qspi_regs *base, uint8_t sel_sck_tap, uint8_t sel_ctrl_tap);
 
 int mec_qspi_cs1_freq(struct qspi_regs *base, uint32_t freq);
 
@@ -235,14 +241,6 @@ int mec_qspi_rd_rx_fifo(struct qspi_regs *regs, uint8_t *buf, uint32_t bufsz, ui
  */
 uint32_t mec_qspi_build_descr(enum mec_qspi_io ifm, uint32_t nunits, uint32_t *remunits,
                               uint32_t flags);
-
-#if 0
-#define MEC5_QSPI_LOAD_DESCR_SET_START BIT(0)
-#define MEC5_QSPI_LOAD_DESCR_SET_LAST  BIT(1)
-
-int mec_qspi_load_descrs(struct qspi_regs *base, uint8_t start_descr_idx,
-                         const uint32_t *descrs, size_t ndescrs, uint32_t flags);
-#endif
 
 #define MEC_QSPI_XFR_FLAG_CLR_FIFOS_POS 0
 #define MEC_QSPI_XFR_FLAG_IEN_POS 1
@@ -311,8 +309,8 @@ int mec_qspi_cfg_gen_ts_clocks(struct mec_qspi_context *ctx, uint32_t nclocks, u
 
 int mec_qspi_load_descrs(struct qspi_regs *regs, struct mec_qspi_context *ctx, uint32_t flags);
 
-int mec_qspi_load_descrs_at(struct qspi_regs *regs, struct mec_qspi_context *ctx, uint32_t flags,
-                            uint8_t load_descr_index);
+int mec_qspi_load_descrs_at(struct qspi_regs *regs, const uint32_t *descrs, uint8_t ndescr,
+                            uint8_t start_descr_idx);
 
 #ifdef __cplusplus
 }
