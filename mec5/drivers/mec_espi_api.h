@@ -542,6 +542,9 @@ int mec_espi_vw_tc_wire_set(struct espi_vw_regs * const vwbase, uint8_t tcidx,
                             uint8_t widx, uint8_t val, uint32_t flags);
 int mec_espi_vw_tc_wire_get(struct espi_vw_regs * const vwbase, uint8_t tcidx,
                             uint8_t widx, uint8_t *val);
+/* Sets *val bit[0]=C2T VWire state and bit[7]=C2T VWire change status */
+int mec_espi_vw_tc_wire_cs_get(struct espi_vw_regs * const vwbase, uint8_t tcidx,
+                               uint8_t widx, uint8_t *val);
 int mec_espi_vw_tc_group_set(struct espi_vw_regs * const vwbase, uint8_t tcidx,
                              uint8_t val, uint8_t msk, uint32_t flags);
 int mec_espi_vw_tc_group_get(struct espi_vw_regs * const vwbase, uint8_t tcidx,
@@ -595,26 +598,38 @@ struct mec_espi_vw {
     uint8_t msk; /* group mask, used with group API's */
 };
 
+struct mec_espi_vw_poll {
+    void (*delayfp)(uint32_t);
+    uint32_t delay_param;
+    uint32_t nloops;
+};
+
 int mec_espi_vw_get_src(struct espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
                         uint32_t flags);
-int mec_espi_vw_set_src(struct espi_vw_regs * const vwbase, struct mec_espi_vw *vw,
+int mec_espi_vw_set_src(struct espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
                         uint32_t flags);
-int mec_espi_vw_get_src_group(struct espi_vw_regs * const vwbase, struct mec_espi_vw *vw,
+int mec_espi_vw_set_src_cs(struct espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
+                           const struct mec_espi_vw_poll *vwp);
+
+int mec_espi_vw_get_src_group(struct espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
                               uint32_t flags);
-int mec_espi_vw_set_src_group(struct espi_vw_regs * const vwbase, struct mec_espi_vw *vw,
+int mec_espi_vw_set_src_group(struct espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
                               uint32_t flags);
 
 /* Get/Set value of a eSPI Virtual Wire given
  * the VW's Host Index and source position (0-3)
  */
-int mec_espi_vw_set(struct espi_vw_regs * const vwbase, uint8_t host_index,
+int mec_espi_vw_set(struct espi_vw_regs *const vwbase, uint8_t host_index,
                     uint8_t src_id, uint8_t val, uint32_t flags);
 
-int mec_espi_vw_get(struct espi_vw_regs * const vwbase, uint8_t host_index,
+int mec_espi_vw_set_cs(struct espi_vw_regs * const vwbase, uint8_t host_index,
+                       uint8_t src_id, uint8_t val, const struct mec_espi_vw_poll *vwp);
+
+int mec_espi_vw_get(struct espi_vw_regs *const vwbase, uint8_t host_index,
                     uint8_t src_id, uint8_t *val);
 
 /* Get/Set the group of 4 eSPI Virtual Wires for the given Host Index */
-int mec_espi_vw_get_group(struct espi_vw_regs * const vwbase, uint8_t host_index,
+int mec_espi_vw_get_group(struct espi_vw_regs *const vwbase, uint8_t host_index,
                           uint8_t *groupval);
 
 int mec_espi_vw_set_group(struct espi_vw_regs *const vwbase, uint8_t host_index,

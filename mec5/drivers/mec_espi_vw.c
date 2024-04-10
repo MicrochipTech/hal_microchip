@@ -135,7 +135,7 @@ void mec_espi_vw_ct_from_girq_pos(uint8_t bank, uint8_t girq_pos,
         }
         *ctidx = (uint8_t)d;
     }
-    
+
     if (ctsrc) {
         m = girq_pos % 4u;
         *ctsrc = (uint8_t)m;
@@ -834,6 +834,36 @@ int mec_espi_vw_tc_wire_set(struct espi_vw_regs * const vwbase, uint8_t tcidx,
     return MEC_RET_OK;
 }
 
+int mec_espi_vw_tc_wire_set_cs(struct espi_vw_regs * const vwbase, uint8_t tcidx,
+                               uint8_t widx, uint8_t val, const struct mec_espi_vw_poll *vwp)
+{
+    uint32_t delay_loops = 0;
+
+    if (!vwbase || (tcidx > TCVW_IDX10) || (widx > 3)) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    volatile struct espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
+
+    if (val) {
+        tcvw->STATES |= BIT(widx * 8u);
+    } else {
+        tcvw->STATES &= ~BIT(widx * 8u);
+    }
+
+    if (vwp && vwp->delayfp) {
+        while (vwbase->TCVW[tcidx].HIRCS & (0xfu << ESPI_VW_TCVW_HIRCS_CHANGE0_Pos)) {
+            if (!delay_loops) {
+                return MEC_RET_ERR_TIMEOUT;
+            }
+            vwp->delayfp(vwp->delay_param);
+            --delay_loops;
+        }
+    }
+
+    return MEC_RET_OK;
+}
+
 int mec_espi_vw_tc_wire_get(struct espi_vw_regs * const vwbase, uint8_t tcidx,
                             uint8_t widx, uint8_t *val)
 {
@@ -844,6 +874,37 @@ int mec_espi_vw_tc_wire_get(struct espi_vw_regs * const vwbase, uint8_t tcidx,
     volatile struct espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
 
     *val = (uint8_t)((tcvw->STATES >> (widx * 8u)) & 0x1u);
+
+    return MEC_RET_OK;
+}
+
+/* Obtains both the VWire state and its read-only change status.
+ * Change status is 1 when FW has changed the VWire state. A change bit == 1 causes
+ * the target eSPI to set the VWires Available status bit. If Alert mode is enabled
+ * an eSPI in-band or pin alert is asserted to the eSPI Host.  The eSPI Host will
+ * issue a GET_STATUS. The Host sees the VWires Available bit and issues a GET_VWIRES
+ * command. When the eSPI Target responds to GET_VWIRES it clears all read-only
+ * Target-to-Controller VWire change status bits.
+ * val bit[0] = state of VWire
+ * val bit[7] = Change bit. 1 = VWire state was changed by FW and the Host has not
+ * read it. 0 = VWire has not changed or Host has read the current value.
+ */
+int mec_espi_vw_tc_wire_cs_get(struct espi_vw_regs * const vwbase, uint8_t tcidx,
+                               uint8_t widx, uint8_t *val)
+{
+    if (!vwbase || !val || (tcidx > TCVW_IDX10) || (widx > 3)) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    volatile struct espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
+    uint8_t change_bitpos = widx + ESPI_VW_TCVW_HIRCS_CHANGE0_Pos;
+    uint8_t vw = (uint8_t)((tcvw->STATES >> (widx * 8u)) & 0x1u);
+
+
+    if (vwbase->TCVW[tcidx].HIRCS & BIT(change_bitpos)) {
+        vw |= BIT(7);
+    }
+    *val = vw;
 
     return MEC_RET_OK;
 }
@@ -984,6 +1045,27 @@ int mec_espi_vw_set_src(struct espi_vw_regs * const vwbase, struct mec_espi_vw *
     return ret;
 }
 
+int mec_espi_vw_set_src_cs(struct espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
+                           const struct mec_espi_vw_poll *vwp)
+{
+    int ret;
+    uint8_t regidx;
+
+    if (!vw) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    regidx = vw->vwidx;
+    if (regidx < MEC_ESPI_TCVW00_REG_IDX) {
+        ret = mec_espi_vw_ct_wire_set(vwbase, regidx, vw->srcidx, vw->val);
+    } else {
+        regidx -= MEC_ESPI_TCVW00_REG_IDX;
+        ret = mec_espi_vw_tc_wire_set_cs(vwbase, regidx, vw->srcidx, vw->val, vwp);
+    }
+
+    return ret;
+}
+
 /* Get VWire group source bits specified by struct mec_espi_vw.vwidx and
  * store in struct mec_espi_vw.val
  */
@@ -1101,6 +1183,24 @@ int mec_espi_vw_set(struct espi_vw_regs * const vwbase, uint8_t host_index,
     return ret;
 }
 
+int mec_espi_vw_set_cs(struct espi_vw_regs * const vwbase, uint8_t host_index,
+                       uint8_t src_id, uint8_t val, const struct mec_espi_vw_poll *vwp)
+{
+    int ret = MEC_RET_ERR_INVAL;
+    int idx = lookup_ct_vw_by_host_index(vwbase, host_index);
+
+    if (idx >= 0) {
+        ret = mec_espi_vw_ct_wire_set(vwbase, (uint8_t)idx & 0x7fu, src_id, val);
+    }
+
+    idx = lookup_tc_vw_by_host_index(vwbase, host_index);
+    if (idx >= 0) {
+        ret = mec_espi_vw_tc_wire_set_cs(vwbase, (uint8_t)idx & 0x7fu, src_id, val, vwp);
+    }
+
+    return ret;
+}
+
 /* VWire's are grouped into 4 VWires per host index. Read the states of the VWires
  * and pack them into bits[3:0] of the byte pointed to by groupval.
  */
@@ -1144,64 +1244,5 @@ int mec_espi_vw_set_group(struct espi_vw_regs * const vwbase, uint8_t host_index
 
     return ret;
 }
-
-/* -------------- VWire interrupt helpers --------------------- */
-
-/* Controller-to-Target VWires 0 - 6 are connected to GIRQ24
- * GIRQ24 b[3:0] = CT VW00 sources [3:0]
- * GIRQ24 b[7:4] = CT VW01 sources [3:0]
- * ...
- * GIRQ24 b[27:24] = CT VW06 sources [3:0]
- *
- * Controller-to-Target VWires 7 - 10 are connected to GIRQ25
- * GIRQ25 b[3:0] = CT VW07 sources [3:0]
- * GIRQ25 b[7:4] = CT VW08 sources [3:0]
- * ...
- * GIRQ25 b[15:12] = CT VW10 sources [3:0]
- */
-
-/* TODO - should this contains arrays for ihfp and user?
- * Device should be the same (eSPI driver device structure
- */
-#if 0 /* TODO remove? */
-struct mec_espi_vw_ih {
-    void (*ihfp)(void *dev, void *user);
-    void *dev;
-    void *user;
-    uint32_t flags;
-};
-
-/* flags
- * bit 0: 0 = CTVW[0:6] GIRQ24, 1 = CTVW[7:10] GIRQ25
- * bit 1: 0 = scan GIRQ Source bit 0 to highest bit
- *        1 = scan GIRQ Source highest bit to bit 0
- */
-int mec_espi_ct_vw_intr_helper(struct espi_vw_regs * const vwbase, struct mec_espi_vw_ih *ihp)
-{
-    volatile struct girqs_regs *gr = &ECIA0->GIRQ[GIRQS_IDX_GIRQ24];
-
-    if (((void *)vwbase != (void *)ESPI_VW_BASE) || !ihp) {
-        return MEC_RET_ERR_INVAL;
-    }
-
-    if (ihp->flags & BIT(0)) {
-        gr = &ECIA0->GIRQ[GIRQS_IDX_GIRQ25];
-    }
-
-    return 0;
-}
-
-int mec_espi_ct_vw_intr_helper2(struct espi_vw_regs * const vwbase, struct mec_espi_vw_ih *ihp,
-                                const uint8_t scan_order, const size_t scan_order_sz)
-{
-    volatile struct girqs_regs *gr = &ECIA0->GIRQ[GIRQS_IDX_GIRQ24];
-
-    if (ihp->flags & BIT(0)) {
-        gr = &ECIA0->GIRQ[GIRQS_IDX_GIRQ25];
-    }
-
-    return 0;
-}
-#endif /* 0 */
 
 /* end mec_espi_vw.c */
