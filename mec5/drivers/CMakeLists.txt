@@ -25,6 +25,7 @@ zephyr_library_sources(mec_rom.c)
 zephyr_library_sources(mec_tach.c)
 zephyr_library_sources(mec_uart.c)
 zephyr_library_sources(mec_vbat.c)
+zephyr_library_sources(mec_vci.c)
 zephyr_library_sources(mec_version.c)
 zephyr_library_sources(mec_wdt.c)
 
