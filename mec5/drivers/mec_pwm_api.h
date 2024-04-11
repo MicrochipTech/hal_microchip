@@ -47,8 +47,16 @@ int mec_pwm_init(struct pwm_regs *regs, uint32_t period_cycles,
 
 int mec_pwm_reset(struct pwm_regs *regs);
 
+int mec_pwm_set_polarity(struct pwm_regs *regs, uint8_t polarity_inverted);
+
 int mec_pwm_enable(struct pwm_regs *regs, uint8_t enable);
 int mec_pwm_is_enabled(struct pwm_regs *regs);
+
+/* set output to inactive state based upon invert bit */
+int mec_pwm_off(struct pwm_regs *regs);
+/* set output to active state based upon invert bit */
+int mec_pwm_on(struct pwm_regs *regs);
+
 uint32_t mec_pwm_get_freq_in(struct pwm_regs *regs);
 uint32_t mec_pwm_get_count(struct pwm_regs *regs, uint8_t on_count);
 uint32_t mec_pwm_get_freq_out(struct pwm_regs *regs);

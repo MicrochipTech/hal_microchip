@@ -106,7 +106,7 @@ static void pwm_off(struct pwm_regs *regs)
         regs->CNT_OFF = 1u;
 }
 
-/* set output to inactive state based upon invert bit */
+/* set output to active state based upon invert bit */
 static void pwm_on(struct pwm_regs *regs)
 {
         regs->CNT_OFF = 0u;
@@ -220,14 +220,14 @@ static int prog_pwm(struct pwm_regs *regs, uint32_t period_cycles, uint32_t puls
         return MEC_RET_OK;
     }
 
-    /* period_cycles is 0 and pulse_cycles is non-zero set output to inactive(off) state */
-    if (!period_cycles && pulse_cycles) {
+    /* period_cycles is non-zero and pulse_cycles is zero set output to inactive(off) state */
+    if (!period_cycles || !pulse_cycles) {
         pwm_off(regs);
         return MEC_RET_OK;
     }
 
     /* period_cycles is non-zero and pulse_cycles is zero set output to active(on) state */
-    if (!period_cycles && pulse_cycles) {
+    if (period_cycles == pulse_cycles) {
         pwm_on(regs);
         return MEC_RET_OK;
     }
@@ -253,6 +253,30 @@ uint32_t mec_pwm_hi_freq_input(void)
 uint32_t mec_pwm_lo_freq_input(void)
 {
     return mec_pcr_slow_clock_freq_get();
+}
+
+/* set output to inactive state based upon invert bit */
+int mec_pwm_off(struct pwm_regs *regs)
+{
+    if (!regs) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    pwm_off(regs);
+
+    return MEC_RET_OK;
+}
+
+/* set output to active state based upon invert bit */
+int mec_pwm_on(struct pwm_regs *regs)
+{
+    if (!regs) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    pwm_on(regs);
+
+    return MEC_RET_OK;
 }
 
 /* Initialze a PWM instance
@@ -314,6 +338,21 @@ int mec_pwm_reset(struct pwm_regs *regs)
     }
 
     mec_pcr_blk_reset(info->pcr_id);
+
+    return MEC_RET_OK;
+}
+
+int mec_pwm_set_polarity(struct pwm_regs *regs, uint8_t polarity_inverted)
+{
+    if (!regs) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    if (polarity_inverted) {
+        regs->CONFIG |= BIT(PWM_CONFIG_INVERT_Pos);
+    } else {
+        regs->CONFIG &= (uint32_t)~BIT(PWM_CONFIG_INVERT_Pos);
+    }
 
     return MEC_RET_OK;
 }
