@@ -36,6 +36,18 @@ extern "C"
 #define MEC5_TACH_LIMITS(limlo, limhi) \
     (((uint32_t)(limhi) << 16) | ((uint32_t)(limlo) & 0xffffu))
 
+enum mec5_tach_read_mode {
+    MEC_TACH_READ_MODE_INPUT_REDGE = 0,
+    MEC_TACH_READ_MODE_100K_CLK_REDGE,
+};
+
+enum mec5_tach_edge_count {
+    MEC_TACH_CNT2_EDGES_HPER = 0,
+    MEC_TACH_CNT3_EDGES_1PER,
+    MEC_TACH_CNT5_EDGES_2PER,
+    MEC_TACH_CNT9_EDGES_4PER,
+};
+
 enum mec5_tach_status {
     MEC5_TACH_STS_OOL = BIT(0), /* counter out of limit */
     MEC5_TACH_STS_PIN_STATE = BIT(1),
@@ -43,15 +55,30 @@ enum mec5_tach_status {
     MEC5_TACH_STS_CNT_RDY = BIT(3),
 };
 
+/* All clearable status bits */
+#define MEC5_TACH_STATUS_ALL (MEC5_TACH_STS_CNT_RDY | MEC5_TACH_STS_PIN_TOGGLE | MEC5_TACH_STS_OOL)
+
+enum mec5_tach_ien {
+    MEC5_TACH_IEN_OOL_POS = 0,
+    MEC5_TACH_IEN_CNT_RDY_POS,
+    MEC5_TACH_IEN_INPUT_TOGGLE_POS,
+};
+
 /* forward declaration */
 struct tach_regs;
 
 int mec_tach_init(struct tach_regs *regs, uint32_t limits, uint32_t flags);
 void tach_enable(struct tach_regs *regs, uint8_t enable);
+bool tach_is_enabled(struct tach_regs *regs);
+
 uint32_t mec_tach_clock_freq(void);
 uint32_t mec_tach_counter(struct tach_regs *regs);
 uint32_t mec_tach_status(struct tach_regs *regs);
 void mec_tach_status_clr(struct tach_regs *regs, uint32_t status);
+int mec_tach_intr_enable(struct tach_regs *regs, uint32_t intr_events, uint8_t enable);
+
+void mec_tach_girq_status_clr(struct tach_regs *regs);
+void mec_tach_girq_enable(struct tach_regs *regs, uint8_t enable);
 
 #ifdef __cplusplus
 }

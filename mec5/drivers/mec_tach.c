@@ -5,6 +5,7 @@
  */
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <device_mec5.h>
 #include "mec_pcfg.h"
@@ -47,26 +48,11 @@ static struct mec_tach_info const *tach_get_info(struct tach_regs *regs)
     return NULL;
 }
 
-#if 0
-#define MEC5_TACH_CFG_RESET 0x01u
-#define MEC5_TACH_CFG_ENABLE 0x02u
-#define MEC5_TACH_CFG_FILTER_EN 0x04u
-#define MEC5_TACH_CFG_CNT_INCR_CLK 0x08u
-#define MEC5_TACH_CFG_OOL_INTR_EN 0x10u
-#define MEC5_TACH_CFG_CNT_RDY_INTR_EN 0x20u
-#define MEC5_TACH_CFG_INPUT_CHG_INTR_EN 0x40u
-#define MEC5_TACH_CFG_INTERVAL_EDGES_POS 8
-#define MEC5_TACH_CFG_INTERVAL_EDGES_MSK 0x300u
-#define MEC5_TACH_CFG_INTERVAL_EDGES_2 0
-#define MEC5_TACH_CFG_INTERVAL_EDGES_3 0x100u
-#define MEC5_TACH_CFG_INTERVAL_EDGES_5 0x200u
-#define MEC5_TACH_CFG_INTERVAL_EDGES_9 0x300u
-#endif
-
 int mec_tach_init(struct tach_regs *regs, uint32_t limits, uint32_t flags)
 {
     const struct mec_tach_info *info = tach_get_info(regs);
     uint32_t ctrl = 0, temp = 0;
+    bool enable_girq = false;
 
     if (!info) {
         return MEC_RET_ERR_INVAL;
@@ -96,7 +82,7 @@ int mec_tach_init(struct tach_regs *regs, uint32_t limits, uint32_t flags)
     }
 
     /* counter is incremented on rising edge of tach input or rising edge
-     * of Tach input clock. Input clock in the PCR slow clock.
+     * of Tach input clock. Input clock is the PCR slow clock.
      */
     if (flags & MEC5_TACH_CFG_CNT_INCR_CLK) {
         ctrl |= BIT(TACH_CTRL_RDMODE_Pos);
@@ -104,22 +90,28 @@ int mec_tach_init(struct tach_regs *regs, uint32_t limits, uint32_t flags)
 
     if (flags & MEC5_TACH_CFG_OOL_INTR_EN) { /* out of limit interrupt? */
         ctrl |= BIT(TACH_CTRL_ENOOL_Pos);
+        enable_girq = true;
     }
 
     if (flags & MEC5_TACH_CFG_CNT_RDY_INTR_EN) {
         ctrl |= BIT(TACH_CTRL_CNTRDY_IEN_Pos);
+        enable_girq = true;
     }
 
     if (flags & MEC5_TACH_CFG_INPUT_CHG_INTR_EN) {
         ctrl |= BIT(TACH_CTRL_INTOG_IEN_Pos);
+        enable_girq = true;
     }
 
     if (flags & MEC5_TACH_CFG_ENABLE) {
         ctrl |= BIT(TACH_CTRL_ENABLE_Pos);
     }
 
+    if (enable_girq) {
+        mec_girq_ctrl(info->devi, 1);
+    }
+
     regs->CTRL = ctrl;
-    mec_girq_ctrl(info->devi, 1);
 
     return MEC_RET_OK;
 }
@@ -131,6 +123,15 @@ void tach_enable(struct tach_regs *regs, uint8_t enable)
     } else {
         regs->CTRL &= (uint32_t)~BIT(TACH_CTRL_ENABLE_Pos);
     }
+}
+
+bool tach_is_enabled(struct tach_regs *regs)
+{
+    if (!regs) {
+        return false;
+    }
+
+    return (regs->CTRL & BIT(TACH_CTRL_ENABLE_Pos)) ? true : false;
 }
 
 uint32_t mec_tach_clock_freq(void)
@@ -157,6 +158,59 @@ uint32_t mec_tach_status(struct tach_regs *regs)
 void mec_tach_status_clr(struct tach_regs *regs, uint32_t status)
 {
     regs->STATUS = status;
+}
+
+int mec_tach_intr_enable(struct tach_regs *regs, uint32_t intr_events, uint8_t enable)
+{
+    uint32_t msk = 0;
+
+    if (!regs) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    if (intr_events & BIT(MEC5_TACH_IEN_OOL_POS)) {
+        msk |= BIT(TACH_CTRL_ENOOL_Pos);
+    }
+
+    if (intr_events & BIT(MEC5_TACH_IEN_CNT_RDY_POS)) {
+        msk |= BIT(TACH_CTRL_CNTRDY_IEN_Pos);
+    }
+
+    if (intr_events & BIT(MEC5_TACH_IEN_INPUT_TOGGLE_POS)) {
+        msk |= BIT(TACH_CTRL_INTOG_IEN_Pos);
+    }
+
+    if (msk) {
+        if (enable) {
+            regs->CTRL |= msk;
+        } else {
+            regs->CTRL &= (uint32_t)~msk;
+        }
+    }
+
+    return MEC_RET_OK;
+};
+
+void mec_tach_girq_status_clr(struct tach_regs *regs)
+{
+    const struct mec_tach_info *info = tach_get_info(regs);
+
+    if (!info) {
+        return;
+    }
+
+    mec_girq_clr_src(info->devi);
+}
+
+void mec_tach_girq_enable(struct tach_regs *regs, uint8_t enable)
+{
+    const struct mec_tach_info *info = tach_get_info(regs);
+
+    if (!info) {
+        return;
+    }
+
+    mec_girq_ctrl(info->devi, enable);
 }
 
 #endif /* MEC5_TACH_INSTANCES */
