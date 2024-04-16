@@ -49,11 +49,11 @@ static struct mec_i3c_info const *get_i3c_info(uintptr_t base)
 
 
 /**
- * @brief configure timing for i2c transfers
+ * @brief Intiialize timing for i2c transfers
  *
  * @param regs Pointer to controller registers
  */
-void I3C_Controller_Clk_Cfg_I2C(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz)
+void I3C_Controller_Clk_I2C_Init(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz)
 {
     struct i3c_host_regs *regs = (struct i3c_host_regs *)ctx->base;
     uint32_t core_clk_freq_ns;
@@ -79,15 +79,14 @@ void I3C_Controller_Clk_Cfg_I2C(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_
 }
 
 /**
- * @brief configure timing for i3c transfers
+ * @brief Initialize timing for i3c transfers
  *
  * @param ctx Context structure containing Pointer to controller registers
+ * @param core_clk_rate_mhz Core Clock speed
+ * @param i3c_freq I3C Frequency
  */
-void I3C_Controller_Clk_Cfg(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz)
+void I3C_Controller_Clk_Init(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz, uint32_t i3c_freq)
 {
-    struct i3c_host_regs *regs = (struct i3c_host_regs *)ctx->base;
-    uint32_t core_clk_freq_ns;
-
     const struct mec_i3c_info *info = get_i3c_info(ctx->base);
 
     if (info) {
@@ -97,14 +96,31 @@ void I3C_Controller_Clk_Cfg(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz)
         mec_pcr_clr_blk_slp_en(info->pcr_id);
         mec_pcr_blk_reset(info->pcr_id);
 
-        core_clk_freq_ns = DIV_ROUND_UP(1000000000, core_clk_rate_mhz);
-
-        /* Program the I3C Push Pull Timing Register */
-        _i3c_push_pull_timing_set(regs, core_clk_freq_ns);
-
-        /* Program the I3C Open Drain Timing Register */
-        _i3c_open_drain_timing_set(regs, core_clk_freq_ns);
+        I3C_Controller_Clk_Cfg(ctx, core_clk_rate_mhz, i3c_freq);
     }
+}
+
+/**
+ * @brief configure timing for i3c transfers
+ *
+ * @param ctx Context structure containing Pointer to controller registers
+ * @param core_clk_rate_mhz Core Clock speed
+ * @param i3c_freq I3C Frequency
+ */
+void I3C_Controller_Clk_Cfg(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz, uint32_t i3c_freq)
+{
+    struct i3c_host_regs *regs = (struct i3c_host_regs *)ctx->base;
+    uint32_t core_clk_freq_ns, i3c_freq_ns;
+
+    core_clk_freq_ns = DIV_ROUND_UP(1000000000, core_clk_rate_mhz);
+
+    i3c_freq_ns = DIV_ROUND_UP(1000000000, i3c_freq);
+
+    /* Program the I3C Push Pull Timing Register */
+    _i3c_push_pull_timing_set(regs, core_clk_freq_ns, i3c_freq_ns);
+
+    /* Program the I3C Open Drain Timing Register */
+    _i3c_open_drain_timing_set(regs, core_clk_freq_ns, i3c_freq_ns);
 }
 
 /**
@@ -488,12 +504,22 @@ void I3C_Enable(struct mec_i3c_ctx *ctx, uint8_t address, uint8_t config)
         _i3c_dynamic_addr_set(regs, address);
     }
 
-    if ( (sbit_MODE_TARGET & config) && (sbit_HOTJOIN_DISABLE & config) ) {
-       /* Disable Hot-Join */
-       _i3c_tgt_hot_join_disable((struct i3c_sec_regs *)regs);
+    if (sbit_HOTJOIN_DISABLE & config)  {
+
+        if (sbit_MODE_TARGET & config) {
+            _i3c_tgt_hot_join_disable((struct i3c_sec_regs *)regs);
+
+        } else {
+            /* Disable Hot-Join */
+            _i3c_hot_join_disable(regs);
+        }
+
     } else {
-       /* Disable Hot-Join */
-       _i3c_hot_join_disable(regs);
+
+        if (!(sbit_MODE_TARGET & config)) {
+            /* Enable IBI Interrupt */
+            _i3c_intr_IBI_enable(regs);
+        }
     }
 
     if (sbit_CONFG_ENABLE & config) {
@@ -820,8 +846,9 @@ void I3C_DO_TGT_Xfer(struct mec_i3c_ctx *ctx, uint8_t *data_buf, uint16_t data_l
  *
  * @param regs Pointer to controller registers
  * @param ibi_sir_info Information required to enable IBI SIR on a target
+ * @param ibi_sir_info Flag to indicate if IBI interrupt needs to be enabled
   */
-void I3C_IBI_SIR_Enable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_info)
+void I3C_IBI_SIR_Enable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_info, bool enable_ibi_interrupt)
 {
     struct i3c_host_regs *regs = (struct i3c_host_regs *)ctx->base;
     uint32_t dat_value;
@@ -845,7 +872,7 @@ void I3C_IBI_SIR_Enable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_inf
 
     _i3c_DAT_write(regs, ibi_sir_info->DAT_start, ibi_sir_info->tgt_dat_idx, dat_value);
 
-    if (0 == targets_ibi_enable_sts) {
+    if ((0 == targets_ibi_enable_sts) && (enable_ibi_interrupt)) {
 
         /* IBI Data and Status thresholds are already set in initialization */
         _i3c_intr_IBI_enable(regs);
@@ -859,8 +886,9 @@ void I3C_IBI_SIR_Enable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_inf
  *
  * @param regs Pointer to controller registers
  * @param ibi_sir_info Information required to disable IBI SIR on a target
+ * @param disable_ibi_interrupt Flag to indicate if IBI interrupt  can be disabled
   */
-void I3C_IBI_SIR_Disable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_info)
+void I3C_IBI_SIR_Disable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_info, bool disable_ibi_interrupt)
 {
     struct i3c_host_regs *regs = (struct i3c_host_regs *)ctx->base;
     uint32_t dat_value;
@@ -875,7 +903,7 @@ void I3C_IBI_SIR_Disable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_in
 
     targets_ibi_enable_sts &= ~(1 << ibi_sir_info->tgt_dat_idx);
 
-    if (0 == targets_ibi_enable_sts) {
+    if ((0 == targets_ibi_enable_sts) && (disable_ibi_interrupt)){
 
         _i3c_intr_IBI_disable(regs);
     }

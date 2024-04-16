@@ -670,17 +670,23 @@ void _i2c_fmp_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns)
  * @param regs Pointer to controller registers
  * @param core_clk_freq_ns Core clock frequency in nanoseconds
  */
-void _i3c_push_pull_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns)
+void _i3c_push_pull_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns, uint32_t i3c_freq_ns)
 {
-    uint16_t low_count = 0, high_count = 0;
+    uint16_t low_count = 0, high_count = 0, multiplier = 0;
     uint32_t timing_val = 0, sdr_ext_lcount = 0;
 
     high_count = DIV_ROUND_UP(I3C_PUSH_PULL_SCL_MIN_HIGH_PERIOD_NS, core_clk_freq_ns) - 1;
+
+    multiplier = DIV_ROUND_UP(i3c_freq_ns, (core_clk_freq_ns * 10));
+    high_count = high_count * multiplier;
+
     if(high_count < I3C_SCL_TIMING_COUNT_MIN) {
         high_count = I3C_SCL_TIMING_COUNT_MIN;
     }
 
-    low_count = DIV_ROUND_UP(I3C_PUSH_PULL_SCL_MIN_LOW_PERIOD_NS, core_clk_freq_ns) - high_count;
+    low_count = DIV_ROUND_UP(I3C_PUSH_PULL_SCL_MIN_LOW_PERIOD_NS, core_clk_freq_ns);
+    low_count = low_count * multiplier;
+
     if(low_count < I3C_SCL_TIMING_COUNT_MIN) {
         low_count = I3C_SCL_TIMING_COUNT_MIN;
     }
@@ -715,19 +721,29 @@ void _i3c_push_pull_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_fre
  * @param regs Pointer to controller registers
  * @param core_clk_freq_ns Core clock frequency in nanoseconds
  */
-void _i3c_open_drain_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns)
+void _i3c_open_drain_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns, uint32_t i3c_freq_ns)
 {
-    uint16_t low_count, high_count;
+    uint16_t low_count = 0, high_count = 0, multiplier = 0;
     uint32_t timing_val;
 
     high_count = DIV_ROUND_UP(I3C_OPEN_DRAIN_SCL_MIN_HIGH_PERIOD_NS, core_clk_freq_ns);
+
+    multiplier = DIV_ROUND_UP(i3c_freq_ns, (core_clk_freq_ns * 10));
+
+    high_count = high_count * multiplier;
+
     if(high_count < I3C_SCL_TIMING_COUNT_MIN) {
         high_count = I3C_SCL_TIMING_COUNT_MIN;
     }
+
     low_count = DIV_ROUND_UP(I3C_OPEN_DRAIN_SCL_MIN_LOW_PERIOD_NS, core_clk_freq_ns);
+
+    low_count = low_count * multiplier;
+
     if(low_count < I3C_SCL_TIMING_COUNT_MIN) {
         low_count = I3C_SCL_TIMING_COUNT_MIN;
     }
+
     /* Program the I3C Push Pull Timing Register */
     timing_val = (high_count << 16) | low_count;
     regs->SCL_OD_TM = timing_val;

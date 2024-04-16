@@ -597,9 +597,9 @@ void _i3c_enable(struct i3c_host_regs *regs, uint8_t mode, bool enable_dma);
 void _i3c_disable(struct i3c_host_regs *regs);
 void _i3c_resume(struct i3c_host_regs *regs);
 
-void _i3c_push_pull_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns);
+void _i3c_push_pull_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns, uint32_t i3c_freq_ns);
 
-void _i3c_open_drain_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns);
+void _i3c_open_drain_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns, uint32_t i3c_freq_ns);
 
 void _i3c_bus_free_timing_set(struct i3c_sec_regs *regs, uint32_t core_clk_freq_ns);
 void _i3c_bus_available_timing_set(struct i3c_sec_regs *regs, uint32_t core_clk_freq_ns);
