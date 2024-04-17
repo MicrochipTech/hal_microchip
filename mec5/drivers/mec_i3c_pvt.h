@@ -64,7 +64,9 @@ struct i3c_SDCT_info {
 #define I3C_BUS_HDR_TS_SKEW_CNT_BITPOS          16U
 #define I3C_BUS_STOP_HOLD_CNT                   28U
 
-#define I3C_SCL_TIMING_COUNT_MIN                5U
+#define I3C_SCL_TIMING_COUNT_MIN                7U
+#define I3C_SCL_TIMING_COUNT_MIN                7U
+#define I3C_SCL_12_5MHZ_PERIOD_NS               80U
 
 /* Need to review and tweak */
 #define I2C_FM_SCL_MIN_LOW_PERIOD_NS            1300U
@@ -426,6 +428,15 @@ enum tgt_evt_sts_reg_bits
 #define SEC_HOST_CFG_STUCK_SCL_TOUT_BITPOS              16U
 /******************************************************************************/
 
+#define RD_TERM_BIT_LCNT_0                              0U
+#define RD_TERM_BIT_LCNT_1                              1U
+#define RD_TERM_BIT_LCNT_2                              2U
+#define RD_TERM_BIT_LCNT_3                              3U
+#define RD_TERM_BIT_LCNT_4                              4U
+#define RD_TERM_BIT_LCNT_5                              5U
+#define RD_TERM_BIT_LCNT_6                              6U
+#define RD_TERM_BIT_LCNT_7                              7U
+
 /*-------------------SDA HOLD SWITCH DLY TIMING-----------------*/
 #define SDA_OD_PP_SWITCH_DLY_0                          0U
 #define SDA_OD_PP_SWITCH_DLY_1                          1U
@@ -604,6 +615,10 @@ void _i3c_open_drain_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_fr
 void _i3c_bus_free_timing_set(struct i3c_sec_regs *regs, uint32_t core_clk_freq_ns);
 void _i3c_bus_available_timing_set(struct i3c_sec_regs *regs, uint32_t core_clk_freq_ns);
 void _i3c_bus_idle_timing_set(struct i3c_sec_regs *regs, uint32_t core_clk_freq_ns);
+void _i3c_read_term_bit_low_count_set(struct i3c_host_regs *regs,
+                                            uint8_t read_term_low_count);
+void _i3c_sda_hld_timing_set(struct i3c_host_regs *regs,
+                                            uint8_t sda_tx_hold);
 void _i3c_sda_hld_switch_delay_timing_set(struct i3c_sec_regs *regs,
                                             uint8_t sda_od_pp_switch_dly,
                                             uint8_t sda_pp_od_switch_dly,

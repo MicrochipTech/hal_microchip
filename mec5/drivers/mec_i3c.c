@@ -121,6 +121,9 @@ void I3C_Controller_Clk_Cfg(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz,
 
     /* Program the I3C Open Drain Timing Register */
     _i3c_open_drain_timing_set(regs, core_clk_freq_ns, i3c_freq_ns);
+
+    _i3c_sda_hld_timing_set(regs, SDA_TX_HOLD_4);
+    _i3c_read_term_bit_low_count_set(regs, RD_TERM_BIT_LCNT_4);
 }
 
 /**
