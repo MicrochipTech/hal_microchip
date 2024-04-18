@@ -19,6 +19,12 @@
 #elif defined (CONFIG_SOC_MEC1753_QSZ)
     #include <mec1753qsz_specs.h>
     #include <mec1753_qsz.h>
+#elif defined (CONFIG_SOC_MECH1723_NLJ)
+    #include <mec1723nlj_specs.h>
+    #include <mec1723_nlj.h>
+#elif defined (CONFIG_SOC_MECH1723_NSZ)
+    #include <mec1723nsz_specs.h>
+    #include <mec1723_nsz.h>
 #else
     #error "No valid SoC defined!"
 #endif
