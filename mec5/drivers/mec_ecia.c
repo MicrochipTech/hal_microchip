@@ -277,7 +277,7 @@ static void enable_nvic_bitmap(uint32_t bitmap, uint8_t direct)
             break;
         }
 
-        bpos = (uint32_t)msb;
+        bpos = 31u - msb; /* convert number of leading zeros to bit position */
         if ((bpos >= MEC5_ECIA_FIRST_GIRQ_NOS) && (bpos <= MEC5_ECIA_LAST_GIRQ_NOS)) {
             const struct mec_girq_route *pgr =
                 &girq_routing_tbl[bpos - MEC5_ECIA_FIRST_GIRQ_NOS];
@@ -312,7 +312,7 @@ static void enable_girq_direct_bitmap(uint32_t bitmap)
             break;
         }
 
-        bpos = (uint32_t)msb;
+        bpos = 31u - msb; /* convert number of leading zeros to bit position */
         if ((bpos >= MEC5_ECIA_FIRST_GIRQ_NOS) && (bpos <= MEC5_ECIA_LAST_GIRQ_NOS)) {
             const struct mec_girq_route *pgr =
                 &girq_routing_tbl[bpos - MEC5_ECIA_FIRST_GIRQ_NOS];
