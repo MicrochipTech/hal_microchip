@@ -3,6 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -13,6 +14,8 @@
 #include "mec_ecia_api.h"
 #include "mec_pcr_api.h"
 #include "mec_retval.h"
+
+#define MEC_BTIMER_FAST_ADDR_LOOKUP
 
 #define MEC_BTIMER_GIRQ 23
 
@@ -47,6 +50,22 @@ static const struct mec_btimer_info btimer_instances[MEC5_BASIC_TIMER_INSTANCES]
     { BTMR5_BASE, MEC_PCR_BTMR5, MEC_BTIMER5_ECIA_INFO },
 };
 
+#ifdef MEC_BTIMER_FAST_ADDR_LOOKUP
+/* Basic timers are spaced every 32 (0x20) bytes in AHB address space.
+ * All six instances are contiguous therefore we can calculate the
+ * zero based instance number from the address more quickly than using
+ * the lookup table.
+ */
+static inline uint32_t btimer_fast_idx(struct btmr_regs *regs)
+{
+    return (((uint32_t)regs >> 5) & 0x7u);
+}
+
+static struct mec_btimer_info const *find_btimer_info(uintptr_t base_addr)
+{
+    return &btimer_instances[btimer_fast_idx((struct btmr_regs *)base_addr)];
+}
+#else
 static struct mec_btimer_info const *find_btimer_info(uintptr_t base_addr)
 {
     for (size_t i = 0; i < MEC5_BASIC_TIMER_INSTANCES; i++) {
@@ -57,6 +76,7 @@ static struct mec_btimer_info const *find_btimer_info(uintptr_t base_addr)
 
     return NULL;
 }
+#endif /* MEC_BTIMER_FAST_ADDR_LOOKUP */
 
 static int find_btimer_index(uintptr_t base_addr)
 {
@@ -92,8 +112,12 @@ int mec_btimer_init(struct btmr_regs *regs, uint32_t freq_div,
     regs->PRELOAD = count;
     regs->COUNT = count;
 
+    mec_girq_ctrl(info->devi, 1);
+
+    regs->CTRL |= BIT(BTMR_CTRL_ENABLE_Pos);
+
     if (flags & BIT(MEC5_BTIMER_CFG_FLAG_AUTO_RELOAD_POS)) {
-        regs->CTRL |= BIT(BTMR_CTRL_RELOAD_Pos);
+        regs->CTRL |= BIT(BTMR_CTRL_RESTART_Pos);
     }
 
     if (flags & BIT(MEC5_BTIMER_CFG_FLAG_COUNT_UP_POS)) {
@@ -102,7 +126,6 @@ int mec_btimer_init(struct btmr_regs *regs, uint32_t freq_div,
 
     if (flags & BIT(MEC5_BTIMER_CFG_FLAG_INTR_EN_POS)) {
         regs->IEN |= BIT(BTMR_IEN_EVENT_Pos);
-        mec_girq_ctrl(info->devi, 1);
     }
 
     if (flags & BIT(MEC5_BTIMER_CFG_FLAG_START_POS)) {
@@ -123,6 +146,42 @@ int mec_btimer_has_counter32(struct btmr_regs *regs)
     }
 
     return 0;
+}
+
+int mec_btimer_reset(struct btmr_regs *regs, uint32_t flags)
+{
+    uint32_t ctrl = 0, msk = 0;
+
+    if (!regs) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    if (flags & BIT(MEC5_BTMR_RST_PRESERVE_FDIV_POS)) {
+        msk |= BTMR_CTRL_PRESCALE_Msk;
+    }
+
+    if (flags & BIT(MEC5_BTMR_RST_PRESERVE_DIR_POS)) {
+        msk |= BTMR_CTRL_CNT_DIR_Msk;
+    }
+
+    ctrl = regs->CTRL;
+    regs->CTRL = BIT(BTMR_CTRL_RESET_Pos);
+    mec_btimer_intr_clr(regs);
+
+    if (msk) {
+        regs->CTRL = (regs->CTRL & (uint32_t)~msk) | (ctrl & msk);
+    }
+
+    return 0;
+}
+
+bool mec_btimer_is_enabled(struct btmr_regs *regs)
+{
+    if (regs->CTRL & BIT(BTMR_CTRL_ENABLE_Pos)) {
+        return true;
+    }
+
+    return false;
 }
 
 uint32_t mec_btimer_freq(struct btmr_regs *regs)
@@ -163,44 +222,103 @@ int mec_btimer_girq_status_clr(struct btmr_regs *regs)
     return MEC_RET_OK;
 }
 
-uint32_t mec_btimer_count(struct btmr_regs *regs)
+void mec_btimer_pre_and_reload(struct btmr_regs *regs, uint32_t preload, uint8_t do_reload)
 {
-    return regs->COUNT;
+    uint32_t ctrl = regs->CTRL;
+
+    if (do_reload) {
+        ctrl |= (BIT(BTMR_CTRL_RELOAD_Pos) | BIT(BTMR_CTRL_ENABLE_Pos)
+                 | BIT(BTMR_CTRL_START_Pos));
+        regs->PRELOAD = preload;
+        regs->CTRL = ctrl;
+    } else {
+        regs->PRELOAD = preload;
+    }
 }
 
-uint32_t mec_btimer_preload(struct btmr_regs *regs)
+void mec_btimer_start_load(struct btmr_regs *regs, uint32_t initial_count, uint32_t flags)
 {
-    return regs->PRELOAD;
+    uint32_t ien = 0;
+    uint32_t ctrl = regs->CTRL;
+
+    ctrl |= (BIT(BTMR_CTRL_ENABLE_Pos) | BIT(BTMR_CTRL_START_Pos));
+
+    if (flags & BIT(MEC5_BTIMER_START_FLAG_IEN_POS)) {
+        ien |= BIT(BTMR_IEN_EVENT_Pos);
+    }
+
+    if (flags & BIT(MEC5_BTIMER_START_FLAG_AUTO_POS)) {
+        ctrl |= BIT(BTMR_CTRL_RESTART_Pos);
+        regs->PRELOAD = initial_count;
+    } else {
+        ctrl &= (uint32_t)~BIT(BTMR_CTRL_RESTART_Pos);
+    }
+
+    if (flags & BIT(MEC5_BTIMER_START_FLAG_DIR_UP)) {
+        ctrl |= BIT(BTMR_CTRL_CNT_DIR_Pos);
+    } else {
+        ctrl &= (uint32_t)~BIT(BTMR_CTRL_CNT_DIR_Pos);
+    }
+
+    regs->STATUS = BIT(BTMR_STATUS_EVENT_Pos);
+    regs->COUNT = initial_count;
+    regs->CTRL = ctrl;
+    regs->IEN = ien;
 }
 
-void mec_btimer_start(struct btmr_regs *regs)
+bool mec_btimer_is_started(struct btmr_regs *regs)
 {
-    regs->CTRL |= BIT(BTMR_CTRL_START_Pos);
+    uint32_t msk = (BIT(BTMR_CTRL_ENABLE_Pos) | BIT(BTMR_CTRL_START_Pos));
+
+    if ((regs->CTRL & msk) == msk) {
+        return true;
+    }
+
+    return false;
 }
 
-void mec_btimer_stop(struct btmr_regs *regs)
+bool mec_btimer_is_counting_up(struct btmr_regs *regs)
 {
-    regs->CTRL &= (uint32_t)~BIT(BTMR_CTRL_START_Pos);
+    if (regs->CTRL & BIT(BTMR_CTRL_CNT_DIR_Pos)) {
+        return true;
+    }
+
+    return false;
 }
 
-void mec_btimer_halt(struct btmr_regs *regs)
+void mec_btimer_auto_restart(struct btmr_regs *regs, uint8_t enable)
+{
+    if (enable) {
+        regs->CTRL |= BIT(BTMR_CTRL_RESTART_Pos);
+    } else {
+        regs->CTRL &= (uint32_t)~BIT(BTMR_CTRL_RESTART_Pos);
+    }
+}
+
+bool mec_btimer_is_auto_restart(struct btmr_regs *regs)
+{
+    if (regs->CTRL & BIT(BTMR_CTRL_RESTART_Pos)) {
+        return true;
+    }
+    return false;
+}
+
+/* Works counter start is 1 or 0.
+ * Warning: there is race condition if counter is close to its limit.
+ */
+void mec_btimer_reload_run(struct btmr_regs *regs, uint32_t new_count)
 {
     regs->CTRL |= BIT(BTMR_CTRL_HALT_Pos);
-}
-
-void mec_btimer_unhalt(struct btmr_regs *regs)
-{
+    regs->COUNT = new_count;
     regs->CTRL &= (uint32_t)~BIT(BTMR_CTRL_HALT_Pos);
-}
-
-void mec_btimer_reload(struct btmr_regs *regs)
-{
-    regs->CTRL |= BIT(BTMR_CTRL_RELOAD_Pos);
 }
 
 void mec_btimer_intr_clr(struct btmr_regs *regs)
 {
+    uint32_t devi = btimer_instances[btimer_fast_idx(regs)].devi;
+
     regs->STATUS = BIT(BTMR_STATUS_EVENT_Pos);
+    mec_girq_clr_src(devi);
 }
 
 void mec_btimer_intr_en(struct btmr_regs *regs, uint8_t enable)
