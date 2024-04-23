@@ -224,9 +224,11 @@ typedef struct
 
 void I3C_Soft_Reset(struct mec_i3c_ctx *ctx);
 
-void I3C_Controller_Clk_Cfg(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz);
+void I3C_Controller_Clk_Init(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz, uint32_t i3c_freq);
 
-void I3C_Controller_Clk_Cfg_I2C(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz);
+void I3C_Controller_Clk_Cfg(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz, uint32_t i3c_freq);
+
+void I3C_Controller_Clk_I2C_Init(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz);
 
 void I3C_Target_Init(struct mec_i3c_ctx *ctx, uint32_t core_clk_rate_mhz, uint16_t *max_rd_len, uint16_t *max_wr_len);
 
@@ -274,9 +276,9 @@ void I3C_DO_Xfer_Prep(struct mec_i3c_ctx *ctx, struct i3c_dw_cmd *cmd, uint8_t *
 
 void I3C_DO_Xfer(struct mec_i3c_ctx *ctx, struct i3c_dw_cmd *tgt);
 
-void I3C_IBI_SIR_Enable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_info);
+void I3C_IBI_SIR_Enable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_info, bool enable_ibi_interrupt);
 
-void I3C_IBI_SIR_Disable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_info);
+void I3C_IBI_SIR_Disable(struct mec_i3c_ctx *ctx, struct i3c_IBI_SIR *ibi_sir_info, bool disable_ibi_interrupt);
 
 void I3C_TGT_PID_set(struct mec_i3c_ctx *ctx, uint64_t pid, bool pid_random);
 

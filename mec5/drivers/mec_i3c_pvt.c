@@ -608,6 +608,36 @@ void _i3c_sda_hld_switch_delay_timing_set(struct i3c_sec_regs *regs,
 }
 
 /**
+ * @brief Program the I3C SDA Hold time control value
+ *
+ * @param regs Pointer to controller registers
+ * @param sda_tx_hold SDA TX Hold time control
+ */
+void _i3c_sda_hld_timing_set(struct i3c_host_regs *regs,
+                                            uint8_t sda_tx_hold)
+{
+    uint32_t reg_value = 0;
+
+    reg_value = regs->SDA_HMSD_TM;
+    regs->SDA_HMSD_TM = (reg_value & 0xFFF8FFFF) | (sda_tx_hold << SDA_TX_HOLD_BITPOS);
+}
+
+/**
+ * @brief Program the I3C read termination bit low count
+ *
+ * @param regs Pointer to controller registers
+ * @param sda_tx_hold SDA TX Hold time control
+ */
+void _i3c_read_term_bit_low_count_set(struct i3c_host_regs *regs,
+                                            uint8_t read_term_low_count)
+{
+    uint32_t reg_value = 0;
+
+    reg_value = regs->SCL_TBLC_TM;
+    regs->SCL_TBLC_TM = (reg_value & 0xFFFFFFF0) | (read_term_low_count);
+}
+
+/**
  * @brief Program the I3C SCL Low Master Extended Timeout register
  *
  * @param regs Pointer to controller registers
@@ -670,20 +700,24 @@ void _i2c_fmp_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns)
  * @param regs Pointer to controller registers
  * @param core_clk_freq_ns Core clock frequency in nanoseconds
  */
-void _i3c_push_pull_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns)
+void _i3c_push_pull_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns, uint32_t i3c_freq_ns)
 {
-    uint16_t low_count = 0, high_count = 0;
+    uint16_t low_count = 0, high_count = 0, base_count = 0;
     uint32_t timing_val = 0, sdr_ext_lcount = 0;
 
-    high_count = DIV_ROUND_UP(I3C_PUSH_PULL_SCL_MIN_HIGH_PERIOD_NS, core_clk_freq_ns) - 1;
+    base_count = DIV_ROUND_UP(I3C_PUSH_PULL_SCL_MIN_HIGH_PERIOD_NS, core_clk_freq_ns);
+
+    if(base_count < I3C_SCL_TIMING_COUNT_MIN) {
+        base_count = I3C_SCL_TIMING_COUNT_MIN;
+    }
+
+    high_count = DIV_ROUND_UP(base_count * i3c_freq_ns, I3C_SCL_12_5MHZ_PERIOD_NS);
+
     if(high_count < I3C_SCL_TIMING_COUNT_MIN) {
         high_count = I3C_SCL_TIMING_COUNT_MIN;
     }
 
-    low_count = DIV_ROUND_UP(I3C_PUSH_PULL_SCL_MIN_LOW_PERIOD_NS, core_clk_freq_ns) - high_count;
-    if(low_count < I3C_SCL_TIMING_COUNT_MIN) {
-        low_count = I3C_SCL_TIMING_COUNT_MIN;
-    }
+    low_count = high_count;
 
     /* Program the I3C Push Pull Timing Register */
     timing_val = (high_count << 16) | low_count;
@@ -715,19 +749,27 @@ void _i3c_push_pull_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_fre
  * @param regs Pointer to controller registers
  * @param core_clk_freq_ns Core clock frequency in nanoseconds
  */
-void _i3c_open_drain_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns)
+void _i3c_open_drain_timing_set(struct i3c_host_regs *regs, uint32_t core_clk_freq_ns, uint32_t i3c_freq_ns)
 {
-    uint16_t low_count, high_count;
+    uint16_t low_count = 0, high_count = 0;
     uint32_t timing_val;
 
     high_count = DIV_ROUND_UP(I3C_OPEN_DRAIN_SCL_MIN_HIGH_PERIOD_NS, core_clk_freq_ns);
+
+    high_count = DIV_ROUND_UP(high_count * i3c_freq_ns, I3C_SCL_12_5MHZ_PERIOD_NS);
+
     if(high_count < I3C_SCL_TIMING_COUNT_MIN) {
         high_count = I3C_SCL_TIMING_COUNT_MIN;
     }
+
     low_count = DIV_ROUND_UP(I3C_OPEN_DRAIN_SCL_MIN_LOW_PERIOD_NS, core_clk_freq_ns);
+
+    low_count = DIV_ROUND_UP(low_count * i3c_freq_ns, I3C_SCL_12_5MHZ_PERIOD_NS);
+
     if(low_count < I3C_SCL_TIMING_COUNT_MIN) {
         low_count = I3C_SCL_TIMING_COUNT_MIN;
     }
+
     /* Program the I3C Push Pull Timing Register */
     timing_val = (high_count << 16) | low_count;
     regs->SCL_OD_TM = timing_val;
