@@ -1,6 +1,7 @@
 zephyr_include_directories(.)
 
 zephyr_library_sources(mec_acpi_ec.c)
+zephyr_library_sources(mec_adc.c)
 zephyr_library_sources(mec_bdp.c)
 zephyr_library_sources(mec_btimer.c)
 zephyr_library_sources(mec_dmac.c)
