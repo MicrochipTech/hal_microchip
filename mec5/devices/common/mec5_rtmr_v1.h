@@ -15,10 +15,10 @@
   */
 
 typedef struct rtmr_regs {                      /*!< (@ 0x40007400) RTMR Structure                                            */
-  __IOM uint32_t  COUNT;                        /*!< (@ 0x00000000) RTOS timer count                                           */
-  __IOM uint32_t  PRELOAD;                      /*!< (@ 0x00000004) RTOS timer preload                                         */
-  __IOM uint32_t  CTRL;                         /*!< (@ 0x00000008) RTOS timer control                                         */
-} RTMR_Type;                                    /*!< Size = 12 (0xc)                                                           */
+  __IM  uint32_t  COUNT;                        /*!< (@ 0x00000000) RTOS timer count                                          */
+  __IOM uint32_t  PRELOAD;                      /*!< (@ 0x00000004) RTOS timer preload                                        */
+  __IOM uint32_t  CTRL;                         /*!< (@ 0x00000008) RTOS timer control                                        */
+} RTMR_Type;                                    /*!< Size = 12 (0xc)                                                          */
 /** @} */ /* End of group Device_Peripheral_peripherals */
 
 /** @addtogroup PosMask_peripherals
