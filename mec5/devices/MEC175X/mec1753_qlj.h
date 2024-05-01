@@ -338,6 +338,7 @@ typedef enum {
   * @{
   */
 
+#define CPU_STALL_BASE              0x08000000UL
 #define WDT0_BASE                   0x40000400UL
 #define BRT0_BASE                   0x40000420UL
 #define BTMR0_BASE                  0x40000C00UL
@@ -446,6 +447,7 @@ typedef enum {
   * @{
   */
 
+#define CPU_STALL                   ((CPU_STALL_Type*)         CPU_STALL_BASE)
 #define WDT0                        ((WDT_Type*)               WDT0_BASE)
 #define BRT0                        ((BRT_Type*)               BRT0_BASE)
 #define BTMR0                       ((BTMR_Type*)              BTMR0_BASE)
