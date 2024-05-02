@@ -81,6 +81,13 @@ void mec_rtimer_status_clear(struct rtmr_regs *regs, uint32_t status)
     }
 }
 
+void mec_rtimer_status_clear_all(struct rtmr_regs *regs)
+{
+    (void)regs;
+
+    mec_girq_clr_src(MEC_RTMR_ECIA_INFO);
+}
+
 void mec_rtimer_intr_ctrl(struct rtmr_regs *regs, uint8_t enable)
 {
     (void)regs;

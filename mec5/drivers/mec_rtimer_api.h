@@ -44,6 +44,7 @@ void mec_rtimer_restart(struct rtmr_regs *regs, uint32_t new_count, uint8_t rest
 
 uint32_t mec_rtimer_status(struct rtmr_regs *regs);
 void mec_rtimer_status_clear(struct rtmr_regs *regs, uint32_t status);
+void mec_rtimer_status_clear_all(struct rtmr_regs *regs);
 
 void mec_rtimer_intr_ctrl(struct rtmr_regs *regs, uint8_t enable);
 
@@ -64,6 +65,11 @@ static inline void mec_rtimer_stop(struct rtmr_regs *regs)
 static inline void mec_rtimer_start(struct rtmr_regs *regs)
 {
     regs->CTRL |= BIT(RTMR_CTRL_START_Pos);
+}
+
+static inline bool mec_rtimer_is_started(struct rtmr_regs *regs)
+{
+    return (regs->CTRL & BIT(RTMR_CTRL_START_Pos)) ? true : false;
 }
 
 static inline uint32_t mec_rtimer_count(struct rtmr_regs *regs)
@@ -97,7 +103,20 @@ static inline void mec_rtimer_unhalt(struct rtmr_regs *regs)
 
 static inline bool mec_rtimer_is_counting(struct rtmr_regs *regs)
 {
-    return (regs->CTRL & BIT(RTMR_CTRL_START_Pos)) ? true : false;
+    return (regs->COUNT != 0) ? true : false;
+}
+
+#define MEC_RTIMER_START            0x05u
+/* Start with auto-halt while CPU is halted by debugger */
+#define MEC_RTIMER_START_EXT_HALT   0x0du
+
+static inline void mec_rtimer_stop_and_load(struct rtmr_regs *regs, uint32_t count_down,
+                                            uint8_t start_val)
+{
+    regs->CTRL = 0U;
+    regs->CTRL = BIT(RTMR_CTRL_ENABLE_Pos);
+    regs->PRELOAD = count_down;
+    regs->CTRL = start_val;
 }
 
 #ifdef __cplusplus
