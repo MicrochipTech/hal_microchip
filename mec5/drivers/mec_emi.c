@@ -8,7 +8,7 @@
 #include <device_mec5.h>
 #include "mec_defs.h"
 #include "mec_ecia_api.h"
-#include "mec_espi_api.h"
+#include "mec_espi_pc.h"
 #include "mec_pcr_api.h"
 #include "mec_emi_api.h"
 #include "mec_retval.h"
@@ -225,7 +225,7 @@ int mec_emi_swi_set_one(struct emi_regs *regs, uint8_t swi_pos)
     }
 
     /* read/write-one-to-set register. 0 bits have no effect */
-    regs->ISEN = BIT(swi_pos);
+    regs->ISEN = MEC_BIT(swi_pos);
 
     return MEC_RET_OK;
 }
@@ -299,7 +299,7 @@ int mec_emi_is_appid(struct emi_regs *regs, uint8_t appid)
     uint8_t idx = (appid >> 5);
     uint8_t pos = (appid & 0x1fu);
 
-    if (regs->AIDS[idx] & BIT(pos)) {
+    if (regs->AIDS[idx] & MEC_BIT(pos)) {
         return 1;
     }
 
@@ -316,7 +316,7 @@ int mec_emi_clear_appid(struct emi_regs *regs, uint8_t appid)
     uint8_t idx = (appid >> 5);
     uint8_t pos = (appid & 0x1fu);
 
-    regs->AIDS[idx] &= ~BIT(pos);
+    regs->AIDS[idx] &= ~MEC_BIT(pos);
 
     return MEC_RET_OK;
 }

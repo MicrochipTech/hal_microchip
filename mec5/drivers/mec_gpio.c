@@ -125,7 +125,7 @@ static inline bool pin_is_valid(uint32_t pin)
     uint32_t port = pin_get_port((uint16_t)(pin & 0xffffu));
     uint8_t bitpos = pin_get_bitpos((uint16_t)(pin & 0xffffu));
 
-    if ((port < MEC_GPIO_PORT_MAX) && (valid_ctrl_masks[port] & BIT(bitpos))) {
+    if ((port < MEC_GPIO_PORT_MAX) && (valid_ctrl_masks[port] & MEC_BIT(bitpos))) {
         return true;
     }
 
@@ -144,7 +144,7 @@ int mec_gpio_pin_valid(uint32_t pin)
 int mec_gpio_port_pin_valid(uint8_t port, uint8_t pin_port_pos)
 {
     if ((port < MEC_GPIO_PORT_MAX) && (pin_port_pos < 32u)) {
-        if (valid_ctrl_masks[port] & BIT(pin_port_pos)) {
+        if (valid_ctrl_masks[port] & MEC_BIT(pin_port_pos)) {
             return MEC_RET_OK;
         }
     }
@@ -281,7 +281,7 @@ int mec_gpio_disable_input_pad(uint32_t pin)
     }
 #endif
 
-    GPIO->CTRL[pin] |= BIT(GPIO_CTRL_INPD_Pos);
+    GPIO->CTRL[pin] |= MEC_BIT(GPIO_CTRL_INPD_Pos);
 
     return MEC_RET_OK;
 }
@@ -294,7 +294,7 @@ int mec_gpio_enable_input_pad(uint32_t pin)
     }
 #endif
 
-    GPIO->CTRL[pin] &= ~BIT(GPIO_CTRL_INPD_Pos);
+    GPIO->CTRL[pin] &= ~MEC_BIT(GPIO_CTRL_INPD_Pos);
 
     return MEC_RET_OK;
 }
@@ -311,7 +311,7 @@ int mec_gpio_is_locked(uint32_t pin)
     uint32_t port = pin_get_port(pin & 0xffffu);
 
     /* lock registers are from high address to low address */
-    if (GPIO->LOCK[MEC_GPIO_PORT_MAX - 1u - port] & BIT(bitpos)) {
+    if (GPIO->LOCK[MEC_GPIO_PORT_MAX - 1u - port] & MEC_BIT(bitpos)) {
         return 1;
     }
 
@@ -342,7 +342,7 @@ int mec_gpio_set_config(uint32_t pin, uint32_t cfg)
     }
 #endif
 
-    MMCR16_WR(&GPIO->CTRL[pin], cfg & 0xffffu);
+    MEC_MMCR16_WR(&GPIO->CTRL[pin], cfg & 0xffffu);
 
     return MEC_RET_OK;
 }
@@ -355,10 +355,10 @@ int mec_gpio_set_config_mask(uint32_t pin, uint32_t cfg, uint32_t mask)
     }
 #endif
 
-    uint16_t pin_cfg = MMCR16_RD(&GPIO->CTRL[pin]) & (uint16_t)~mask;
+    uint16_t pin_cfg = MEC_MMCR16_RD(&GPIO->CTRL[pin]) & (uint16_t)~mask;
 
     pin_cfg |= (uint16_t)(cfg & mask);
-    MMCR16_WR(&GPIO->CTRL[pin], pin_cfg);
+    MEC_MMCR16_WR(&GPIO->CTRL[pin], pin_cfg);
 
     return MEC_RET_OK;
 }
@@ -411,7 +411,7 @@ int mec_gpio_get_property(uint32_t pin, uint8_t prop_id, uint8_t *prop)
         regaddr += MEC_GPIO_CTRL2_OFS;
     }
 
-    *prop = (uint8_t)((MMCR32(regaddr) >> bpos) & msk0);
+    *prop = (uint8_t)((MEC_MMCR32(regaddr) >> bpos) & msk0);
 
     return MEC_RET_OK;
 }
@@ -436,12 +436,13 @@ int mec_gpio_set_property(uint32_t pin, uint8_t prop_id, uint8_t val)
         regaddr += MEC_GPIO_CTRL2_OFS;
     }
 
-    MMCR32(regaddr) = (MMCR32(regaddr) & ~(msk0 << bpos)) | (((uint32_t)val & msk0) << bpos);
+    MEC_MMCR32(regaddr) = ((MEC_MMCR32(regaddr) & ~(msk0 << bpos))
+                           | (((uint32_t)val & msk0) << bpos));
 
 #ifdef MEC_GPIO_IDET_CHG_ANOMALY_FIX
     if (prop_id == MEC_GPIO_IDET_PROP_ID) {
         for (int i = 0; i < MEC_GPIO_EDGE_DLY_COUNT; i++) {
-            MMCR32(regaddr);
+            MEC_MMCR32(regaddr);
         }
     }
 #endif
@@ -580,26 +581,26 @@ int mec_gpio_pin_config(uint32_t pin, uint32_t config)
     ctrl <<= GPIO_CTL2_DRVSTR_Pos;
     ctrl &= GPIO_CTL2_DRVSTR_Msk;
 
-    if (config & BIT(MEC5_GPIO_CFG_SLEW_RATE_POS)) {
-        ctrl |= BIT(GPIO_CTL2_SLR_Pos);
+    if (config & MEC_BIT(MEC5_GPIO_CFG_SLEW_RATE_POS)) {
+        ctrl |= MEC_BIT(GPIO_CTL2_SLR_Pos);
     }
     GPIO->CTL2[pin] = ctrl;
 
     ctrl = (config & MEC5_GPIO_CFG_FUNC_MSK) >> MEC5_GPIO_CFG_FUNC_POS;
     ctrl = (ctrl << GPIO_CTRL_MUX_Pos) & GPIO_CTRL_MUX_Msk;
-    if ((config & MEC5_GPIO_CFG_FUNC_MSK) && (config & BIT(MEC5_GPIO_CFG_FUNC_INV_POS))) {
-        ctrl |= BIT(GPIO_CTRL_ALTPOL_Pos);
+    if ((config & MEC5_GPIO_CFG_FUNC_MSK) && (config & MEC_BIT(MEC5_GPIO_CFG_FUNC_INV_POS))) {
+        ctrl |= MEC_BIT(GPIO_CTRL_ALTPOL_Pos);
     }
 
-    if (config & BIT(MEC5_GPIO_CFG_OUT_OPEN_DRAIN_POS)) { /* opendrain? */
-        ctrl |= BIT(GPIO_CTRL_OBT_Pos);
+    if (config & MEC_BIT(MEC5_GPIO_CFG_OUT_OPEN_DRAIN_POS)) { /* opendrain? */
+        ctrl |= MEC_BIT(GPIO_CTRL_OBT_Pos);
     }
 
-    if (config & BIT(MEC5_GPIO_CFG_DIR_OUT_POS)) { /* direction is output? */
-        ctrl |= BIT(GPIO_CTRL_DIR_Pos);
-        if (config & BIT(MEC5_GPIO_CFG_SET_OUT_VAL_POS)) {
-            if (config & BIT(MEC5_GPIO_CFG_OUT_VAL_POS)) {
-                ctrl |= BIT(GPIO_CTRL_ALTVAL_Pos);
+    if (config & MEC_BIT(MEC5_GPIO_CFG_DIR_OUT_POS)) { /* direction is output? */
+        ctrl |= MEC_BIT(GPIO_CTRL_DIR_Pos);
+        if (config & MEC_BIT(MEC5_GPIO_CFG_SET_OUT_VAL_POS)) {
+            if (config & MEC_BIT(MEC5_GPIO_CFG_OUT_VAL_POS)) {
+                ctrl |= MEC_BIT(GPIO_CTRL_ALTVAL_Pos);
             }
         }
     }
@@ -610,8 +611,8 @@ int mec_gpio_pin_config(uint32_t pin, uint32_t config)
 
     GPIO->CTRL[pin] = ctrl;
 
-    if (config & BIT(MEC5_GPIO_CFG_PAR_OUT_EN_POS)) {
-        GPIO->CTRL[pin] |= BIT(GPIO_CTRL_PAREN_Pos);
+    if (config & MEC_BIT(MEC5_GPIO_CFG_PAR_OUT_EN_POS)) {
+        GPIO->CTRL[pin] |= MEC_BIT(GPIO_CTRL_PAREN_Pos);
     }
 
     return MEC_RET_OK;
@@ -815,9 +816,9 @@ int mec_gpio_alt_out(const uint32_t pin, uint8_t val)
 #endif
 
     if (val) {
-        GPIO->CTRL[pin] |= BIT(GPIO_CTRL_ALTVAL_Pos);
+        GPIO->CTRL[pin] |= MEC_BIT(GPIO_CTRL_ALTVAL_Pos);
     } else {
-        GPIO->CTRL[pin] &= ~BIT(GPIO_CTRL_ALTVAL_Pos);
+        GPIO->CTRL[pin] &= (uint32_t)~MEC_BIT(GPIO_CTRL_ALTVAL_Pos);
     }
 
     return MEC_RET_OK;
@@ -831,7 +832,7 @@ int mec_gpio_alt_out_toggle(const uint32_t pin)
     }
 #endif
 
-    GPIO->CTRL[pin] ^= BIT(GPIO_CTRL_ALTVAL_Pos);
+    GPIO->CTRL[pin] ^= MEC_BIT(GPIO_CTRL_ALTVAL_Pos);
 
     return MEC_RET_OK;
 }
@@ -847,7 +848,7 @@ int mec_gpio_pad_in(const uint32_t pin, uint8_t *padin)
         return MEC_RET_ERR_INVAL;
     }
 
-    *padin = (uint8_t)((GPIO->CTRL[pin] >> GPIO_CTRL_PADIN_Pos) & BIT(0));
+    *padin = (uint8_t)((GPIO->CTRL[pin] >> GPIO_CTRL_PADIN_Pos) & MEC_BIT(0));
 
     return MEC_RET_OK;
 }
@@ -866,7 +867,7 @@ int mec_gpio_par_in(const uint32_t pin, uint8_t *pinval)
     uint32_t bitpos = pin_get_bitpos(pin & 0xffffu);
     uint32_t port = pin_get_port(pin & 0xffffu);
 
-    *pinval = (uint8_t)((GPIO->PARIN[port] >> bitpos) & BIT(0));
+    *pinval = (uint8_t)((GPIO->PARIN[port] >> bitpos) & MEC_BIT(0));
 
     return MEC_RET_OK;
 }
@@ -890,9 +891,9 @@ int mec_gpio_par_out(const uint32_t pin, const uint8_t pin_state)
     MMCR32_WR(bit_word_addr, bbval);
 #else
     if (pin_state) {
-        GPIO->PAROUT[port] |= BIT(bitpos);
+        GPIO->PAROUT[port] |= MEC_BIT(bitpos);
     } else {
-        GPIO->PAROUT[port] &= ~BIT(bitpos);
+        GPIO->PAROUT[port] &= (uint32_t)~MEC_BIT(bitpos);
     }
 #endif
     return MEC_RET_OK;
@@ -1009,9 +1010,9 @@ int mec_gpio_port_ia_ctrl(uint8_t port, uint8_t enable)
     uint8_t bitpos = mec_gpio_girq_blk_pos[port];
 
     if (enable) {
-        ECIA0->BLK_EN_SET = BIT(bitpos);
+        ECIA0->BLK_EN_SET = MEC_BIT(bitpos);
     } else {
-        ECIA0->BLK_EN_CLR = BIT(bitpos);
+        ECIA0->BLK_EN_CLR = MEC_BIT(bitpos);
     }
 
     return 0;
@@ -1027,9 +1028,9 @@ int mec_gpio_port_pin_ia_enable(uint8_t port, uint8_t port_pin_pos, uint8_t enab
 
     port_pin_pos &= 0x1fu;
     if (enable) {
-        ECIA0->GIRQ[girq_idx].EN_SET = BIT(port_pin_pos);
+        ECIA0->GIRQ[girq_idx].EN_SET = MEC_BIT(port_pin_pos);
     } else {
-        ECIA0->GIRQ[girq_idx].EN_CLR = BIT(port_pin_pos);
+        ECIA0->GIRQ[girq_idx].EN_CLR = MEC_BIT(port_pin_pos);
     }
 
     return 0;
@@ -1056,7 +1057,7 @@ int mec_gpio_port_pin_ia_status_clear(uint8_t port, uint8_t port_pin_pos)
 
     uint8_t girq_idx = mec_gpio_irq_routing[port];
 
-    ECIA0->GIRQ[girq_idx].SOURCE = BIT(port_pin_pos & 0x1fu);
+    ECIA0->GIRQ[girq_idx].SOURCE = MEC_BIT(port_pin_pos & 0x1fu);
 
     return 0;
 }

@@ -21,16 +21,16 @@ static uint32_t xlat_intr_to_hw(uint32_t bitmap)
 {
     uint32_t hwbm = 0;
 
-    if (bitmap & BIT(MEC_ESPI_PC_INTR_CHEN_CHG_POS)) {
-        hwbm |= BIT(ESPI_IO_PCSTS_PCEN_CHG_Pos);
+    if (bitmap & MEC_BIT(MEC_ESPI_PC_INTR_CHEN_CHG_POS)) {
+        hwbm |= MEC_BIT(ESPI_IO_PCSTS_PCEN_CHG_Pos);
     }
 
-    if (bitmap & BIT(MEC_ESPI_PC_INTR_BMEN_CHG_POS)) {
-        hwbm |= BIT(ESPI_IO_PCSTS_PCBMEN_CHG_Pos);
+    if (bitmap & MEC_BIT(MEC_ESPI_PC_INTR_BMEN_CHG_POS)) {
+        hwbm |= MEC_BIT(ESPI_IO_PCSTS_PCBMEN_CHG_Pos);
     }
 
-    if (bitmap & BIT(MEC_ESPI_PC_INTR_BERR_POS)) {
-        hwbm |= BIT(ESPI_IO_PCSTS_EC_BUS_ERR_Pos);
+    if (bitmap & MEC_BIT(MEC_ESPI_PC_INTR_BERR_POS)) {
+        hwbm |= MEC_BIT(ESPI_IO_PCSTS_EC_BUS_ERR_Pos);
     }
 
     return hwbm;
@@ -40,12 +40,12 @@ static uint32_t xlat_intr_to_hw(uint32_t bitmap)
 
 void mec_espi_pc_ready_set(struct espi_io_regs *iobase)
 {
-    iobase->PCRDY = BIT(ESPI_IO_PCRDY_PC_READY_Pos);
+    iobase->PCRDY = MEC_BIT(ESPI_IO_PCRDY_PC_READY_Pos);
 }
 
 int mec_espi_pc_is_ready(struct espi_io_regs *iobase)
 {
-    if (iobase->PCRDY & BIT(ESPI_IO_PCRDY_PC_READY_Pos)) {
+    if (iobase->PCRDY & MEC_BIT(ESPI_IO_PCRDY_PC_READY_Pos)) {
         return 1u;
     }
 
@@ -78,20 +78,20 @@ uint32_t mec_espi_pc_status(struct espi_io_regs *iobase)
     uint32_t sts = 0;
     uint32_t temp = iobase->PCSTS;
 
-    if (temp & BIT(ESPI_IO_PCSTS_EC_BUS_ERR_Pos)) {
-        sts |= BIT(MEC_ESPI_PC_ISTS_BERR_POS);
+    if (temp & MEC_BIT(ESPI_IO_PCSTS_EC_BUS_ERR_Pos)) {
+        sts |= MEC_BIT(MEC_ESPI_PC_ISTS_BERR_POS);
     }
-    if (temp & BIT(ESPI_IO_PCSTS_PCEN_VAL_Pos)) {
-        sts |= BIT(MEC_ESPI_PC_ISTS_CHEN_CHG_POS);
+    if (temp & MEC_BIT(ESPI_IO_PCSTS_PCEN_VAL_Pos)) {
+        sts |= MEC_BIT(MEC_ESPI_PC_ISTS_CHEN_CHG_POS);
     }
-    if (temp & BIT(ESPI_IO_PCSTS_PCEN_CHG_Pos)) {
-        sts |= BIT(MEC_ESPI_PC_ISTS_CHEN_STATE_POS);
+    if (temp & MEC_BIT(ESPI_IO_PCSTS_PCEN_CHG_Pos)) {
+        sts |= MEC_BIT(MEC_ESPI_PC_ISTS_CHEN_STATE_POS);
     }
-    if (temp & BIT(ESPI_IO_PCSTS_PCBM_VAL_Pos)) {
-        sts |= BIT(MEC_ESPI_PC_ISTS_BMEN_STATE_POS);
+    if (temp & MEC_BIT(ESPI_IO_PCSTS_PCBM_VAL_Pos)) {
+        sts |= MEC_BIT(MEC_ESPI_PC_ISTS_BMEN_STATE_POS);
     }
-    if (temp & BIT(ESPI_IO_PCSTS_PCBMEN_CHG_Pos)) {
-        sts |= BIT(MEC_ESPI_PC_ISTS_BMEN_CHG_POS);
+    if (temp & MEC_BIT(ESPI_IO_PCSTS_PCBMEN_CHG_Pos)) {
+        sts |= MEC_BIT(MEC_ESPI_PC_ISTS_BMEN_CHG_POS);
     }
 
     return sts;
@@ -197,7 +197,7 @@ void mec_espi_pc_ltr_ctrl(struct espi_io_regs *iobase, uint8_t tag, uint8_t star
     iobase->PCLTRCTL = ctrl;
 
     if (start) {
-        iobase->PCLTRCTL |= BIT(ESPI_IO_PCLTRCTL_START_Pos);
+        iobase->PCLTRCTL |= MEC_BIT(ESPI_IO_PCLTRCTL_START_Pos);
     }
 }
 
@@ -210,7 +210,7 @@ void mec_espi_pc_ltr_msg(struct espi_io_regs *iobase, uint16_t nunits, uint8_t t
     msg |= (((uint32_t)rsvd_bits << ESPI_IO_PCLTRM_TX_RSVD_BITS_Pos)
             & ESPI_IO_PCLTRM_TX_RSVD_BITS_Msk);
     if (max_lat) {
-        msg |= BIT(ESPI_IO_PCLTRM_SEL_MAX_LAT_Pos);
+        msg |= MEC_BIT(ESPI_IO_PCLTRM_SEL_MAX_LAT_Pos);
     }
 
     iobase->PCLTRM = (iobase->PCLTRM & ~(0xffffu)) | msg;

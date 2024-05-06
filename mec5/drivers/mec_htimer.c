@@ -14,12 +14,12 @@
 #include "mec_htimer_api.h"
 #include "mec_retval.h"
 
-#define MEC_HTMR_GIRQ 23
-#define MEC_HTMR0_GIRQ_POS 16
-#define MEC_HTMR1_GIRQ_POS 17
-#define MEC_HTMR0_NVIC_NUM 112
+#define MEC_HTMR_GIRQ       23
+#define MEC_HTMR0_GIRQ_POS  16
+#define MEC_HTMR1_GIRQ_POS  17
+#define MEC_HTMR0_NVIC_NUM  112
 #define MEC_HTMR0_ECIA_INFO MEC5_ECIA_INFO(MEC_HTMR_GIRQ, MEC_HTMR0_GIRQ_POS, 14, 112)
-#define MEC_HTMR1_NVIC_NUM 113
+#define MEC_HTMR1_NVIC_NUM  113
 #define MEC_HTMR1_ECIA_INFO MEC5_ECIA_INFO(MEC_HTMR_GIRQ, MEC_HTMR0_GIRQ_POS, 14, 113)
 
 int mec_htimer_init(struct htmr_regs *regs, struct mec_htimer_context *ctx, uint8_t cfg_flags)
@@ -51,11 +51,11 @@ int mec_htimer_init(struct htmr_regs *regs, struct mec_htimer_context *ctx, uint
     regs->PRELOAD = 0;
     regs->CTRL = 0;
 
-    if (cfg_flags & BIT(MEC_HTMR_CFG_RESOLUTION_125MS_POS)) {
-        regs->CTRL |= BIT(HTMR_CTRL_RES_Pos);
+    if (cfg_flags & MEC_BIT(MEC_HTMR_CFG_RESOLUTION_125MS_POS)) {
+        regs->CTRL |= MEC_BIT(HTMR_CTRL_RES_Pos);
     }
 
-    if (cfg_flags & BIT(MEC_HTMR_CFG_IEN_POS)) {
+    if (cfg_flags & MEC_BIT(MEC_HTMR_CFG_IEN_POS)) {
         irq_en = 1;
     }
 
@@ -79,7 +79,7 @@ void mec_htimer_intr_ctrl(struct mec_htimer_context *ctx, uint8_t enable)
 uint32_t mec_htimer_status(struct mec_htimer_context *ctx)
 {
     if (mec_girq_src(ctx->devi)) {
-        return BIT(MEC_HTMR_STATUS_TERM_POS);
+        return MEC_BIT(MEC_HTMR_STATUS_TERM_POS);
     }
 
     return 0;
@@ -87,7 +87,7 @@ uint32_t mec_htimer_status(struct mec_htimer_context *ctx)
 
 void mec_htimer_status_clear(struct mec_htimer_context *ctx, uint32_t status)
 {
-    if (status & BIT(MEC_HTMR_STATUS_TERM_POS)) {
+    if (status & MEC_BIT(MEC_HTMR_STATUS_TERM_POS)) {
         mec_girq_clr_src(ctx->devi);
     }
 }

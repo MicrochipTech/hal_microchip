@@ -27,26 +27,26 @@ extern "C"
 struct acpi_ec_regs;
 
 enum mec_acpi_ec_flags {
-    MEC_ACPI_EC_IBF_IRQ = BIT(0),
-    MEC_ACPI_EC_OBE_IRQ = BIT(1),
-    MEC_ACPI_EC_4BYTE_MODE = BIT(2),
-    MEC_ACPI_EC_BURST_MODE = BIT(4),
-    MEC_ACPI_EC_RESET = BIT(7),
-    MEC_ACPI_EC_UD0A_SET = BIT(8),
-    MEC_ACPI_EC_UD1A_SET = BIT(9),
-    MEC_ACPI_EC_UD0A_ONE = BIT(16),
-    MEC_ACPI_EC_UD1A_ONE = BIT(17),
+    MEC_ACPI_EC_IBF_IRQ    = MEC_BIT(0),
+    MEC_ACPI_EC_OBE_IRQ    = MEC_BIT(1),
+    MEC_ACPI_EC_4BYTE_MODE = MEC_BIT(2),
+    MEC_ACPI_EC_BURST_MODE = MEC_BIT(4),
+    MEC_ACPI_EC_RESET      = MEC_BIT(7),
+    MEC_ACPI_EC_UD0A_SET   = MEC_BIT(8),
+    MEC_ACPI_EC_UD1A_SET   = MEC_BIT(9),
+    MEC_ACPI_EC_UD0A_ONE   = MEC_BIT(16),
+    MEC_ACPI_EC_UD1A_ONE   = MEC_BIT(17),
 };
 
 enum mec_acpi_ec_status {
-    MEC_ACPI_EC_STS_OBF = BIT(0),
-    MEC_ACPI_EC_STS_IBF = BIT(1),
-    MEC_ACPI_EC_STS_UD1A = BIT(2),
-    MEC_ACPI_EC_STS_CMD = BIT(3),
-    MEC_ACPI_EC_STS_BURST = BIT(4),
-    MEC_ACPI_EC_STS_SCI = BIT(5),
-    MEC_ACPI_EC_STS_SMI = BIT(6),
-    MEC_ACPI_EC_STS_UD0A = BIT(7),
+    MEC_ACPI_EC_STS_OBF   = MEC_BIT(0),
+    MEC_ACPI_EC_STS_IBF   = MEC_BIT(1),
+    MEC_ACPI_EC_STS_UD1A  = MEC_BIT(2),
+    MEC_ACPI_EC_STS_CMD   = MEC_BIT(3),
+    MEC_ACPI_EC_STS_BURST = MEC_BIT(4),
+    MEC_ACPI_EC_STS_SCI   = MEC_BIT(5),
+    MEC_ACPI_EC_STS_SMI   = MEC_BIT(6),
+    MEC_ACPI_EC_STS_UD0A  = MEC_BIT(7),
 };
 
 int mec_acpi_ec_init(struct acpi_ec_regs *regs, uint32_t flags);

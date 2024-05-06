@@ -21,7 +21,7 @@ uint32_t mec_bbram_size(void)
     uint32_t bbram_size = MEC_BBRAM_MAX_SIZE;
 
 #ifndef MEC5_FAM2_ID
-    if (ECS->FEAT_LOCK & BIT(ECS_FEAT_LOCK_BBRAM_SIZE_Pos)) {
+    if (ECS->FEAT_LOCK & MEC_BIT(ECS_FEAT_LOCK_BBRAM_SIZE_Pos)) {
         bbram_size >>= 1u;
     }
 #endif
@@ -70,7 +70,7 @@ int mec_bbram_rd32(uint16_t byte_ofs, uint32_t *val)
     }
 
     if (!(byte_ofs & 0x3u)) {
-        r = MMCR32(&VBATM->VBMEM[byte_ofs]);
+        r = MEC_MMCR32(&VBATM->VBMEM[byte_ofs]);
     } else {
         for (uint16_t i = 0; i < 4u; i++) {
             r <<= 8;
@@ -92,7 +92,7 @@ int mec_bbram_wr32(uint16_t byte_ofs, uint32_t val)
     }
 
     if (!(byte_ofs & 0x3u)) {
-        MMCR32(&VBATM->VBMEM[byte_ofs]) = val;
+        MEC_MMCR32(&VBATM->VBMEM[byte_ofs]) = val;
     } else {
         for (uint16_t i = 0; i < 4u; i++) {
             VBATM->VBMEM[byte_ofs + i] = val & 0xffu;

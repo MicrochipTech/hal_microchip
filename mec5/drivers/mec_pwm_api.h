@@ -24,9 +24,9 @@ extern "C"
 struct pwm_regs;
 
 enum mec5_pwm_config {
-    MEC5_PWM_CFG_ENABLE = BIT(0),
-    MEC5_PWM_CFG_INVERT = BIT(2),
-    MEC5_PWM_CFG_RESET = BIT(3),
+    MEC5_PWM_CFG_ENABLE = MEC_BIT(0),
+    MEC5_PWM_CFG_INVERT = MEC_BIT(2),
+    MEC5_PWM_CFG_RESET  = MEC_BIT(3),
 };
 
 /* Return PWM frequency input for hi range and lo range */

@@ -6,8 +6,8 @@
 #ifndef _MEC_I3C_API_H_
 #define _MEC_I3C_API_H_
 
+#include "mec_defs.h"
 #include "mec_i3c_pvt.h"
-
 
 /* MEC I3C Control structure required by API */
 struct mec_i3c_ctx {
@@ -20,7 +20,7 @@ struct mec_i3c_ctx {
 #define IBI_QUEUE_STATUS_IBI_ID(x)      (((x) & GENMASK(15, 8)) >> 8U)
 #define IBI_QUEUE_STATUS_DATA_LEN(x)    ((x) & GENMASK(7, 0))
 #define IBI_QUEUE_IBI_ADDR(x)           (IBI_QUEUE_STATUS_IBI_ID(x) >> 1U)
-#define IBI_QUEUE_IBI_RNW(x)            (IBI_QUEUE_STATUS_IBI_ID(x) & BIT(0))
+#define IBI_QUEUE_IBI_RNW(x)            (IBI_QUEUE_STATUS_IBI_ID(x) & MEC_BIT(0))
 #define IBI_TYPE_MR(x)                                                         \
     ((IBI_QUEUE_IBI_ADDR(x) != I3C_HOT_JOIN_ADDR) && !IBI_QUEUE_IBI_RNW(x))
 #define IBI_TYPE_HJ(x)                                                         \
@@ -185,7 +185,7 @@ struct i3c_dw_cmd {
     /** Number of bytes to read/write */
     uint16_t data_len;
 
-#if CONFIG_I3C_ENABLE_THRESHOLDS_INTR    
+#if CONFIG_I3C_ENABLE_THRESHOLDS_INTR
     /** Remaining data length - used with thresholds */
     uint16_t rem_data_len;
 #endif

@@ -25,7 +25,6 @@ struct mec_uart_info {
 
 #define MEC_UART0_ECIA_INFO MEC5_ECIA_INFO(15, 0, 7, 40)
 #define MEC_UART1_ECIA_INFO MEC5_ECIA_INFO(15, 1, 7, 41)
-/* MEC540x */
 #define MEC_UART2_ECIA_INFO MEC5_ECIA_INFO(15, 25, 7, 183)
 #define MEC_UART3_ECIA_INFO MEC5_ECIA_INFO(15, 26, 7, 184)
 
@@ -47,18 +46,18 @@ static const uint8_t uart_word_len_tbl[MEC_UART_WORD_LEN_MAX] = {
 
 static const uint8_t uart_parity_tbl[MEC_UART_PARITY_MAX] = {
     0u,
-    (BIT(UART_LCR_PARITY_Pos) | (UART_LCR_PARITY_SEL_ODD << UART_LCR_PARITY_SEL_Pos)),
-    (BIT(UART_LCR_PARITY_Pos) | (UART_LCR_PARITY_SEL_EVEN << UART_LCR_PARITY_SEL_Pos)),
-    (BIT(UART_LCR_PARITY_Pos) | (UART_LCR_PARITY_SEL_MARK << UART_LCR_PARITY_SEL_Pos)),
-    (BIT(UART_LCR_PARITY_Pos) | (UART_LCR_PARITY_SEL_SPACE << UART_LCR_PARITY_SEL_Pos)),
+    (MEC_BIT(UART_LCR_PARITY_Pos) | (UART_LCR_PARITY_SEL_ODD << UART_LCR_PARITY_SEL_Pos)),
+    (MEC_BIT(UART_LCR_PARITY_Pos) | (UART_LCR_PARITY_SEL_EVEN << UART_LCR_PARITY_SEL_Pos)),
+    (MEC_BIT(UART_LCR_PARITY_Pos) | (UART_LCR_PARITY_SEL_MARK << UART_LCR_PARITY_SEL_Pos)),
+    (MEC_BIT(UART_LCR_PARITY_Pos) | (UART_LCR_PARITY_SEL_SPACE << UART_LCR_PARITY_SEL_Pos)),
 };
 
 static const uint8_t uart_fcr_tbl[MEC_UART_FIFOS_CFG_MAX] = {
     0u,
-    (BIT(UART_FCR_EXRF_Pos) | (UART_FCR_RXF_TLVL_1BYTE << UART_FCR_RXF_TLVL_Pos)),
-    (BIT(UART_FCR_EXRF_Pos) | (UART_FCR_RXF_TLVL_4BYTES << UART_FCR_RXF_TLVL_Pos)),
-    (BIT(UART_FCR_EXRF_Pos) | (UART_FCR_RXF_TLVL_8BYTES << UART_FCR_RXF_TLVL_Pos)),
-    (BIT(UART_FCR_EXRF_Pos) | (UART_FCR_RXF_TLVL_14BYTES << UART_FCR_RXF_TLVL_Pos)),
+    (MEC_BIT(UART_FCR_EXRF_Pos) | (UART_FCR_RXF_TLVL_1BYTE << UART_FCR_RXF_TLVL_Pos)),
+    (MEC_BIT(UART_FCR_EXRF_Pos) | (UART_FCR_RXF_TLVL_4BYTES << UART_FCR_RXF_TLVL_Pos)),
+    (MEC_BIT(UART_FCR_EXRF_Pos) | (UART_FCR_RXF_TLVL_8BYTES << UART_FCR_RXF_TLVL_Pos)),
+    (MEC_BIT(UART_FCR_EXRF_Pos) | (UART_FCR_RXF_TLVL_14BYTES << UART_FCR_RXF_TLVL_Pos)),
 };
 
 static struct mec_uart_info const *get_uart_info(struct uart_regs *regs)
@@ -78,19 +77,19 @@ static uint32_t uart_baud_divider_get(struct uart_regs *base)
 {
     uint32_t brdiv = 0u;
 
-    base->LCR |= BIT(UART_LCR_DLAB_Pos);
+    base->LCR |= MEC_BIT(UART_LCR_DLAB_Pos);
     brdiv = base->IER;
     brdiv <<= 8;
     brdiv |= base->RXB;
-    base->LCR &= (uint8_t)~BIT(UART_LCR_DLAB_Pos);
+    base->LCR &= (uint8_t)~MEC_BIT(UART_LCR_DLAB_Pos);
 
     return brdiv;
 }
 
 static void uart_prog_fifos(struct uart_regs *base, uint8_t fifo_mode)
 {
-    uint8_t temp = (BIT(UART_FCR_EXRF_Pos) | BIT(UART_FCR_CLR_RX_FIFO_Pos)
-                    | BIT(UART_FCR_CLR_TX_FIFO_Pos));
+    uint8_t temp = (MEC_BIT(UART_FCR_EXRF_Pos) | MEC_BIT(UART_FCR_CLR_RX_FIFO_Pos)
+                    | MEC_BIT(UART_FCR_CLR_TX_FIFO_Pos));
 
     /* enable and clear both FIFOs */
     base->FCR = temp;
@@ -110,7 +109,7 @@ int mec_uart_tx_fifo_size(struct uart_regs *base)
         return MEC_RET_ERR_INVAL;
     }
 
-    if (base->SCR & BIT(UART_FCR_EXRF_Pos)) {
+    if (base->SCR & MEC_BIT(UART_FCR_EXRF_Pos)) {
         return 16;
     }
 
@@ -137,13 +136,13 @@ int mec_uart_clock_freq_get(struct uart_regs *base, uint32_t *clock_freq)
         return MEC_RET_ERR_INVAL;
     }
 
-    if (base->CFGS & BIT(UART_CFGS_CLK_SRC_EXT_Pos)) {
+    if (base->CFGS & MEC_BIT(UART_CFGS_CLK_SRC_EXT_Pos)) {
         *clock_freq = 0u; /* external, we don't know */
         return MEC_RET_OK;
     }
 
     brdiv = uart_baud_divider_get(base);
-    if (brdiv & BIT(15)) {
+    if (brdiv & MEC_BIT(15)) {
         *clock_freq = MEC_UART_INT_CLK_1;
     } else {
         *clock_freq = MEC_UART_INT_CLK_0;
@@ -238,9 +237,9 @@ int mec_uart_stop_bits_set(struct uart_regs *base, uint8_t stop_bits)
     }
 
     if (stop_bits == MEC_UART_STOP_BITS_2) {
-        base->LCR |= BIT(UART_LCR_STOP_BITS_Pos);
+        base->LCR |= MEC_BIT(UART_LCR_STOP_BITS_Pos);
     } else {
-        base->LCR &= (uint8_t)~BIT(UART_LCR_STOP_BITS_Pos);
+        base->LCR &= (uint8_t)~MEC_BIT(UART_LCR_STOP_BITS_Pos);
     }
 
     return MEC_RET_OK;
@@ -254,7 +253,7 @@ int mec_uart_stop_bits_get(struct uart_regs *base, uint8_t *stop_bits)
         return MEC_RET_ERR_INVAL;
     }
 
-    if (base->LCR & BIT(UART_LCR_STOP_BITS_Pos)) {
+    if (base->LCR & MEC_BIT(UART_LCR_STOP_BITS_Pos)) {
         *stop_bits = MEC_UART_STOP_BITS_2;
     } else {
         *stop_bits |= MEC_UART_STOP_BITS_1;
@@ -281,15 +280,15 @@ static void prog_cfg1(struct uart_regs *regs, uint32_t config, uint32_t extclk_h
     uint32_t temp = 0;
 
     if (extclk_hz) {
-        temp = BIT(UART_CFGS_CLK_SRC_EXT_Pos);
+        temp = MEC_BIT(UART_CFGS_CLK_SRC_EXT_Pos);
     }
 
-    if (config & BIT(MEC5_UART_CFG_RESET_HOST_POS)) {
-        temp |= BIT(UART_CFGS_RESET_SRC_Pos);
+    if (config & MEC_BIT(MEC5_UART_CFG_RESET_HOST_POS)) {
+        temp |= MEC_BIT(UART_CFGS_RESET_SRC_Pos);
     }
 
-    if (config & BIT(MEC5_UART_CFG_INVERT_LINES_POS)) {
-        temp |= BIT(UART_CFGS_POLARITY_Pos);
+    if (config & MEC_BIT(MEC5_UART_CFG_INVERT_LINES_POS)) {
+        temp |= MEC_BIT(UART_CFGS_POLARITY_Pos);
     }
 
     regs->CFGS = (uint8_t)(temp & 0xffu);
@@ -312,7 +311,7 @@ static int prog_baud_rate(struct uart_regs *regs, uint32_t baud_rate, uint32_t e
         clksrc = extclk_hz; /* external clock on UART_CLK pin */
     } else if (baud_rate > 115200u) {
         clksrc = 48000000u; /* 48MHz internal clock source */
-        brg |= BIT(15);
+        brg |= MEC_BIT(15);
     }
 
     bdiv = clksrc / (baud_rate * 16u);
@@ -322,10 +321,10 @@ static int prog_baud_rate(struct uart_regs *regs, uint32_t baud_rate, uint32_t e
     }
 
     brg |= (bdiv & 0x7fffu);
-    regs->LCR |= (uint8_t)BIT(UART_LCR_DLAB_Pos);
+    regs->LCR |= (uint8_t)MEC_BIT(UART_LCR_DLAB_Pos);
     regs->TXB = (uint8_t)(brg & 0xffu); /* LSB */
     regs->IER = (uint8_t)(brg >> 8); /* MSB */
-    regs->LCR &= (uint8_t)~BIT(UART_LCR_DLAB_Pos);
+    regs->LCR &= (uint8_t)~MEC_BIT(UART_LCR_DLAB_Pos);
 
     return MEC_RET_OK;
 }
@@ -348,10 +347,10 @@ static void prog_parity(struct uart_regs *regs, uint32_t config)
 
 static void prog_stop_bits(struct uart_regs *regs, uint32_t config)
 {
-    if (config & BIT(MEC5_UART_CFG_STOP_BITS_POS)) {
-        regs->LCR |= (uint8_t)BIT(UART_LCR_STOP_BITS_Pos);
+    if (config & MEC_BIT(MEC5_UART_CFG_STOP_BITS_POS)) {
+        regs->LCR |= (uint8_t)MEC_BIT(UART_LCR_STOP_BITS_Pos);
     } else {
-        regs->LCR &= (uint8_t)~BIT(UART_LCR_STOP_BITS_Pos);
+        regs->LCR &= (uint8_t)~MEC_BIT(UART_LCR_STOP_BITS_Pos);
     }
 }
 
@@ -361,10 +360,10 @@ static void prog_fifo(struct uart_regs *regs, uint32_t config)
     uint32_t temp = 0;
     uint8_t fcr = 0;
 
-    fcr = (uint8_t)BIT(UART_FCR_EXRF_Pos); /* enable FIFO */
+    fcr = (uint8_t)MEC_BIT(UART_FCR_EXRF_Pos); /* enable FIFO */
     regs->FCR = fcr;
-    regs->FCR = fcr | BIT(UART_FCR_CLR_RX_FIFO_Pos) | BIT(UART_FCR_CLR_TX_FIFO_Pos);
-    if (config & BIT(MEC5_UART_CFG_FIFO_EN_POS)) {
+    regs->FCR = fcr | MEC_BIT(UART_FCR_CLR_RX_FIFO_Pos) | MEC_BIT(UART_FCR_CLR_TX_FIFO_Pos);
+    if (config & MEC_BIT(MEC5_UART_CFG_FIFO_EN_POS)) {
         temp = (config & MEC5_UART_CFG_RX_FIFO_TRIG_LVL_MSK) >> MEC5_UART_CFG_RX_FIFO_TRIG_LVL_POS;
         temp = (temp << UART_FCR_RXF_TLVL_Pos) & UART_FCR_RXF_TLVL_Msk;
         fcr |= (uint8_t)(temp & 0xffu);
@@ -378,18 +377,18 @@ static void prog_fifo(struct uart_regs *regs, uint32_t config)
 static void uart_activate(struct uart_regs *regs, uint8_t enable)
 {
     if (enable) {
-        regs->ACTV |= (uint8_t)BIT(UART_ACTV_CLKS_Pos);
+        regs->ACTV |= (uint8_t)MEC_BIT(UART_ACTV_CLKS_Pos);
     } else {
-        regs->ACTV &= (uint8_t)~BIT(UART_ACTV_CLKS_Pos);
+        regs->ACTV &= (uint8_t)~MEC_BIT(UART_ACTV_CLKS_Pos);
     }
 }
 
 static void uart_intr_out_enable(struct uart_regs *regs, uint8_t enable)
 {
     if (enable) {
-        regs->MCR |= (uint8_t)BIT(UART_MCR_OUT2_Pos);
+        regs->MCR |= (uint8_t)MEC_BIT(UART_MCR_OUT2_Pos);
     } else {
-        regs->MCR &= (uint8_t)~BIT(UART_MCR_OUT2_Pos);
+        regs->MCR &= (uint8_t)~MEC_BIT(UART_MCR_OUT2_Pos);
     }
 }
 
@@ -546,7 +545,7 @@ int mec_uart_pending_status(struct uart_regs *base, enum mec_uart_ipend *ipend)
 
     iir = base->IIR;
 
-    if (iir & BIT(UART_FCR_EXRF_Pos)) {
+    if (iir & MEC_BIT(UART_FCR_EXRF_Pos)) {
         *ipend = MEC_UART_IPEND_NONE;
         return MEC_RET_OK;
     }
@@ -582,7 +581,7 @@ int mec_uart_is_rx_data(struct uart_regs *base)
         return 0;
     }
 
-    if (base->LSR & BIT(UART_LSR_DRDY_Pos)) {
+    if (base->LSR & MEC_BIT(UART_LSR_DRDY_Pos)) {
         return 1;
     }
 
@@ -598,7 +597,7 @@ int mec_uart_is_tx_fifo_empty(struct uart_regs *base)
         return 0;
     }
 
-    if (base->LSR & BIT(UART_LSR_THRE_Pos)) {
+    if (base->LSR & MEC_BIT(UART_LSR_THRE_Pos)) {
         return 1;
     }
 
@@ -609,7 +608,7 @@ int mec_uart_is_tx_fifo_empty(struct uart_regs *base)
 int mec_uart_is_tx_empty(struct uart_regs *base)
 {
     const struct mec_uart_info *info = get_uart_info(base);
-    uint8_t msk = (BIT(UART_LSR_THRE_Pos) | BIT(UART_LSR_THSE_Pos));
+    uint8_t msk = (MEC_BIT(UART_LSR_THRE_Pos) | MEC_BIT(UART_LSR_THSE_Pos));
 
     if (!info) {
         return 0;
@@ -637,9 +636,9 @@ int mec_uart_dtr_rts_set(struct uart_regs *base, uint8_t sel_rts,
     }
 
     if (pin_state) {
-        base->MCR |= BIT(bitpos);
+        base->MCR |= MEC_BIT(bitpos);
     } else {
-        base->MCR &= (uint8_t)~BIT(bitpos);
+        base->MCR &= (uint8_t)~MEC_BIT(bitpos);
     }
 
     return MEC_RET_OK;
@@ -676,16 +675,16 @@ int mec_uart_tx_byte(struct uart_regs *base, uint8_t data)
 
 #ifdef MEC5_UART_HAS_LSR2_REGISTER
     if (base->IIR & UART_IIR_FIFO_STATE_Msk) { /* FIFOs enabled? */
-        if (!(base->LSRB & BIT(UART_LSRB_TXF_FULL_STS_Pos))) { /* if not full */
+        if (!(base->LSRB & MEC_BIT(UART_LSRB_TXF_FULL_STS_Pos))) { /* if not full */
             base->TXB = data;
             return MEC_RET_OK;
         }
-        
+
         return MEC_RET_ERR_BUSY;
     }
 #endif
 
-    if (base->LSR & BIT(UART_LSR_THRE_Pos)) { /* if empty */
+    if (base->LSR & MEC_BIT(UART_LSR_THRE_Pos)) { /* if empty */
         base->TXB = data;
         return MEC_RET_OK;
     }
@@ -709,7 +708,7 @@ int mec_uart_tx(struct uart_regs * base, const uint8_t *data, size_t datasz)
 #ifdef MEC5_UART_HAS_LSR2_REGISTER
     if (base->IIR & UART_IIR_FIFO_STATE_Msk) { /* FIFOs enabled? */
         while (n < datasz) {
-            if (!(base->LSRB & BIT(UART_LSRB_TXF_FULL_STS_Pos))) {
+            if (!(base->LSRB & MEC_BIT(UART_LSRB_TXF_FULL_STS_Pos))) {
                 base->TXB = data[n++];
             }
         }
@@ -719,7 +718,7 @@ int mec_uart_tx(struct uart_regs * base, const uint8_t *data, size_t datasz)
 #endif
 
     while (n < datasz) {
-        if (base->LSR & BIT(UART_LSR_THRE_Pos)) {
+        if (base->LSR & MEC_BIT(UART_LSR_THRE_Pos)) {
             size_t fill_len = datasz - n;
 
             if (fill_len > MEC_UART_FIFO_LEN) {
@@ -746,13 +745,13 @@ int mec_uart_rx_byte(struct uart_regs *base, uint8_t *data)
     }
 
     lsr = base->LSR;
-    if (base->LSR & BIT(UART_LSR_DRDY_Pos)) {
+    if (base->LSR & MEC_BIT(UART_LSR_DRDY_Pos)) {
         temp = base->RXB;
         if (data) {
             *data = temp;
         }
-        if (lsr & (BIT(UART_LSR_OVR_ERR_Pos) | BIT(UART_LSR_PAR_ERR_Pos)
-                   | BIT(UART_LSR_FR_ERR_Pos))) {
+        if (lsr & (MEC_BIT(UART_LSR_OVR_ERR_Pos) | MEC_BIT(UART_LSR_PAR_ERR_Pos)
+                   | MEC_BIT(UART_LSR_FR_ERR_Pos))) {
             return MEC_RET_ERR_BAD_DATA;
         }
         return MEC_RET_OK;

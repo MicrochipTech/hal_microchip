@@ -13,18 +13,21 @@
 #include "mec_pcr_api.h"
 #include "mec_retval.h"
 
-#define MEC_BDP_GIRQ 15
-#define MEC_BDP_GIRQ_POS 22
-#define MEC_BDP_ECIA_INFO MEC5_ECIA_INFO(MEC_BDP_GIRQ, MEC_BDP_GIRQ_POS, 7, 62)
+#define MEC_BDP_GIRQ      15
+#define MEC_BDP_GIRQ_POS  22
+#define MEC_BDP_AGGR_NVIC 7
+#define MEC_BDP_NVIC      62
+#define MEC_BDP_ECIA_INFO \
+    MEC5_ECIA_INFO(MEC_BDP_GIRQ, MEC_BDP_GIRQ_POS, MEC_BDP_AGGR_NVIC, MEC_BDP_NVIC)
 
 #define MEC_BDP_INTR_EN_THRES_POS 0
 
 /* BDP Configuration register */
 #define MEC_BDP_CFG_REG_FIFO_FIFO_FLUSH_POS 0
-#define MEC_BDP_CFG_REG_FIFO_SNAP_CLR_POS 1
-#define MEC_BDP_CFG_REG_FIFO_THRH_POS 8
-#define MEC_BDP_CFG_REG_FIFO_THRH_MSK 0x700u
-#define MEC_BDP_CFG_REG_SRESET_POS 31
+#define MEC_BDP_CFG_REG_FIFO_SNAP_CLR_POS   1
+#define MEC_BDP_CFG_REG_FIFO_THRH_POS       8
+#define MEC_BDP_CFG_REG_FIFO_THRH_MSK       0x700u
+#define MEC_BDP_CFG_REG_SRESET_POS          31
 
 /* BDP Interrupt enable register */
 #define MEC_BDP_IEN_REG_THRH_POS 0
@@ -50,7 +53,7 @@ int mec_bdp_init(struct bdp_regs *regs, uint32_t cfg_flags)
     regs->ACTV80A = 0;
 
     /* soft-reset */
-    regs->CONFIG = BIT(MEC_BDP_CFG_REG_SRESET_POS);
+    regs->CONFIG = MEC_BIT(MEC_BDP_CFG_REG_SRESET_POS);
 
     /* threshold level(defaults to 1) */
     temp = (cfg_flags & MEC5_BDP_CFG_FIFO_THRES_MSK) >> MEC5_BDP_CFG_FIFO_THRES_POS;
@@ -58,25 +61,25 @@ int mec_bdp_init(struct bdp_regs *regs, uint32_t cfg_flags)
         | ((temp << MEC_BDP_CFG_REG_FIFO_THRH_POS) & MEC_BDP_CFG_REG_FIFO_THRH_MSK);
 
     /* set byte lane the alias byte is mapped to */
-    if (cfg_flags & BIT(MEC5_BDP_CFG_ALIAS_EN_POS)) {
+    if (cfg_flags & MEC_BIT(MEC5_BDP_CFG_ALIAS_EN_POS)) {
         regs->BL80A =
             ((cfg_flags & MEC5_BDP_CFG_ALIAS_BYTE_LANE_MSK) >> MEC5_BDP_CFG_ALIAS_BYTE_LANE_POS);
     }
 
     /* threshold interrupt? */
-    if (cfg_flags & BIT(MEC5_BDP_CFG_THRH_IEN_POS)) {
-        regs->IEN |= BIT(MEC_BDP_IEN_REG_THRH_POS);
+    if (cfg_flags & MEC_BIT(MEC5_BDP_CFG_THRH_IEN_POS)) {
+        regs->IEN |= MEC_BIT(MEC_BDP_IEN_REG_THRH_POS);
     }
 
     /* activate */
-    if (cfg_flags & BIT(MEC5_BDP_CFG_ALIAS_EN_POS)) {
-        if (cfg_flags & BIT(MEC5_BDP_CFG_ALIAS_ACTV_POS)) {
-            regs->ACTV80A |= BIT(MEC_BDP_ACTV_REG_EN_POS);
+    if (cfg_flags & MEC_BIT(MEC5_BDP_CFG_ALIAS_EN_POS)) {
+        if (cfg_flags & MEC_BIT(MEC5_BDP_CFG_ALIAS_ACTV_POS)) {
+            regs->ACTV80A |= MEC_BIT(MEC_BDP_ACTV_REG_EN_POS);
         }
     }
 
-    if (cfg_flags & BIT(MEC5_BDP_CFG_ACTV_POS)) {
-        regs->ACTV80 |= BIT(MEC_BDP_ACTV_REG_EN_POS);
+    if (cfg_flags & MEC_BIT(MEC5_BDP_CFG_ACTV_POS)) {
+        regs->ACTV80 |= MEC_BIT(MEC_BDP_ACTV_REG_EN_POS);
     }
 
     return MEC_RET_OK;
@@ -90,15 +93,15 @@ int mec_bdp_activate(struct bdp_regs *regs, uint8_t enable, uint8_t is_alias)
 
     if (!is_alias) {
         if (enable) {
-            regs->ACTV80 |= BIT(MEC_BDP_ACTV_REG_EN_POS);
+            regs->ACTV80 |= MEC_BIT(MEC_BDP_ACTV_REG_EN_POS);
         } else {
-            regs->ACTV80 &= (uint8_t)~BIT(MEC_BDP_ACTV_REG_EN_POS);
+            regs->ACTV80 &= (uint8_t)~MEC_BIT(MEC_BDP_ACTV_REG_EN_POS);
         }
     } else {
         if (enable) {
-            regs->ACTV80A |= BIT(MEC_BDP_ACTV_REG_EN_POS);
+            regs->ACTV80A |= MEC_BIT(MEC_BDP_ACTV_REG_EN_POS);
         } else {
-            regs->ACTV80A &= (uint8_t)~BIT(MEC_BDP_ACTV_REG_EN_POS);
+            regs->ACTV80A &= (uint8_t)~MEC_BIT(MEC_BDP_ACTV_REG_EN_POS);
         }
     }
 
@@ -162,9 +165,9 @@ uint32_t mec_bdp_fifo_thresh_get(struct bdp_regs *regs)
 void mec_bdp_intr_en(struct bdp_regs *regs, uint8_t enable)
 {
     if (enable) {
-        regs->IEN |= BIT(MEC_BDP_INTR_EN_THRES_POS);
+        regs->IEN |= MEC_BIT(MEC_BDP_INTR_EN_THRES_POS);
     } else {
-        regs->IEN &= (uint32_t)~BIT(MEC_BDP_INTR_EN_THRES_POS);
+        regs->IEN &= (uint32_t)~MEC_BIT(MEC_BDP_INTR_EN_THRES_POS);
     }
 }
 
@@ -236,13 +239,13 @@ int mec_bdp_get_host_io(struct bdp_regs *regs, struct mec_bdp_io *capio)
 
     da = regs->DATRB;
 
-    while (da & BIT(BDP_DATRB_NOT_EMPTY_Pos)) {
+    while (da & MEC_BIT(BDP_DATRB_NOT_EMPTY_Pos)) {
         iosize = (da & BDP_DATRB_LEN_Msk) >> BDP_DATRB_LEN_Pos;
         blane = (da & BDP_DATRB_LANE_Msk) >> BDP_DATRB_LANE_Pos;
 
         if (iosize == BDP_DATRB_LEN_IO8) {
             iodata[blane] = da & 0xffu;
-            ioflags |= BIT(blane);
+            ioflags |= MEC_BIT(blane);
             if (iowidth == 0) { /* single 8-bit I/O write */
                 iowidth = 1;
                 break;
@@ -254,13 +257,13 @@ int mec_bdp_get_host_io(struct bdp_regs *regs, struct mec_bdp_io *capio)
         } else if (iosize == BDP_DATRB_LEN_IO16B0) { /* first byte of 16-bit Host I/O write */
             iowidth = 2u;
             iodata[blane] = da & 0xffu;
-            ioflags |= BIT(blane);
+            ioflags |= MEC_BIT(blane);
         } else if (iosize == BDP_DATRB_LEN_IO32B0) { /* first byte of 32-bit Host I/O write */
             iowidth = 4u;
             iodata[blane] = da & 0xffu;
-            ioflags |= BIT(blane);
+            ioflags |= MEC_BIT(blane);
         } else { /* invalid and discard */
-            ioflags &= ~BIT(blane);
+            ioflags &= ~MEC_BIT(blane);
             break;
         }
 

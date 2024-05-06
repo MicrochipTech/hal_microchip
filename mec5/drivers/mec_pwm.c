@@ -9,7 +9,6 @@
 #include <device_mec5.h>
 #include "mec_pcfg.h"
 #include "mec_defs.h"
-#include "mec_ecia_api.h"
 #include "mec_pcr_api.h"
 #include "mec_pwm_api.h"
 #include "mec_retval.h"
@@ -71,32 +70,14 @@ static struct mec5_pwm_info const *get_pwm_info(uintptr_t base)
     return NULL;
 }
 
-#if 0 /* Not used */
-static void pwm_pcr_slp_en(struct pwm_regs *regs, uint8_t enable)
-{
-    uint32_t instance = pwm_instance_from_regs(regs);
-
-    mec_pcr_blk_slp_en(pwm_pcr_scr[instance], enable);
-}
-#endif
-
-#if 0 /* Not used */
-static void pwm_pcr_reset(struct pwm_regs *regs)
-{
-    uint32_t instance = pwm_instance_from_regs(regs);
-
-    mec_pcr_blk_reset(pwm_pcr_scr[instance]);
-}
-#endif
-
 static void pwm_disable(struct pwm_regs *regs)
 {
-    regs->CONFIG &= (uint32_t)~BIT(PWM_CONFIG_ENABLE_Pos);
+    regs->CONFIG &= (uint32_t)~MEC_BIT(PWM_CONFIG_ENABLE_Pos);
 }
 
 static void pwm_enable(struct pwm_regs *regs)
 {
-    regs->CONFIG |= BIT(PWM_CONFIG_ENABLE_Pos);
+    regs->CONFIG |= MEC_BIT(PWM_CONFIG_ENABLE_Pos);
 }
 
 /* set output to inactive state based upon invert bit */
@@ -183,7 +164,7 @@ static int prog_pwm_fd(struct pwm_regs *regs, uint32_t period_cycles, uint32_t p
         /* adjust perc and pulc */
         perc = (uint32_t)(((uint64_t)fin * (uint64_t)period_cycles) / MEC5_PWM_FIN_HIGH);
         pulc = (uint32_t)(((uint64_t)fin * (uint64_t)pulse_cycles) / MEC5_PWM_FIN_HIGH);
-        flags |= BIT(0); // cfg2 |= BIT(PWM_CONFIG_CLK_SRC_SLOW_Pos);
+        flags |= MEC_BIT(0);
     }
 
     for (ps1 = 1u; ps1 < 17u; ps1++) {
@@ -203,8 +184,8 @@ static int prog_pwm_fd(struct pwm_regs *regs, uint32_t period_cycles, uint32_t p
     cnt_off--;
     cfg = regs->CONFIG & (uint32_t)~(PWM_CONFIG_CLKDIV_Msk | PWM_CONFIG_CLK_SRC_SLOW_Msk);
     cfg |= ((ps1 << PWM_CONFIG_CLKDIV_Pos) & PWM_CONFIG_CLKDIV_Msk);
-    if (flags & BIT(0)) {
-        cfg |= BIT(PWM_CONFIG_CLK_SRC_SLOW_Pos);
+    if (flags & MEC_BIT(0)) {
+        cfg |= MEC_BIT(PWM_CONFIG_CLK_SRC_SLOW_Pos);
     }
     regs->CNT_ON = cnt_on;
     regs->CNT_OFF = cnt_off;
@@ -314,7 +295,7 @@ int mec_pwm_init(struct pwm_regs *regs, uint32_t period_cycles,
     }
 
     if (flags & MEC5_PWM_CFG_INVERT) {
-        regs->CONFIG |= BIT(PWM_CONFIG_INVERT_Pos);
+        regs->CONFIG |= MEC_BIT(PWM_CONFIG_INVERT_Pos);
     }
 
     ret = prog_pwm(regs, period_cycles, pulse_cycles);
@@ -349,9 +330,9 @@ int mec_pwm_set_polarity(struct pwm_regs *regs, uint8_t polarity_inverted)
     }
 
     if (polarity_inverted) {
-        regs->CONFIG |= BIT(PWM_CONFIG_INVERT_Pos);
+        regs->CONFIG |= MEC_BIT(PWM_CONFIG_INVERT_Pos);
     } else {
-        regs->CONFIG &= (uint32_t)~BIT(PWM_CONFIG_INVERT_Pos);
+        regs->CONFIG &= (uint32_t)~MEC_BIT(PWM_CONFIG_INVERT_Pos);
     }
 
     return MEC_RET_OK;
@@ -360,9 +341,9 @@ int mec_pwm_set_polarity(struct pwm_regs *regs, uint8_t polarity_inverted)
 int mec_pwm_enable(struct pwm_regs *regs, uint8_t enable)
 {
     if (enable) {
-        regs->CONFIG |= BIT(PWM_CONFIG_ENABLE_Pos);
+        regs->CONFIG |= MEC_BIT(PWM_CONFIG_ENABLE_Pos);
     } else {
-        regs->CONFIG &= (uint32_t)~BIT(PWM_CONFIG_ENABLE_Pos);
+        regs->CONFIG &= (uint32_t)~MEC_BIT(PWM_CONFIG_ENABLE_Pos);
     }
 
     return 0;
@@ -370,7 +351,7 @@ int mec_pwm_enable(struct pwm_regs *regs, uint8_t enable)
 
 int mec_pwm_is_enabled(struct pwm_regs *regs)
 {
-    if (regs->CONFIG & BIT(PWM_CONFIG_ENABLE_Pos)) {
+    if (regs->CONFIG & MEC_BIT(PWM_CONFIG_ENABLE_Pos)) {
         return 1;
     }
 
@@ -381,7 +362,7 @@ uint32_t mec_pwm_get_freq_in(struct pwm_regs *regs)
 {
     uint32_t fin = MEC5_PWM_FIN_HIGH;
 
-    if (regs->CONFIG & BIT(PWM_CONFIG_CLK_SRC_SLOW_Pos)) {
+    if (regs->CONFIG & MEC_BIT(PWM_CONFIG_CLK_SRC_SLOW_Pos)) {
         fin = mec_pcr_slow_clock_freq_get();
     }
 
@@ -402,7 +383,7 @@ uint32_t mec_pwm_get_freq_out(struct pwm_regs *regs)
     uint32_t fin = MEC5_PWM_FIN_HIGH;
     uint32_t fpwm = 0, ps = 0, cnt_on = 0, cnt_off = 0;
 
-    if (regs->CONFIG & BIT(PWM_CONFIG_CLK_SRC_SLOW_Pos)) {
+    if (regs->CONFIG & MEC_BIT(PWM_CONFIG_CLK_SRC_SLOW_Pos)) {
         fin = mec_pcr_slow_clock_freq_get();
     }
 

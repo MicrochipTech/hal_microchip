@@ -14,27 +14,32 @@
 #include "mec_qspi_api.h"
 #include "mec_retval.h"
 
-#define MEC_QSPI_GIRQ 18
-#define MEC_QSPI_GIRQ_POS 1
-#define MEC_QSPI_M_FDIV_MAX 0x10000
+#define MEC_QSPI_GIRQ                  18
+#define MEC_QSPI0_GIRQ_POS             1
+#define MEC_QSPI0_AGGR_NVIC            10
+#define MEC_QSPI0_NVIC                 91
+
+#define MEC_QSPI0_ECIA_INFO            \
+    MEC5_ECIA_INFO(MEC_QSPI_GIRQ, MEC_QSPI0_GIRQ_POS, MEC_QSPI0_AGGR_NVIC, MEC_QSPI0_NVIC)
+
+#define MEC_QSPI_M_FDIV_MAX            0x10000
 #define MEC_QSPI_SOFT_RESET_WAIT_LOOPS 16
-#define MEC_QSPI_CLR_FIFOS_WAIT_LOOPS 16
+#define MEC_QSPI_CLR_FIFOS_WAIT_LOOPS  16
 #define MEC_QSPI_FORCE_STOP_WAIT_LOOPS 1000
-#define MEC_QSPI_DESCR_NU_MAX 0x7fffu
-#define MEC_QSPI_STATUS_ERRORS (BIT(QSPI_STATUS_TXBERR_Pos) \
-                                | BIT(QSPI_STATUS_RXBERR_Pos) \
-                                | BIT(QSPI_STATUS_PROGERR_Pos) \
-                                | BIT(QSPI_STATUS_LDRXERR_Pos) \
-                                | BIT(QSPI_STATUS_LDTXERR_Pos))
+#define MEC_QSPI_DESCR_NU_MAX          0x7fffu
+
+#define MEC_QSPI_STATUS_ERRORS (MEC_BIT(QSPI_STATUS_TXBERR_Pos) \
+                                | MEC_BIT(QSPI_STATUS_RXBERR_Pos) \
+                                | MEC_BIT(QSPI_STATUS_PROGERR_Pos) \
+                                | MEC_BIT(QSPI_STATUS_LDRXERR_Pos) \
+                                | MEC_BIT(QSPI_STATUS_LDTXERR_Pos))
 
 #define MEC_QSPI_SIG_MODE_POS QSPI_MODE_CPOL_Pos
-#define MEC_QSPI_SIG_MODE_MSK                                           \
+#define MEC_QSPI_SIG_MODE_MSK \
     (QSPI_MODE_CPOL_Msk | QSPI_MODE_CPHA_MOSI_Msk | QSPI_MODE_CPHA_MISO_Msk)
 
 #define MEC5_QSPI_START_DESCR_MSK0 ((uint32_t)QSPI_CTRL_DPTR_Msk >> QSPI_CTRL_DPTR_Pos)
-#define MEC5_QSPI_NEXT_DESCR_MSK0 ((uint32_t)QSPI_DESCR_NEXT_Msk >> QSPI_DESCR_NEXT_Pos)
-
-#define MEC_QSPI0_ECIA_INFO MEC5_ECIA_INFO(18, 1, 10, 91)
+#define MEC5_QSPI_NEXT_DESCR_MSK0  ((uint32_t)QSPI_DESCR_NEXT_Msk >> QSPI_DESCR_NEXT_Pos)
 
 /* QSPI SPI frequencies less than or equal to this value use
  * normal CPHA and CPOL settings. For frequencies above this
@@ -209,7 +214,7 @@ static void qspi_intr_clr_dis(struct qspi_regs *base)
 static void qspi_reset(struct qspi_regs *base)
 {
     /* Self clearing soft reset bit (write-only) */
-    base->MODE |= BIT(QSPI_MODE_SRST_Pos);
+    base->MODE |= MEC_BIT(QSPI_MODE_SRST_Pos);
 
     qspi_intr_clr_dis(base);
 }
@@ -282,7 +287,7 @@ void qspi_cs1_freq(struct qspi_regs *base, uint32_t freq)
     if (freq) {
         fdiv = compute_freq_divisor(freq);
         base->ALT1_MODE = (fdiv << QSPI_MODE_CLKDIV_Pos) & QSPI_MODE_CLKDIV_Msk;
-        base->ALT1_MODE |= BIT(QSPI_ALT1_MODE_CS1_ALTEN_Pos);
+        base->ALT1_MODE |= MEC_BIT(QSPI_ALT1_MODE_CS1_ALTEN_Pos);
     } else {
         base->ALT1_MODE = 0u;
     }
@@ -306,7 +311,7 @@ static uint32_t qspi_compute_byte_time_ns(struct qspi_regs *base)
     uint32_t btime_ns;
 
     /* Not CS0 and alternate frequency divider enabled */
-    if ((base->MODE & QSPI_MODE_CS_Msk) && (base->ALT1_MODE & BIT(QSPI_ALT1_MODE_CS1_ALTEN_Pos))) {
+    if ((base->MODE & QSPI_MODE_CS_Msk) && (base->ALT1_MODE & MEC_BIT(QSPI_ALT1_MODE_CS1_ALTEN_Pos))) {
         fdiv = ((base->ALT1_MODE & QSPI_ALT1_MODE_CS1_ALT_CLKDIV_Msk)
                 >> QSPI_ALT1_MODE_CS1_ALT_CLKDIV_Pos);
     }
@@ -485,7 +490,7 @@ int mec_qspi_init(struct qspi_regs *base,
     qspi_io(base, iom);
     qspi_cs_select(base, chip_sel);
 
-    base->MODE |= BIT(QSPI_MODE_ACTV_Pos);
+    base->MODE |= MEC_BIT(QSPI_MODE_ACTV_Pos);
 
     /* Enable QSPI interrupt signal to propagate to NVIC */
     mec_girq_ctrl(info->devi, 1);
@@ -501,28 +506,28 @@ int mec_qspi_options(struct qspi_regs *regs, uint8_t en, uint32_t options)
         return MEC_RET_ERR_INVAL;
     }
 
-    if (options & BIT(MEC_QSPI_OPT_ACTV_EN_POS)) {
-        msk |= BIT(QSPI_MODE_ACTV_Pos);
+    if (options & MEC_BIT(MEC_QSPI_OPT_ACTV_EN_POS)) {
+        msk |= MEC_BIT(QSPI_MODE_ACTV_Pos);
         if (en) {
-            val |= BIT(QSPI_MODE_ACTV_Pos);
+            val |= MEC_BIT(QSPI_MODE_ACTV_Pos);
         }
     }
-    if (options & BIT(MEC_QSPI_OPT_TAF_DMA_EN_POS)) {
-        msk |= BIT(QSPI_MODE_TAFDMA_Pos);
+    if (options & MEC_BIT(MEC_QSPI_OPT_TAF_DMA_EN_POS)) {
+        msk |= MEC_BIT(QSPI_MODE_TAFDMA_Pos);
         if (en) {
-            val |= BIT(QSPI_MODE_TAFDMA_Pos);
+            val |= MEC_BIT(QSPI_MODE_TAFDMA_Pos);
         }
     }
-    if (options & BIT(MEC_QSPI_OPT_RX_LDMA_EN_POS)) {
-        msk |= BIT(QSPI_MODE_RX_LDMA_Pos);
+    if (options & MEC_BIT(MEC_QSPI_OPT_RX_LDMA_EN_POS)) {
+        msk |= MEC_BIT(QSPI_MODE_RX_LDMA_Pos);
         if (en) {
-            val |= BIT(QSPI_MODE_RX_LDMA_Pos);
+            val |= MEC_BIT(QSPI_MODE_RX_LDMA_Pos);
         }
     }
-    if (options & BIT(MEC_QSPI_OPT_TX_LDMA_EN_POS)) {
-        msk |= BIT(QSPI_MODE_TX_LDMA_Pos);
+    if (options & MEC_BIT(MEC_QSPI_OPT_TX_LDMA_EN_POS)) {
+        msk |= MEC_BIT(QSPI_MODE_TX_LDMA_Pos);
         if (en) {
-            val |= BIT(QSPI_MODE_TX_LDMA_Pos);
+            val |= MEC_BIT(QSPI_MODE_TX_LDMA_Pos);
         }
     }
 
@@ -543,7 +548,7 @@ int mec_qspi_force_stop(struct qspi_regs *base)
         return MEC_RET_ERR_INVAL;
     }
 
-    base->EXE = BIT(QSPI_EXE_STOP_Pos);
+    base->EXE = MEC_BIT(QSPI_EXE_STOP_Pos);
 
     /* computation uses up some of the time */
     btime_ns = qspi_compute_byte_time_ns(base);
@@ -551,7 +556,7 @@ int mec_qspi_force_stop(struct qspi_regs *base)
     /* Timeout period, doesn't have to be accurate.
      * EC running at 96MHz (~10 ns) or slower.
      */
-    while (base->STATUS & BIT(QSPI_STATUS_ACTIVE_Pos)) {
+    while (base->STATUS & MEC_BIT(QSPI_STATUS_ACTIVE_Pos)) {
         if (!btime_ns) {
             return MEC_RET_ERR_TIMEOUT;
         }
@@ -575,7 +580,7 @@ int mec_qspi_done(struct qspi_regs *base)
         return MEC_RET_ERR_HW;
     }
 
-    if (qsts & BIT(QSPI_STATUS_DONE_Pos)) {
+    if (qsts & MEC_BIT(QSPI_STATUS_DONE_Pos)) {
         return MEC_RET_OK;
     }
 
@@ -607,11 +612,11 @@ static void qspi_intr_ctrl(struct qspi_regs *base, int enable)
     uint32_t qien = 0u;
 
     if (enable) {
-        qien = (BIT(QSPI_INTR_CTRL_DONE_Pos)
-                | BIT(QSPI_INTR_CTRL_TXBERR_Pos)
-                | BIT(QSPI_INTR_CTRL_PROGERR_Pos)
-                | BIT(QSPI_INTR_CTRL_LDRXERR_Pos)
-                | BIT(QSPI_INTR_CTRL_LDTXERR_Pos));
+        qien = (MEC_BIT(QSPI_INTR_CTRL_DONE_Pos)
+                | MEC_BIT(QSPI_INTR_CTRL_TXBERR_Pos)
+                | MEC_BIT(QSPI_INTR_CTRL_PROGERR_Pos)
+                | MEC_BIT(QSPI_INTR_CTRL_LDRXERR_Pos)
+                | MEC_BIT(QSPI_INTR_CTRL_LDTXERR_Pos));
     }
 
     base->INTR_CTRL = qien;
@@ -646,7 +651,7 @@ int mec_qspi_intr_ctrl_msk(struct qspi_regs *base, int enable, uint32_t msk)
 int mec_qspi_tx_fifo_is_empty(struct qspi_regs *base)
 {
     if (base) {
-        if (base->STATUS & BIT(QSPI_STATUS_TXBE_Pos)) {
+        if (base->STATUS & MEC_BIT(QSPI_STATUS_TXBE_Pos)) {
             return 1;
         }
     }
@@ -657,7 +662,7 @@ int mec_qspi_tx_fifo_is_empty(struct qspi_regs *base)
 int mec_qspi_tx_fifo_is_full(struct qspi_regs *base)
 {
     if (base) {
-        if (base->STATUS & BIT(QSPI_STATUS_TXBF_Pos)) {
+        if (base->STATUS & MEC_BIT(QSPI_STATUS_TXBF_Pos)) {
             return 1;
         }
     }
@@ -668,7 +673,7 @@ int mec_qspi_tx_fifo_is_full(struct qspi_regs *base)
 int mec_qspi_rx_fifo_is_empty(struct qspi_regs *base)
 {
     if (base) {
-        if (base->STATUS & BIT(QSPI_STATUS_RXBE_Pos)) {
+        if (base->STATUS & MEC_BIT(QSPI_STATUS_RXBE_Pos)) {
             return 1;
         }
     }
@@ -679,7 +684,7 @@ int mec_qspi_rx_fifo_is_empty(struct qspi_regs *base)
 int mec_qspi_rx_fifo_is_full(struct qspi_regs *base)
 {
     if (base) {
-        if (base->STATUS & BIT(QSPI_STATUS_RXBF_Pos)) {
+        if (base->STATUS & MEC_BIT(QSPI_STATUS_RXBF_Pos)) {
             return 1;
         }
     }
@@ -695,7 +700,7 @@ int mec_qspi_start(struct qspi_regs *base, uint32_t ien_mask)
 
     base->STATUS = UINT32_MAX;
     base->INTR_CTRL = ien_mask;
-    base->EXE = BIT(QSPI_EXE_START_Pos);
+    base->EXE = MEC_BIT(QSPI_EXE_START_Pos);
 
     return MEC_RET_OK;
 }
@@ -714,7 +719,7 @@ int mec_qspi_wr_tx_fifo(struct qspi_regs *regs, const uint8_t *buf, uint32_t buf
     }
 
     while (bufsz--) {
-        if (regs->STATUS & BIT(QSPI_STATUS_TXBF_Pos)) {
+        if (regs->STATUS & MEC_BIT(QSPI_STATUS_TXBF_Pos)) {
             break;
         }
         *tx_fifo = *buf++;
@@ -744,7 +749,7 @@ int mec_qspi_rd_rx_fifo(struct qspi_regs *regs, uint8_t *buf, uint32_t bufsz, ui
     }
 
     while (bufsz--) {
-        if (regs->STATUS & BIT(QSPI_STATUS_RXBE_Pos)) {
+        if (regs->STATUS & MEC_BIT(QSPI_STATUS_RXBE_Pos)) {
             break;
         }
         db = *rx_fifo;
@@ -763,7 +768,7 @@ int mec_qspi_rd_rx_fifo(struct qspi_regs *regs, uint8_t *buf, uint32_t bufsz, ui
 
 static void qspi_ldma_init(struct qspi_regs *base)
 {
-    base->MODE &= ~(BIT(QSPI_MODE_RX_LDMA_Pos) | BIT(QSPI_MODE_TX_LDMA_Pos));
+    base->MODE &= ~(MEC_BIT(QSPI_MODE_RX_LDMA_Pos) | MEC_BIT(QSPI_MODE_TX_LDMA_Pos));
     base->LDMA_RXEN = 0u;
     base->LDMA_TXEN = 0u;
     base->RX_LDMA_CHAN[0].CTRL = 0;
@@ -783,8 +788,8 @@ static void qspi_ldma_init(struct qspi_regs *base)
 static void qspi_ldma_cfg1(struct qspi_regs *base, const uint8_t *txb,
                            uint8_t *rxb, size_t lenb)
 {
-    uint32_t rctrl = BIT(QSPI_LDMA_CHAN_CTRL_EN_Pos);
-    uint32_t wctrl = BIT(QSPI_LDMA_CHAN_CTRL_EN_Pos);
+    uint32_t rctrl = MEC_BIT(QSPI_LDMA_CHAN_CTRL_EN_Pos);
+    uint32_t wctrl = MEC_BIT(QSPI_LDMA_CHAN_CTRL_EN_Pos);
     uint32_t temp = (uint32_t)QSPI_LDMA_CHAN_CTRL_ACCSZ_1B;
 
     if ((((uintptr_t)rxb | (uintptr_t)lenb) & 0x03u) == 0u) {
@@ -801,7 +806,7 @@ static void qspi_ldma_cfg1(struct qspi_regs *base, const uint8_t *txb,
     base->RX_LDMA_CHAN[0].LEN = lenb;
     if (rxb) {
         base->RX_LDMA_CHAN[0].MEM_START = (uintptr_t)rxb;
-        rctrl |= BIT(QSPI_LDMA_CHAN_CTRL_INCRA_Pos);
+        rctrl |= MEC_BIT(QSPI_LDMA_CHAN_CTRL_INCRA_Pos);
     } else {
         base->RX_LDMA_CHAN[0].MEM_START = (uintptr_t)&base->BCNT_STS;
     }
@@ -810,7 +815,7 @@ static void qspi_ldma_cfg1(struct qspi_regs *base, const uint8_t *txb,
     if (txb) {
         base->TX_LDMA_CHAN[0].LEN = lenb;
         base->TX_LDMA_CHAN[0].MEM_START = (uintptr_t)txb;
-        base->TX_LDMA_CHAN[0].CTRL = wctrl | BIT(QSPI_LDMA_CHAN_CTRL_INCRA_Pos);
+        base->TX_LDMA_CHAN[0].CTRL = wctrl | MEC_BIT(QSPI_LDMA_CHAN_CTRL_INCRA_Pos);
     }
 }
 
@@ -866,14 +871,14 @@ static int qspi_gen_ts_clocks(struct qspi_regs *base, uint32_t nclocks, uint32_t
     descr &= QSPI_DESCR_QNUNITS_Msk;
     descr |= (base->CTRL & QSPI_CTRL_IFM_Msk);
     descr |= (1u << QSPI_DESCR_NEXT_Pos);
-    descr |= BIT(QSPI_DESCR_LAST_Pos);
+    descr |= MEC_BIT(QSPI_DESCR_LAST_Pos);
 
-    if (flags & BIT(MEC_QSPI_XFR_FLAG_CLOSE_POS)) {
-        descr |= BIT(QSPI_DESCR_CLOSE_Pos);
+    if (flags & MEC_BIT(MEC_QSPI_XFR_FLAG_CLOSE_POS)) {
+        descr |= MEC_BIT(QSPI_DESCR_CLOSE_Pos);
     }
     base->DESCR[0] = descr;
 
-    if (flags & BIT(MEC_QSPI_XFR_FLAG_IEN_POS)) {
+    if (flags & MEC_BIT(MEC_QSPI_XFR_FLAG_IEN_POS)) {
         ien = 1;
     }
 
@@ -882,7 +887,7 @@ static int qspi_gen_ts_clocks(struct qspi_regs *base, uint32_t nclocks, uint32_t
     /* start HW */
     if (flags & MEC_QSPI_XFR_FLAG_START_POS) {
         GPIO->CTRL[032] = 0x00240u; /* drive low */
-        base->EXE = BIT(QSPI_EXE_START_Pos);
+        base->EXE = MEC_BIT(QSPI_EXE_START_Pos);
     }
 
     return MEC_RET_OK;
@@ -914,15 +919,15 @@ int mec_qspi_ldma(struct qspi_regs *base, const uint8_t *txb,
 
     qspi_ldma_init(base);
 
-    if (flags & BIT(MEC_QSPI_XFR_FLAG_CLR_FIFOS_POS)) {
-        base->EXE = BIT(QSPI_EXE_CLRF_Pos);
+    if (flags & MEC_BIT(MEC_QSPI_XFR_FLAG_CLR_FIFOS_POS)) {
+        base->EXE = MEC_BIT(QSPI_EXE_CLRF_Pos);
     } else if (base->BCNT_STS) { /* data left in TX and/or RX FIFO */
         return MEC_RET_ERR_HW;
     }
 
     base->STATUS = UINT32_MAX;
     /* descriptor mode starting at descriptor 0 */
-    base->CTRL |= BIT(QSPI_CTRL_DESCR_MODE_Pos);
+    base->CTRL |= MEC_BIT(QSPI_CTRL_DESCR_MODE_Pos);
 
 #ifdef MEC5_QSPI_LDMA_TX_NULL_LEN_ARE_CLOCKS
     if (!txb && !rxb && lenb) {
@@ -949,17 +954,17 @@ int mec_qspi_ldma(struct qspi_regs *base, const uint8_t *txb,
         descr |= (nu << QSPI_DESCR_QNUNITS_Pos);
         descr |= (((didx + 1u) << QSPI_DESCR_NEXT_Pos) & QSPI_DESCR_NEXT_Msk);
         base->DESCR[didx] = descr;
-        base->LDMA_RXEN |= BIT(didx);
+        base->LDMA_RXEN |= MEC_BIT(didx);
         if (txb) {
-            base->LDMA_TXEN |= BIT(didx);
+            base->LDMA_TXEN |= MEC_BIT(didx);
         }
         nbytes -= (nu << shift);
         didx++;
     }
 
-    descr = base->DESCR[didx - 1u] | BIT(QSPI_DESCR_LAST_Pos);
-    if (flags & BIT(MEC_QSPI_XFR_FLAG_CLOSE_POS)) {
-        descr |= BIT(QSPI_DESCR_CLOSE_Pos);
+    descr = base->DESCR[didx - 1u] | MEC_BIT(QSPI_DESCR_LAST_Pos);
+    if (flags & MEC_BIT(MEC_QSPI_XFR_FLAG_CLOSE_POS)) {
+        descr |= MEC_BIT(QSPI_DESCR_CLOSE_Pos);
     }
     base->DESCR[didx - 1u] = descr;
 
@@ -969,18 +974,18 @@ int mec_qspi_ldma(struct qspi_regs *base, const uint8_t *txb,
 
     qspi_ldma_cfg1(base, txb, rxb, lenb);
 
-    base->MODE |= (BIT(QSPI_MODE_RX_LDMA_Pos) | BIT(QSPI_MODE_TX_LDMA_Pos));
+    base->MODE |= (MEC_BIT(QSPI_MODE_RX_LDMA_Pos) | MEC_BIT(QSPI_MODE_TX_LDMA_Pos));
 
-    if (flags & BIT(MEC_QSPI_XFR_FLAG_IEN_POS)) {
+    if (flags & MEC_BIT(MEC_QSPI_XFR_FLAG_IEN_POS)) {
         ien = 1;
     }
 
     qspi_intr_ctrl(base, ien);
 
     /* start HW */
-    if (flags & BIT(MEC_QSPI_XFR_FLAG_START_POS)) {
+    if (flags & MEC_BIT(MEC_QSPI_XFR_FLAG_START_POS)) {
         GPIO->CTRL[032] = 0x00240u; /* drive low */
-        base->EXE = BIT(QSPI_EXE_START_Pos);
+        base->EXE = MEC_BIT(QSPI_EXE_START_Pos);
     }
 
     return 0;
@@ -1113,7 +1118,7 @@ int mec_qspi_ldma_cfg1(struct qspi_regs *regs, uintptr_t buf_addr, uint32_t nbyt
     ldma_regs->LEN = nbytes;
 
     if (buf_addr) {
-        ctrl |= BIT(QSPI_LDMA_CHAN_CTRL_INCRA_Pos);
+        ctrl |= MEC_BIT(QSPI_LDMA_CHAN_CTRL_INCRA_Pos);
     } else {
         ldma_regs->MEM_START = (uint32_t)((uintptr_t)&regs->BCNT_STS & UINT32_MAX);
     }
@@ -1123,7 +1128,7 @@ int mec_qspi_ldma_cfg1(struct qspi_regs *regs, uintptr_t buf_addr, uint32_t nbyt
         ctrl |= ((uint32_t)QSPI_LDMA_CHAN_CTRL_ACCSZ_4B << QSPI_LDMA_CHAN_CTRL_ACCSZ_Pos);
     }
 
-    ldma_regs->CTRL = ctrl | BIT(QSPI_LDMA_CHAN_CTRL_EN_Pos);
+    ldma_regs->CTRL = ctrl | MEC_BIT(QSPI_LDMA_CHAN_CTRL_EN_Pos);
 
     return 0;
 }
@@ -1157,7 +1162,7 @@ uint32_t mec_qspi_descrs_cfg1(struct mec_qspi_context *ctx, uint32_t nbytes, uin
                   & MEC5_QSPI_DCFG1_FLAG_DMA_MSK0) << QSPI_DESCR_TXDMA_Pos;
     }
     if (flags & MEC5_QSPI_DCFG1_FLAG_DIR_RX) {
-        dbase |= BIT(QSPI_DESCR_RXEN_Pos);
+        dbase |= MEC_BIT(QSPI_DESCR_RXEN_Pos);
         /* b[8:7] = RX-DMA: 0=disabled, 1-2 specify LDMA channel */
         dbase |= ((flags >> MEC5_QSPI_DCFG1_FLAG_DMA_RX_POS)
                   & MEC5_QSPI_DCFG1_FLAG_DMA_MSK0) << QSPI_DESCR_RXDMA_Pos;
@@ -1227,37 +1232,38 @@ int mec_qspi_load_descrs(struct qspi_regs *regs, struct mec_qspi_context *ctx, u
             /* TX-Data enabled? */
             ldchan = (descr & QSPI_DESCR_TXDMA_Msk) >> QSPI_DESCR_TXDMA_Pos;
             if (ldchan) {
-                regs->LDMA_TXEN |= BIT(didx);
-                mode |= BIT(QSPI_MODE_TX_LDMA_Pos);
+                regs->LDMA_TXEN |= MEC_BIT(didx);
+                mode |= MEC_BIT(QSPI_MODE_TX_LDMA_Pos);
             } else {
-                regs->LDMA_TXEN &= ~BIT(didx);
+                regs->LDMA_TXEN &= ~MEC_BIT(didx);
             }
         }
 
-        if (descr & BIT(QSPI_DESCR_RXEN_Pos)) {
+        if (descr & MEC_BIT(QSPI_DESCR_RXEN_Pos)) {
             ldchan = (descr & QSPI_DESCR_RXDMA_Msk) >> QSPI_DESCR_RXDMA_Pos;
             if (ldchan) {
-                regs->LDMA_RXEN |= BIT(didx);
-                mode |= BIT(QSPI_MODE_RX_LDMA_Pos);
+                regs->LDMA_RXEN |= MEC_BIT(didx);
+                mode |= MEC_BIT(QSPI_MODE_RX_LDMA_Pos);
             } else {
-                regs->LDMA_RXEN &= ~BIT(didx);
+                regs->LDMA_RXEN &= ~MEC_BIT(didx);
             }
         }
     }
 
-    regs->MODE = (regs->MODE & ~(BIT(QSPI_MODE_TX_LDMA_Pos) | BIT(QSPI_MODE_RX_LDMA_Pos))) | mode;
+    regs->MODE = (regs->MODE & ~(MEC_BIT(QSPI_MODE_TX_LDMA_Pos)
+                                 | MEC_BIT(QSPI_MODE_RX_LDMA_Pos))) | mode;
 
     didx = max_ndescr - 1u;
-    if (flags & BIT(MEC5_QSPI_LD_FLAGS_LAST_POS)) {
-        regs->DESCR[didx] |= BIT(QSPI_DESCR_LAST_Pos);
+    if (flags & MEC_BIT(MEC5_QSPI_LD_FLAGS_LAST_POS)) {
+        regs->DESCR[didx] |= MEC_BIT(QSPI_DESCR_LAST_Pos);
     }
 
-    if (flags & BIT(MEC5_QSPI_LD_FLAGS_CLOSE_ON_LAST_POS)) {
-        regs->DESCR[didx] |= BIT(QSPI_DESCR_CLOSE_Pos);
+    if (flags & MEC_BIT(MEC5_QSPI_LD_FLAGS_CLOSE_ON_LAST_POS)) {
+        regs->DESCR[didx] |= MEC_BIT(QSPI_DESCR_CLOSE_Pos);
     }
 
     /* Enable descriptor mode with start descriptor = Descr[0] */
-    regs->CTRL = BIT(QSPI_CTRL_DESCR_MODE_Pos);
+    regs->CTRL = MEC_BIT(QSPI_CTRL_DESCR_MODE_Pos);
 
     return 0;
 }

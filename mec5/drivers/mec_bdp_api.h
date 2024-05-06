@@ -27,9 +27,9 @@ extern "C"
 #endif
 
 enum mec5_bdp_status {
-    MEC5_BDP_STS_NOT_EMPTY = BIT(0),    /* FIFO contains data */
-    MEC5_BDP_STS_OVERRUN = BIT(1),      /* FIFO has been overrun */
-    MEC5_BDP_STS_THRES = BIT(2),        /* FIFO contains >= threshold entries */
+    MEC5_BDP_STS_NOT_EMPTY = MEC_BIT(0), /* FIFO contains data */
+    MEC5_BDP_STS_OVERRUN   = MEC_BIT(1), /* FIFO has been overrun */
+    MEC5_BDP_STS_THRES     = MEC_BIT(2), /* FIFO contains >= threshold entries */
 };
 
 #define MEC5_BDP_CFG_FIFO_THRES_POS         0
@@ -56,36 +56,36 @@ enum mec5_bdp_status {
 #define MEC5_BDP_CFG_ALIAS_ACTV_POS         13
 
 /* BDP FIFO contains 32 16-bit entries */
-#define MEC_BDP_FIFO_MAX_ENTRIES 32
+#define MEC_BDP_FIFO_MAX_ENTRIES            32
 
 /* 16-bit FIFO entry */
-#define MEC_BDP_FIFO_DATA_POS 0
-#define MEC_BDP_FIFO_DATA_MSK 0xffu
-#define MEC_BDP_FIFO_ATTR_POS 8
-#define MEC_BDP_FIFO_ATTR_MSK 0x7fu
+#define MEC_BDP_FIFO_DATA_POS               0
+#define MEC_BDP_FIFO_DATA_MSK               0xffu
+#define MEC_BDP_FIFO_ATTR_POS               8
+#define MEC_BDP_FIFO_ATTR_MSK               0x7fu
 
-#define MEC_BDP_FIFO_ATTR_BYTE_LANE_POS 8
-#define MEC_BDP_FIFO_ATTR_BYTE_LANE_MSK 0x300u
-#define MEC_BDP_FIFO_ATTR_BYTE_LANE_0 0
-#define MEC_BDP_FIFO_ATTR_BYTE_LANE_1 0x100u
-#define MEC_BDP_FIFO_ATTR_BYTE_LANE_2 0x200u
-#define MEC_BDP_FIFO_ATTR_BYTE_LANE_3 0x300u
+#define MEC_BDP_FIFO_ATTR_BYTE_LANE_POS     8
+#define MEC_BDP_FIFO_ATTR_BYTE_LANE_MSK     0x300u
+#define MEC_BDP_FIFO_ATTR_BYTE_LANE_0       0
+#define MEC_BDP_FIFO_ATTR_BYTE_LANE_1       0x100u
+#define MEC_BDP_FIFO_ATTR_BYTE_LANE_2       0x200u
+#define MEC_BDP_FIFO_ATTR_BYTE_LANE_3       0x300u
 
-#define MEC_BDP_FIFO_ATTR_SIZE_POS 10
-#define MEC_BDP_FIFO_ATTR_SIZE_MSK 0xc00u
-#define MEC_BDP_FIFO_ATTR_SIZE_1 0
-#define MEC_BDP_FIFO_ATTR_SIZE_2 0x400u
-#define MEC_BDP_FIFO_ATTR_SIZE_4 0x800u
-#define MEC_BDP_FIFO_ATTR_SIZE_INVAL 0xc00u
+#define MEC_BDP_FIFO_ATTR_SIZE_POS          10
+#define MEC_BDP_FIFO_ATTR_SIZE_MSK          0xc00u
+#define MEC_BDP_FIFO_ATTR_SIZE_1            0
+#define MEC_BDP_FIFO_ATTR_SIZE_2            0x400u
+#define MEC_BDP_FIFO_ATTR_SIZE_4            0x800u
+#define MEC_BDP_FIFO_ATTR_SIZE_INVAL        0xc00u
 
 /* read-only copy of FIFO Not Empty from the STATUS register */
-#define MEC_BDP_FIFO_ATTR_NOT_EMPTY_POS 12
+#define MEC_BDP_FIFO_ATTR_NOT_EMPTY_POS     12
 
 /* read-only copy of FIFO Overrun from the STATUS register */
-#define MEC_BDP_FIFO_ATTR_OVERRUN_POS 13
+#define MEC_BDP_FIFO_ATTR_OVERRUN_POS       13
 
 /* read-only copy of FIFO Threshold status from the STATUS register */
-#define MEC_BDP_FIFO_ATTR_THRES_POS 14
+#define MEC_BDP_FIFO_ATTR_THRES_POS         14
 
 /* forward reference */
 struct bdp_regs;
@@ -128,7 +128,7 @@ int mec_bdp_get_host_io(struct bdp_regs *regs, struct mec_bdp_io *capio);
 
 inline static uint32_t mec_bdp_fifo_not_empty(struct bdp_regs *regs)
 {
-    return (regs->STATUS & BIT(0));
+    return (regs->STATUS & MEC_BIT(0));
 }
 
 /* FIFO 16-bit data and attributes read as a 32-bit value.

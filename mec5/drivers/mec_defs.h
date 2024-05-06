@@ -11,21 +11,6 @@
 #include <stdint.h>
 
 /* General Constants */
-#ifndef FALSE
-#define FALSE   0x00
-#endif
-
-#ifndef TRUE
-#define TRUE    !FALSE
-#endif
-
-#ifndef ON
-#define ON  1
-#endif
-
-#ifndef OFF
-#define OFF 0
-#endif
 
 #define BIT_n_MASK(n)   (1U << (n))
 #define BIT_0_MASK  (1U << 0)
@@ -61,75 +46,83 @@
 #define BIT_30_MASK (1U << 30)
 #define BIT_31_MASK (1U << 31)
 
-#ifndef BIT
-#define BIT(n)      (1ul << (n))
+#ifndef MEC_BIT
+#define MEC_BIT(n)    (1ul << (n))
 #endif
 
-#ifndef BIT32
-#define BIT32(n)    (1ul << (n))
+#ifndef MEC_BIT32
+#define MEC_BIT32(n)  (1ul << (n))
 #endif
 
-#ifndef BIT64
-#define BIT64(n) (1ULL << (n))
+#ifndef MEC_BIT64
+#define MEC_BIT64(n)  (1ULL << (n))
 #endif
 
-#ifndef BIT_SET
-#define BIT_SET(d, pos) ((d) |= BIT(pos))
+#ifndef MEC_BIT_SET
+#define MEC_BIT_SET(d, pos) ((d) |= BIT(pos))
 #endif
 
-#ifndef BIT_CLR
-#define BIT_CLR(d, pos) ((d) &= ~BIT(pos))
+#ifndef MEC_BIT_CLR
+#define MEC_BIT_CLR(d, pos) ((d) &= ~BIT(pos))
 #endif
 
-#ifndef LSHFT
-#define LSHFT(v, s) (((uint32_t)(v)) << ((s) & 0x1Fu))
+#ifndef MEC_LSHFT
+#define MEC_LSHFT(v, s) (((uint32_t)(v)) << ((s) & 0x1Fu))
 #endif
 
-#ifndef FIELD_VAL
-#define FIELD_VAL(val, pos) ((uint32_t)(val) << (pos))
+#ifndef MEC_FIELD_VAL
+#define MEC_FIELD_VAL(val, pos) ((uint32_t)(val) << (pos))
 #endif
 
-#ifndef IS_PTR_ALIGNED16
-#define IS_PTR_ALIGNED16(ptr) ((((uintptr_t)(ptr)) & 0x01U) == 0)
+#ifndef MEC_IS_PTR_ALIGNED16
+#define MEC_IS_PTR_ALIGNED16(ptr) ((((uintptr_t)(ptr)) & 0x01U) == 0)
 #endif
 
-#ifndef IS_PTR_ALIGNED32
-#define IS_PTR_ALIGNED32(ptr) ((((uintptr_t)(ptr)) & 0x03U) == 0)
+#ifndef MEC_IS_PTR_ALIGNED32
+#define MEC_IS_PTR_ALIGNED32(ptr) ((((uintptr_t)(ptr)) & 0x03U) == 0)
 #endif
 
-#ifndef IS_PTR_ALIGNED64
-#define IS_PTR_ALIGNED64(ptr) ((((uintptr_t)(ptr)) & 0x07U) == 0)
+#ifndef MEC_IS_PTR_ALIGNED64
+#define MEC_IS_PTR_ALIGNED64(ptr) ((((uintptr_t)(ptr)) & 0x07U) == 0)
 #endif
 
-#ifndef IS_PTR_ALIGNED128
-#define IS_PTR_ALIGNED128(ptr) ((((uintptr_t)(ptr)) & 0x0fU) == 0)
+#ifndef MEC_IS_PTR_ALIGNED128
+#define MEC_IS_PTR_ALIGNED128(ptr) ((((uintptr_t)(ptr)) & 0x0fU) == 0)
+#endif
+
+#ifndef MEC_IS_PTR_ALIGNED4K
+#define MEC_IS_PTR_ALIGNED4K(ptr) ((((uintptr_t)(ptr)) & 0xfffU) == 0)
 #endif
 
 /* Align pointer in memory region. NOTE: memory region must be large
  * enough to move pointer forward to an aligned address.
  */
-#ifndef PTR_ALIGN4
-#define PTR_ALIGN4(ptr)     (((uintptr_t)(ptr) + 4U) & ~0x3u)
+#ifndef MEC_PTR_ALIGN4
+#define MEC_PTR_ALIGN4(ptr)     (((uintptr_t)(ptr) + 4U) & ~0x3u)
 #endif
 
-#ifndef PTR_ALIGN8
-#define PTR_ALIGN8(ptr)     (((uintptr_t)(ptr) + 8U) & ~0x7u)
+#ifndef MEC_PTR_ALIGN8
+#define MEC_PTR_ALIGN8(ptr)     (((uintptr_t)(ptr) + 8U) & ~0x7u)
 #endif
 
-#ifndef PTR_ALIGN16
-#define PTR_ALIGN16(ptr)    (((uintptr_t)(ptr) + 16U) & ~0xFu)
+#ifndef MEC_PTR_ALIGN16
+#define MEC_PTR_ALIGN16(ptr)    (((uintptr_t)(ptr) + 16U) & ~0xFu)
 #endif
 
-#define MMCR8(a) *(volatile uint8_t *)(a)
-#define MMCR16(a) *(volatile uint16_t *)(a)
-#define MMCR32(a) *(volatile uint32_t *)(a)
+#ifndef MEC_PTR_ALIGN4K
+#define MEC_PTR_ALIGN4K(ptr)    (((uintptr_t)(ptr) + 0x1000U) & ~0xFFFu)
+#endif
 
-#define MMCR8_WR(a, b) *(volatile uint8_t *)(a) = (uint8_t)(b)
-#define MMCR8_RD(a) *(volatile uint8_t *)(a)
-#define MMCR16_WR(a, b) *(volatile uint16_t *)(a) = (uint16_t)(b)
-#define MMCR16_RD(a) *(volatile uint16_t *)(a)
-#define MMCR32_WR(a, b) *(volatile uint32_t *)(a) = (uint32_t)(b)
-#define MMCR32_RD(a) *(volatile uint32_t *)(a)
+#define MEC_MMCR8(a)  *(volatile uint8_t *)(a)
+#define MEC_MMCR16(a) *(volatile uint16_t *)(a)
+#define MEC_MMCR32(a) *(volatile uint32_t *)(a)
+
+#define MEC_MMCR8_WR(a, b)  *(volatile uint8_t *)(a) = (uint8_t)(b)
+#define MEC_MMCR8_RD(a)     *(volatile uint8_t *)(a)
+#define MEC_MMCR16_WR(a, b) *(volatile uint16_t *)(a) = (uint16_t)(b)
+#define MEC_MMCR16_RD(a)    *(volatile uint16_t *)(a)
+#define MEC_MMCR32_WR(a, b) *(volatile uint32_t *)(a) = (uint32_t)(b)
+#define MEC_MMCR32_RD(a)    *(volatile uint32_t *)(a)
 
 struct mec_buf {
     void *data;

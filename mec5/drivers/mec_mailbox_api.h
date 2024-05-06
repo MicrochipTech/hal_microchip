@@ -20,8 +20,8 @@ extern "C"
 #endif
 
 enum mec_mbox_flags {
-    MEC_MBOX_FLAG_RESET = BIT(0),
-    MEC_MBOX_FLAG_INTR_EN = BIT(1),
+    MEC_MBOX_FLAG_RESET = MEC_BIT(0),
+    MEC_MBOX_FLAG_INTR_EN = MEC_BIT(1),
 };
 
 enum mec_mbox_swi_events {

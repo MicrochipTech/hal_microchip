@@ -13,9 +13,9 @@
 #include "mec_pcr_api.h"
 #include "mec_retval.h"
 
-#define MEC_ADC_GIRQ 17
-#define MEC_ADC_SM_GIRQ_POS 8
-#define MEC_ADC_RM_GIRQ_POS 9
+#define MEC_ADC_GIRQ         17
+#define MEC_ADC_SM_GIRQ_POS  8
+#define MEC_ADC_RM_GIRQ_POS  9
 #define MEC_ADC_SM_ECIA_INFO MEC5_ECIA_INFO(MEC_ADC_GIRQ, MEC_ADC_SM_GIRQ_POS, 9, 78)
 #define MEC_ADC_RM_ECIA_INFO MEC5_ECIA_INFO(MEC_ADC_GIRQ, MEC_ADC_RM_GIRQ_POS, 9, 79)
 
@@ -23,11 +23,11 @@ static inline uint32_t adc_intr_flag_to_bitmap(uint32_t flags)
 {
     uint32_t bm = 0;
 
-    if (flags & BIT(MEC_ADC_SINGLE_INTR_POS)) {
-        bm |= BIT(MEC_ADC_SM_GIRQ_POS);
+    if (flags & MEC_BIT(MEC_ADC_SINGLE_INTR_POS)) {
+        bm |= MEC_BIT(MEC_ADC_SM_GIRQ_POS);
     }
-    if (flags & BIT(MEC_ADC_REPEAT_INTR_POS)) {
-        bm |= BIT(MEC_ADC_RM_GIRQ_POS);
+    if (flags & MEC_BIT(MEC_ADC_REPEAT_INTR_POS)) {
+        bm |= MEC_BIT(MEC_ADC_RM_GIRQ_POS);
     }
 
     return bm;
@@ -38,7 +38,7 @@ static inline uint32_t adc_intr_flag_to_bitmap(uint32_t flags)
 /* Initialize ADC */
 int mec_adc_init(struct adc_regs *regs, struct mec_adc_config *cfg)
 {
-    uint32_t girq_bm = BIT(MEC_ADC_SM_GIRQ_POS) | BIT(MEC_ADC_RM_GIRQ_POS);
+    uint32_t girq_bm = MEC_BIT(MEC_ADC_SM_GIRQ_POS) | MEC_BIT(MEC_ADC_RM_GIRQ_POS);
     uint32_t temp = 4u;
     uint8_t flags = 0;
 
@@ -55,23 +55,23 @@ int mec_adc_init(struct adc_regs *regs, struct mec_adc_config *cfg)
     if (cfg) {
         flags = cfg->flags;
 
-        if (flags & BIT(MEC_ADC_CFG_SOFT_RESET_POS)) {
-            regs->CTRL = BIT(ADC_CTRL_SRST_Pos);
+        if (flags & MEC_BIT(MEC_ADC_CFG_SOFT_RESET_POS)) {
+            regs->CTRL = MEC_BIT(ADC_CTRL_SRST_Pos);
             while (temp--) {
-                if (!(regs->CTRL & BIT(ADC_CTRL_SRST_Pos))) {
+                if (!(regs->CTRL & MEC_BIT(ADC_CTRL_SRST_Pos))) {
                     break;
                 }
             }
             regs->CTRL = 0;
         }
 
-        if (flags & BIT(MEC_ADC_CFG_PWR_SAVE_DIS_POS)) {
-            regs->CTRL |= BIT(ADC_CTRL_PWR_SAVE_Pos);
+        if (flags & MEC_BIT(MEC_ADC_CFG_PWR_SAVE_DIS_POS)) {
+            regs->CTRL |= MEC_BIT(ADC_CTRL_PWR_SAVE_Pos);
         } else { /* enable by clearing the bit */
-            regs->CTRL &= (uint32_t)~BIT(ADC_CTRL_PWR_SAVE_Pos);
+            regs->CTRL &= (uint32_t)~MEC_BIT(ADC_CTRL_PWR_SAVE_Pos);
         }
 
-        if (flags & BIT(MEC_ADC_CFG_SAMPLE_TIME_POS)) {
+        if (flags & MEC_BIT(MEC_ADC_CFG_SAMPLE_TIME_POS)) {
             temp = (((uint32_t)cfg->sample_clk_hi_time << ADC_CONFIG_CHTM_Pos)
                     & ADC_CONFIG_CHTM_Msk);
             temp |= (((uint32_t)cfg->sample_clk_lo_time << ADC_CONFIG_CLTM_Pos)
@@ -81,13 +81,13 @@ int mec_adc_init(struct adc_regs *regs, struct mec_adc_config *cfg)
 
         }
 
-        if (flags & BIT(MEC_ADC_CFG_WARM_UP_POS)) {
+        if (flags & MEC_BIT(MEC_ADC_CFG_WARM_UP_POS)) {
             regs->SAR_CTRL = (regs->SAR_CTRL & (uint32_t)~(ADC_SAR_CTRL_WARMUPDLY_Msk))
                              | (((uint32_t)cfg->warm_up_delay << ADC_SAR_CTRL_WARMUPDLY_Pos)
                                 & ADC_SAR_CTRL_WARMUPDLY_Msk);
         }
 
-        if (flags & BIT(MEC_ADC_CFG_RPT_DELAY_POS)) {
+        if (flags & MEC_BIT(MEC_ADC_CFG_RPT_DELAY_POS)) {
             temp = regs->DELAY & (uint32_t)~(ADC_DELAY_RSTART_DLY_Msk | ADC_DELAY_RPT_DLY_Msk);
             temp |= (((uint32_t)cfg->rpt_start_delay << ADC_DELAY_RSTART_DLY_Pos)
                      & ADC_DELAY_RSTART_DLY_Msk);
@@ -96,12 +96,12 @@ int mec_adc_init(struct adc_regs *regs, struct mec_adc_config *cfg)
             regs->DELAY = (regs->DELAY & (uint32_t)~(ADC_DELAY_RSTART_DLY_Msk));
         }
 
-        if (flags & BIT(MEC_ADC_CFG_SAR_CFG_OVR_POS)) {
+        if (flags & MEC_BIT(MEC_ADC_CFG_SAR_CFG_OVR_POS)) {
             regs->SAR_CFG = cfg->sar_config;
         }
     }
 
-    regs->CTRL |= BIT(ADC_CTRL_ACTV_Pos);
+    regs->CTRL |= MEC_BIT(ADC_CTRL_ACTV_Pos);
 
     return MEC_RET_OK;
 }
@@ -113,9 +113,9 @@ int mec_adc_activate(struct adc_regs *regs, uint8_t enable)
     }
 
     if (enable) {
-        regs->CTRL |= BIT(ADC_CTRL_ACTV_Pos);
+        regs->CTRL |= MEC_BIT(ADC_CTRL_ACTV_Pos);
     } else {
-        regs->CTRL &= (uint32_t)~BIT(ADC_CTRL_ACTV_Pos);
+        regs->CTRL &= (uint32_t)~MEC_BIT(ADC_CTRL_ACTV_Pos);
     }
 
     return MEC_RET_OK;
@@ -178,9 +178,9 @@ int mec_adc_differential_input_enable(struct adc_regs *regs, uint8_t enable)
     }
 
     if (enable) {
-        regs->SAR_CTRL |= BIT(ADC_SAR_CTRL_SELDIFF_Pos);
+        regs->SAR_CTRL |= MEC_BIT(ADC_SAR_CTRL_SELDIFF_Pos);
     } else {
-        regs->SAR_CTRL &= (uint32_t)~BIT(ADC_SAR_CTRL_SELDIFF_Pos);
+        regs->SAR_CTRL &= (uint32_t)~MEC_BIT(ADC_SAR_CTRL_SELDIFF_Pos);
     }
 
     return MEC_RET_OK;
@@ -275,16 +275,16 @@ int mec_adc_status_clear(struct adc_regs *regs, uint32_t flags)
         return MEC_RET_ERR_INVAL;
     }
 
-    if (flags & BIT(MEC_ADC_SINGLE_INTR_POS)) {
+    if (flags & MEC_BIT(MEC_ADC_SINGLE_INTR_POS)) {
         regs->STATUS |= regs->SCHEN;
-        ctrl_val |= BIT(ADC_CTRL_SDONE_Pos);
-        girq_clr_bm |= BIT(MEC_ADC_SM_GIRQ_POS);
+        ctrl_val |= MEC_BIT(ADC_CTRL_SDONE_Pos);
+        girq_clr_bm |= MEC_BIT(MEC_ADC_SM_GIRQ_POS);
     }
 
-    if (flags & BIT(MEC_ADC_REPEAT_INTR_POS)) {
+    if (flags & MEC_BIT(MEC_ADC_REPEAT_INTR_POS)) {
         regs->STATUS |= regs->RCHEN;
-        ctrl_val |= BIT(ADC_CTRL_RDONE_Pos);
-        girq_clr_bm |= BIT(MEC_ADC_RM_GIRQ_POS);
+        ctrl_val |= MEC_BIT(ADC_CTRL_RDONE_Pos);
+        girq_clr_bm |= MEC_BIT(MEC_ADC_RM_GIRQ_POS);
     }
 
     regs->CTRL |= ctrl_val;
@@ -303,16 +303,16 @@ int mec_adc_start(struct adc_regs *regs, uint16_t single_chan_bm, uint16_t rpt_c
     }
 
     if (single_chan_bm) {
-        start_val |= BIT(ADC_CTRL_SSTART_Pos);
-        ctrl_sts |= BIT(ADC_CTRL_SDONE_Pos);
-        girq_clr_bm |= BIT(MEC_ADC_SM_GIRQ_POS);
+        start_val |= MEC_BIT(ADC_CTRL_SSTART_Pos);
+        ctrl_sts |= MEC_BIT(ADC_CTRL_SDONE_Pos);
+        girq_clr_bm |= MEC_BIT(MEC_ADC_SM_GIRQ_POS);
         regs->SCHEN = single_chan_bm;
     }
 
     if (rpt_chan_bm) {
-        start_val |= BIT(ADC_CTRL_RSTART_Pos);
-        ctrl_sts |= BIT(ADC_CTRL_RDONE_Pos);
-        girq_clr_bm |= BIT(MEC_ADC_RM_GIRQ_POS);
+        start_val |= MEC_BIT(ADC_CTRL_RSTART_Pos);
+        ctrl_sts |= MEC_BIT(ADC_CTRL_RDONE_Pos);
+        girq_clr_bm |= MEC_BIT(MEC_ADC_RM_GIRQ_POS);
         regs->RCHEN = rpt_chan_bm;
     }
 

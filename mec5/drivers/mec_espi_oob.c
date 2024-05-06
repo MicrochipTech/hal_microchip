@@ -15,11 +15,11 @@
 #include "mec_retval.h"
 
 /* ---- eSPI Out-Of-Band (OOB) Channel ---- */
-#define MEC5_ESPI_GIRQ 19
-#define MEC5_ESPI_GIRQ_AGGR_NVIC 11
-#define MEC5_ESPI_OOB_UP_GIRQ_POS 4
+#define MEC5_ESPI_GIRQ               19
+#define MEC5_ESPI_GIRQ_AGGR_NVIC     11
+#define MEC5_ESPI_OOB_UP_GIRQ_POS    4
 #define MEC5_ESPI_OOB_UP_NVIC_DIRECT 107
-#define MEC5_ESPI_OOB_DN_GIRQ_POS 5
+#define MEC5_ESPI_OOB_DN_GIRQ_POS    5
 #define MEC5_ESPI_OOB_DN_NVIC_DIRECT 108
 
 #define MEC_ESPI_OOB_UP_ECIA_INFO MEC5_ECIA_INFO(MEC5_ESPI_GIRQ, MEC5_ESPI_OOB_UP_GIRQ_POS, \
@@ -40,10 +40,10 @@ static uint32_t msk_to_girq_bitmap(uint8_t msk)
     uint32_t bitmap = 0;
 
     if (msk & MEC_ESPI_OOB_DIR_UP) {
-        bitmap |= BIT(MEC5_ESPI_OOB_UP_GIRQ_POS);
+        bitmap |= MEC_BIT(MEC5_ESPI_OOB_UP_GIRQ_POS);
     }
     if (msk & MEC_ESPI_OOB_DIR_DN) {
-        bitmap |= BIT(MEC5_ESPI_OOB_DN_GIRQ_POS);
+        bitmap |= MEC_BIT(MEC5_ESPI_OOB_DN_GIRQ_POS);
     }
 
     return bitmap;
@@ -53,10 +53,10 @@ static uint32_t bitmap_to_msk(uint32_t bitmap)
 {
     uint32_t msk = 0;
 
-    if (bitmap & BIT(MEC5_ESPI_OOB_UP_GIRQ_POS)) {
+    if (bitmap & MEC_BIT(MEC5_ESPI_OOB_UP_GIRQ_POS)) {
         msk |= MEC_ESPI_OOB_DIR_UP;
     }
-    if (bitmap & BIT(MEC5_ESPI_OOB_DN_GIRQ_POS)) {
+    if (bitmap & MEC_BIT(MEC5_ESPI_OOB_DN_GIRQ_POS)) {
         msk |= MEC_ESPI_OOB_DIR_DN;
     }
 
@@ -95,12 +95,12 @@ uint32_t mec_espi_oob_girq_result(void)
 
 void mec_espi_oob_ready_set(struct espi_io_regs *iobase)
 {
-    iobase->OOBRDY = BIT(ESPI_IO_OOBRDY_OOB_READY_Pos);
+    iobase->OOBRDY = MEC_BIT(ESPI_IO_OOBRDY_OOB_READY_Pos);
 }
 
 int mec_espi_oob_is_ready(struct espi_io_regs *iobase)
 {
-    if (iobase->OOBRDY & BIT(ESPI_IO_OOBRDY_OOB_READY_Pos)) {
+    if (iobase->OOBRDY & MEC_BIT(ESPI_IO_OOBRDY_OOB_READY_Pos)) {
         return 1;
     }
 
@@ -114,10 +114,10 @@ int mec_espi_oob_is_ready(struct espi_io_regs *iobase)
 uint32_t mec_espi_oob_en_status(struct espi_io_regs *iobase)
 {
     uint32_t txsts = iobase->OOBTXSTS;
-    uint32_t en = txsts & BIT(ESPI_IO_OOBTXSTS_CHEN_CHG_Pos); /* bit[1] */
+    uint32_t en = txsts & MEC_BIT(ESPI_IO_OOBTXSTS_CHEN_CHG_Pos); /* bit[1] */
 
-    if (txsts & BIT(ESPI_IO_OOBTXSTS_CHEN_STATE_Pos)) {
-        en |= BIT(MEC_ESPI_CHAN_ENABLED_POS);
+    if (txsts & MEC_BIT(ESPI_IO_OOBTXSTS_CHEN_STATE_Pos)) {
+        en |= MEC_BIT(MEC_ESPI_CHAN_ENABLED_POS);
     }
 
     return en;
@@ -196,7 +196,7 @@ int mec_espi_oob_buffer_set(struct espi_io_regs *iobase, uint8_t dir, struct mec
  */
 void mec_espi_oob_rx_buffer_avail(struct espi_io_regs *iobase)
 {
-    iobase->OOBRXC |= BIT(ESPI_IO_OOBRXC_RX_AVAIL_Pos);
+    iobase->OOBRXC |= MEC_BIT(ESPI_IO_OOBRXC_RX_AVAIL_Pos);
 }
 
 /* Enable OOB channel interrupts to the EC
@@ -206,19 +206,19 @@ void mec_espi_oob_intr_ctrl(struct espi_io_regs *iobase, uint32_t msk, uint8_t e
 {
     uint32_t txien = 0;
 
-    if (msk & BIT(MEC_ESPI_OOB_DN_INTR_DONE_POS)) {
+    if (msk & MEC_BIT(MEC_ESPI_OOB_DN_INTR_DONE_POS)) {
         if (en) {
-            iobase->OOBRXIEN |= BIT(ESPI_IO_OOBRXIEN_DONE_Pos);
+            iobase->OOBRXIEN |= MEC_BIT(ESPI_IO_OOBRXIEN_DONE_Pos);
         } else {
-            iobase->OOBRXIEN &= ~BIT(ESPI_IO_OOBRXIEN_DONE_Pos);
+            iobase->OOBRXIEN &= (uint32_t)~MEC_BIT(ESPI_IO_OOBRXIEN_DONE_Pos);
         }
     }
 
-    if (msk & BIT(MEC_ESPI_OOB_UP_INTR_DONE_POS)) {
-        txien |= BIT(ESPI_IO_OOBTXIEN_DONE_Pos);
+    if (msk & MEC_BIT(MEC_ESPI_OOB_UP_INTR_DONE_POS)) {
+        txien |= MEC_BIT(ESPI_IO_OOBTXIEN_DONE_Pos);
     }
-    if (msk & BIT(MEC_ESPI_OOB_UP_INTR_CHEN_CHG_POS)) {
-        txien |= BIT(ESPI_IO_OOBTXIEN_CHEN_CHG_Pos);
+    if (msk & MEC_BIT(MEC_ESPI_OOB_UP_INTR_CHEN_CHG_POS)) {
+        txien |= MEC_BIT(ESPI_IO_OOBTXIEN_CHEN_CHG_Pos);
     }
 
     if (en) {
@@ -230,19 +230,19 @@ void mec_espi_oob_intr_ctrl(struct espi_io_regs *iobase, uint32_t msk, uint8_t e
 
 void mec_espi_oob_tx_start(struct espi_io_regs *iobase, uint8_t tag, uint8_t start)
 {
-    uint32_t txctrl = iobase->OOBTXC & ~(ESPI_IO_OOBTXC_OOB_TX_TAG_Msk);
+    uint32_t txctrl = iobase->OOBTXC & (uint32_t)~(ESPI_IO_OOBTXC_OOB_TX_TAG_Msk);
 
     txctrl |= (((uint32_t)tag << ESPI_IO_OOBTXC_OOB_TX_TAG_Pos) & ESPI_IO_OOBTXC_OOB_TX_TAG_Msk);
     iobase->OOBTXC = txctrl;
 
     if (start) {
-        iobase->OOBTXC |= BIT(ESPI_IO_OOBTXC_START_Pos);
+        iobase->OOBTXC |= MEC_BIT(ESPI_IO_OOBTXC_START_Pos);
     }
 }
 
 int mec_espi_oob_tx_is_busy(struct espi_io_regs *iobase)
 {
-    if (iobase->OOBTXSTS & BIT(ESPI_IO_OOBTXSTS_BUSY_Pos)) {
+    if (iobase->OOBTXSTS & MEC_BIT(ESPI_IO_OOBTXSTS_BUSY_Pos)) {
         return 1;
     }
 
@@ -286,7 +286,7 @@ int mec_espi_oob_is_done(uint32_t status, uint8_t dir)
         done_pos = ESPI_IO_OOBRXSTS_DONE_Pos;
     }
 
-    if (status & BIT(done_pos)) {
+    if (status & MEC_BIT(done_pos)) {
         return 1;
     }
 
@@ -314,8 +314,8 @@ int mec_espi_oob_up_is_chan_event(uint32_t status)
 {
     int ev = 0; /* no event */
 
-    if (status & BIT(ESPI_IO_OOBTXSTS_CHEN_CHG_Pos)) {
-        if (status & BIT(ESPI_IO_OOBTXSTS_CHEN_STATE_Pos)) {
+    if (status & MEC_BIT(ESPI_IO_OOBTXSTS_CHEN_CHG_Pos)) {
+        if (status & MEC_BIT(ESPI_IO_OOBTXSTS_CHEN_STATE_Pos)) {
             /* 0 -> 1 is enable */
             ev = 1;
         } else {
@@ -329,9 +329,9 @@ int mec_espi_oob_up_is_chan_event(uint32_t status)
 void mec_espi_oob_status_clr_done(struct espi_io_regs *iobase, uint8_t dir)
 {
    if (dir == MEC_ESPI_OOB_DIR_UP) {
-       iobase->OOBTXSTS = BIT(ESPI_IO_OOBTXSTS_DONE_Pos);
+       iobase->OOBTXSTS = MEC_BIT(ESPI_IO_OOBTXSTS_DONE_Pos);
    } else {
-       iobase->OOBRXSTS = BIT(ESPI_IO_OOBRXSTS_DONE_Pos);
+       iobase->OOBRXSTS = MEC_BIT(ESPI_IO_OOBRXSTS_DONE_Pos);
    }
 
 
@@ -349,7 +349,7 @@ void mec_espi_oob_status_clr_err(struct espi_io_regs *iobase, uint8_t dir)
 
 void mec_espi_oob_status_clr_chen_change(struct espi_io_regs *iobase)
 {
-    iobase->OOBTXSTS = BIT(ESPI_IO_OOBTXSTS_CHEN_CHG_Pos);
+    iobase->OOBTXSTS = MEC_BIT(ESPI_IO_OOBTXSTS_CHEN_CHG_Pos);
 }
 
 void mec_espi_oob_status_clr_all(struct espi_io_regs *iobase, uint8_t dir)

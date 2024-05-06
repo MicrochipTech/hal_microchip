@@ -37,8 +37,8 @@ const struct ld_info ld_table[] = {
     { MEC_ESPI_LDN_KB_PORT92, 11, 0, 0, 0, {0, 0, 0} },
     { MEC_ESPI_LDN_UART0, 12, 0, 1, 9, {0, 0, 0} },
     { MEC_ESPI_LDN_UART1, 13, 0, 1, 10, {0, 0, 0} },
-    { MEC_ESPI_LDN_UART2, 22, 0, 1, 19, {0, 0, 0} }, /* MEC540x */
-    { MEC_ESPI_LDN_UART3, 24, 0, 1, 21, {0, 0, 0} }, /* MEC540x */
+    { MEC_ESPI_LDN_UART2, 22, 0, 1, 19, {0, 0, 0} },
+    { MEC_ESPI_LDN_UART3, 24, 0, 1, 21, {0, 0, 0} },
     { MEC_ESPI_LDN_IOC, 1, 0, 0, 0, {0, 0, 0} },
     { MEC_ESPI_LDN_IOMC, 2, 0, 0, 0, {0, 0, 0} },
     { MEC_ESPI_LDN_GLUE, 23, 0, 0, 0, {0, 0, 0} },
@@ -46,7 +46,7 @@ const struct ld_info ld_table[] = {
     { MEC_ESPI_LDN_EMI1, 15, 8, 2, 13, {0, 0, 0} },
     { MEC_ESPI_LDN_EMI2, 16, 9, 2, 15, {0, 0, 0} },
     { MEC_ESPI_LDN_RTC, 19, 0, 1, 17, {0, 0, 0} },
-    { MEC_ESPI_LDN_PP0, 25, 0, 0, 0, {0, 0, 0} }, /* MEC540x ? */
+    { MEC_ESPI_LDN_PP0, 25, 0, 0, 0, {0, 0, 0} }, /* desktop devices */
     { MEC_ESPI_LDN_BDBG0, 17, 0, 0, 0, {0, 0, 0} },
     { MEC_ESPI_LDN_BDBG0_ALIAS, 18, 0, 0, 0, {0, 0, 0} },
     { MEC_ESPI_LDN_TB32, 21, 0, 0, 0, {0, 0, 0} },
@@ -72,26 +72,26 @@ static struct ld_info const *find_bar(uint8_t ldn)
 static inline int ldn_has_iob(uint8_t ldn)
 {
     if (ldn < 32) {
-        return (int)(BIT(ldn) & (uint32_t)(MEC5_ESPI_LDN_IOB_MSK_LO));
+        return (int)(MEC_BIT(ldn) & (uint32_t)(MEC5_ESPI_LDN_IOB_MSK_LO));
     } else {
         ldn = ldn - (uint8_t)32u;
-        return (int)(BIT(ldn) & (uint32_t)(MEC5_ESPI_LDN_IOB_MSK_HI));
+        return (int)(MEC_BIT(ldn) & (uint32_t)(MEC5_ESPI_LDN_IOB_MSK_HI));
     }
 }
 
 static inline int ldn_has_memb(uint8_t ldn)
 {
     if (ldn < 32) {
-        return (int)(BIT(ldn) & (uint32_t)(MEC5_ESPI_LDN_MEMB_MSK_LO));
+        return (int)(MEC_BIT(ldn) & (uint32_t)(MEC5_ESPI_LDN_MEMB_MSK_LO));
     } else {
         ldn = ldn - (uint8_t)32u;
-        return (int)(BIT(ldn) & (uint32_t)(MEC5_ESPI_LDN_MEMB_MSK_HI));
+        return (int)(MEC_BIT(ldn) & (uint32_t)(MEC5_ESPI_LDN_MEMB_MSK_HI));
     }
 }
 
 static uint8_t mec_espi_sirq_get(struct espi_io_regs *iobase, uint8_t sirq_idx)
 {
-    if ((sirq_idx > 31) || !(BIT(sirq_idx) & MEC5_ESPI_PC_SIRQ_BITMAP)) {
+    if ((sirq_idx > 31) || !(MEC_BIT(sirq_idx) & MEC5_ESPI_PC_SIRQ_BITMAP)) {
         return MEC_ESPI_SIRQ_SLOT_DIS;
     }
 
@@ -101,7 +101,7 @@ static uint8_t mec_espi_sirq_get(struct espi_io_regs *iobase, uint8_t sirq_idx)
 /* Set SERIRQ slot number for specified SERIRQ index */
 static void mec_espi_sirq_set(struct espi_io_regs *iobase, uint8_t sirq_idx, uint8_t slot)
 {
-    if ((sirq_idx > 31) || !(BIT(sirq_idx) & MEC5_ESPI_PC_SIRQ_BITMAP)) {
+    if ((sirq_idx > 31) || !(MEC_BIT(sirq_idx) & MEC5_ESPI_PC_SIRQ_BITMAP)) {
         return;
     }
 
@@ -130,7 +130,7 @@ int mec_espi_iobar_cfg(struct espi_io_regs *base, uint8_t ldn, uint16_t io_base,
     base->HOST_BAR[idx] = bar_val;
 
     if (enable) {
-        base->HOST_BAR[idx] |= BIT(ESPI_IO_HOST_BAR_VALID_Pos);
+        base->HOST_BAR[idx] |= MEC_BIT(ESPI_IO_HOST_BAR_VALID_Pos);
     }
 
     return MEC_RET_OK;
@@ -152,9 +152,9 @@ int mec_espi_iobar_enable(struct espi_io_regs *base, uint8_t ldn, uint8_t enable
     idx = (uint8_t)(ldi->io_bar_idx - 1u);
 
     if (enable) {
-        base->HOST_BAR[idx] |= BIT(ESPI_IO_HOST_BAR_VALID_Pos);
+        base->HOST_BAR[idx] |= MEC_BIT(ESPI_IO_HOST_BAR_VALID_Pos);
     } else {
-        base->HOST_BAR[idx] &= ~BIT(ESPI_IO_HOST_BAR_VALID_Pos);
+        base->HOST_BAR[idx] &= (uint32_t)~MEC_BIT(ESPI_IO_HOST_BAR_VALID_Pos);
     }
 
     return MEC_RET_OK;
@@ -174,7 +174,7 @@ int mec_espi_iobar_is_enabled(struct espi_io_regs *base, uint8_t ldn)
     }
 
     idx = (uint8_t)(ldi->io_bar_idx - 1u);
-    if (base->HOST_BAR[idx] & BIT(ESPI_IO_HOST_BAR_VALID_Pos)) {
+    if (base->HOST_BAR[idx] & MEC_BIT(ESPI_IO_HOST_BAR_VALID_Pos)) {
         return 1;
     }
 
@@ -252,12 +252,12 @@ int mec_espi_mbar_cfg(struct espi_mem_regs *base, uint8_t ldn, uint32_t mem_base
 
     volatile struct espi_mem_host_mem_bar_regs *mbar = &base->HOST_MEM_BAR[idx];
 
-    mbar->VALID &= (uint16_t)~BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos);
+    mbar->VALID &= (uint16_t)~MEC_BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos);
     mbar->HOST_MEM_ADDR_B15_0 = (uint16_t)mem_base;
     mbar->HOST_MEM_ADDR_B31_16 = (uint16_t)(mem_base >> 16);
 
     if (enable) {
-        mbar->VALID |= BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos);
+        mbar->VALID |= MEC_BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos);
     }
 
     return MEC_RET_OK;
@@ -288,7 +288,7 @@ int mec_espi_sram_bar_cfg(struct espi_mem_regs *base, const struct espi_mec5_sra
     base->HOST_SRAM_BAR[sram_bar_id].HOST_ADDR_31_16 = (uint16_t)(barcfg->haddr >> 16);
 
     if (enable) {
-        base->EC_SRAM_BAR[sram_bar_id].VASZ |= BIT(ESPI_MEM_EC_SRAM_BAR_VASZ_VALID_Pos);
+        base->EC_SRAM_BAR[sram_bar_id].VASZ |= MEC_BIT(ESPI_MEM_EC_SRAM_BAR_VASZ_VALID_Pos);
     }
 
     return MEC_RET_OK;
@@ -339,9 +339,9 @@ int mec_espi_mbar_enable(struct espi_mem_regs *base, uint8_t ldn, uint8_t enable
     volatile struct espi_mem_host_mem_bar_regs *mbar = &base->HOST_MEM_BAR[idx];
 
     if (enable) {
-        mbar->VALID |= BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos);
+        mbar->VALID |= MEC_BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos);
     } else {
-        mbar->VALID &= (uint16_t)~BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos);
+        mbar->VALID &= (uint16_t)~MEC_BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos);
     }
 
     return MEC_RET_OK;
@@ -364,7 +364,7 @@ int mec_espi_mbar_is_enabled(struct espi_mem_regs *base, uint8_t ldn)
 
     volatile struct espi_mem_host_mem_bar_regs *mbar = &base->HOST_MEM_BAR[idx];
 
-    if (mbar->VALID & BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos)) {
+    if (mbar->VALID & MEC_BIT(ESPI_MEM_HOST_MBAR_VALID_EN_Pos)) {
         return 1;
     }
 
@@ -386,16 +386,16 @@ int mec_espi_bar_inhibit(struct espi_io_regs *base, uint8_t ldn, uint8_t inhibit
 
     if (ldn < 32) {
         if (inhibit) {
-            base->PCBINH[0] |= BIT(ldn);
+            base->PCBINH[0] |= MEC_BIT(ldn);
         } else {
-            base->PCBINH[0] &= ~BIT(ldn);
+            base->PCBINH[0] &= (uint32_t)~MEC_BIT(ldn);
         }
     } else {
         ldn = ldn - (uint8_t)32u;
         if (inhibit) {
-            base->PCBINH[1] |= BIT(ldn);
+            base->PCBINH[1] |= MEC_BIT(ldn);
         } else {
-            base->PCBINH[1] &= ~BIT(ldn);
+            base->PCBINH[1] &= (uint32_t)~MEC_BIT(ldn);
         }
     }
 
@@ -482,7 +482,7 @@ int mec_espi_gen_ec_sirq(struct espi_io_regs *iobase)
         return MEC_RET_ERR_INVAL;
     }
 
-    iobase->PCECIRQ |= BIT(ESPI_IO_PCECIRQ_GEN_EC_IRQ_Pos);
+    iobase->PCECIRQ |= MEC_BIT(ESPI_IO_PCECIRQ_GEN_EC_IRQ_Pos);
 
     return MEC_RET_OK;
 }

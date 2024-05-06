@@ -7,7 +7,6 @@
 #include <stdint.h>
 
 #include <device_mec5.h>
-#include "mec_pcfg.h"
 #include "mec_defs.h"
 #include "mec_ecia_api.h"
 #include "mec_pcr_api.h"
@@ -33,23 +32,23 @@ int mec_rtimer_init(struct rtmr_regs *regs, uint32_t rtmr_config, uint32_t prelo
     regs->CTRL = 0;
     regs->PRELOAD = preload;
 
-    if (rtmr_config & BIT(MEC_RTMR_CFG_EN_POS)) {
-        ctrl |= BIT(RTMR_CTRL_ENABLE_Pos);
+    if (rtmr_config & MEC_BIT(MEC_RTMR_CFG_EN_POS)) {
+        ctrl |= MEC_BIT(RTMR_CTRL_ENABLE_Pos);
     }
 
-    if (rtmr_config & BIT(MEC_RTMR_CFG_AUTO_RELOAD_POS)) {
-        ctrl |= BIT(RTMR_CTRL_AUTO_RELOAD_Pos);
+    if (rtmr_config & MEC_BIT(MEC_RTMR_CFG_AUTO_RELOAD_POS)) {
+        ctrl |= MEC_BIT(RTMR_CTRL_AUTO_RELOAD_Pos);
     }
 
-    if (rtmr_config & BIT(MEC_RTMR_CFG_START_POS)) {
-        ctrl |= BIT(RTMR_CTRL_START_Pos);
+    if (rtmr_config & MEC_BIT(MEC_RTMR_CFG_START_POS)) {
+        ctrl |= MEC_BIT(RTMR_CTRL_START_Pos);
     }
 
-    if (rtmr_config & BIT(MEC_RTMR_CFG_DBG_HALT_POS)) {
-        ctrl |= BIT(RTMR_CTRL_EXT_HALT_Pos);
+    if (rtmr_config & MEC_BIT(MEC_RTMR_CFG_DBG_HALT_POS)) {
+        ctrl |= MEC_BIT(RTMR_CTRL_EXT_HALT_Pos);
     }
 
-    if (rtmr_config & BIT(MEC_RTMR_CFG_IEN_POS)) {
+    if (rtmr_config & MEC_BIT(MEC_RTMR_CFG_IEN_POS)) {
         irq_en = 1;
     }
 
@@ -66,7 +65,7 @@ uint32_t mec_rtimer_status(struct rtmr_regs *regs)
     (void)regs;
 
     if (mec_girq_src(MEC_RTMR_ECIA_INFO)) {
-        return BIT(MEC_RTMR_STATUS_TERM_POS);
+        return MEC_BIT(MEC_RTMR_STATUS_TERM_POS);
     }
 
     return 0;
@@ -76,7 +75,7 @@ void mec_rtimer_status_clear(struct rtmr_regs *regs, uint32_t status)
 {
     (void)regs;
 
-    if (status & BIT(MEC_RTMR_STATUS_TERM_POS)) {
+    if (status & MEC_BIT(MEC_RTMR_STATUS_TERM_POS)) {
         mec_girq_clr_src(MEC_RTMR_ECIA_INFO);
     }
 }
@@ -111,10 +110,10 @@ void mec_rtimer_restart(struct rtmr_regs *regs, uint32_t new_count, uint8_t rest
     uint32_t ctrl = regs->CTRL;
 
     regs->CTRL = 0;
-    ctrl &= (uint32_t)~BIT(RTMR_CTRL_FW_HALT_Pos);
-    ctrl |= BIT(RTMR_CTRL_ENABLE_Pos);
+    ctrl &= (uint32_t)~MEC_BIT(RTMR_CTRL_FW_HALT_Pos);
+    ctrl |= MEC_BIT(RTMR_CTRL_ENABLE_Pos);
     if (restart) {
-        ctrl |= BIT(RTMR_CTRL_START_Pos);
+        ctrl |= MEC_BIT(RTMR_CTRL_START_Pos);
     }
 
     regs->PRELOAD = new_count;

@@ -27,10 +27,10 @@
 
 /* Flash channel status errors */
 #define MEC_ESPI_FC_ERR_ALL \
-    (BIT(ESPI_IO_FCSTS_BAD_REQ_Pos) | BIT(ESPI_IO_FCSTS_START_OVRFL_Pos) \
-     | BIT(ESPI_IO_FCSTS_FAIL_Pos) | BIT(ESPI_IO_FCSTS_DATA_INCOMPL_Pos) \
-     | BIT(ESPI_IO_FCSTS_DATA_OVRUN_Pos) | BIT(ESPI_IO_FCSTS_ABORT_FW_Pos) \
-     | BIT(ESPI_IO_FCSTS_EC_BUS_ERR_Pos) | BIT(ESPI_IO_FCSTS_DIS_BY_HOST_Pos))
+    (MEC_BIT(ESPI_IO_FCSTS_BAD_REQ_Pos) | MEC_BIT(ESPI_IO_FCSTS_START_OVRFL_Pos) \
+     | MEC_BIT(ESPI_IO_FCSTS_FAIL_Pos) | MEC_BIT(ESPI_IO_FCSTS_DATA_INCOMPL_Pos) \
+     | MEC_BIT(ESPI_IO_FCSTS_DATA_OVRUN_Pos) | MEC_BIT(ESPI_IO_FCSTS_ABORT_FW_Pos) \
+     | MEC_BIT(ESPI_IO_FCSTS_EC_BUS_ERR_Pos) | MEC_BIT(ESPI_IO_FCSTS_DIS_BY_HOST_Pos))
 
 /* ---- Public API ---- */
 
@@ -65,12 +65,12 @@ uint32_t mec_espi_fc_en_status(struct espi_io_regs *iobase)
 
 void mec_espi_fc_ready_set(struct espi_io_regs *iobase)
 {
-    iobase->FCRDY = BIT(ESPI_IO_FCRDY_FC_READY_Pos);
+    iobase->FCRDY = MEC_BIT(ESPI_IO_FCRDY_FC_READY_Pos);
 }
 
 int mec_espi_fc_is_ready(struct espi_io_regs *iobase)
 {
-    if (iobase->FCRDY & BIT(ESPI_IO_FCRDY_FC_READY_Pos)) {
+    if (iobase->FCRDY & MEC_BIT(ESPI_IO_FCRDY_FC_READY_Pos)) {
         return 1;
     }
 
@@ -79,7 +79,7 @@ int mec_espi_fc_is_ready(struct espi_io_regs *iobase)
 
 int mec_espi_fc_is_busy(struct espi_io_regs *iobase)
 {
-    if (iobase->FCCFG & BIT(ESPI_IO_FCCFG_BUSY_Pos)) {
+    if (iobase->FCCFG & MEC_BIT(ESPI_IO_FCCFG_BUSY_Pos)) {
         return 1;
     }
 
@@ -95,20 +95,20 @@ int mec_espi_fc_is_busy(struct espi_io_regs *iobase)
  */
 void mec_espi_fc_op_start(struct espi_io_regs *iobase, uint32_t flags)
 {
-    iobase->FCSTS = MEC_ESPI_FC_ERR_ALL | BIT(ESPI_IO_FCSTS_DONE_Pos);
+    iobase->FCSTS = MEC_ESPI_FC_ERR_ALL | MEC_BIT(ESPI_IO_FCSTS_DONE_Pos);
 
-    if (flags & BIT(MEC_ESPI_FC_XFR_FLAG_START_IEN_POS)) {
-        iobase->FCIEN |= BIT(ESPI_IO_FCIEN_DONE_Pos);
+    if (flags & MEC_BIT(MEC_ESPI_FC_XFR_FLAG_START_IEN_POS)) {
+        iobase->FCIEN |= MEC_BIT(ESPI_IO_FCIEN_DONE_Pos);
     } else {
-        iobase->FCIEN &= ~BIT(ESPI_IO_FCIEN_DONE_Pos);
+        iobase->FCIEN &= (uint32_t)~MEC_BIT(ESPI_IO_FCIEN_DONE_Pos);
     }
 
-    iobase->FCCTL |= BIT(ESPI_IO_FCCTL_START_Pos);
+    iobase->FCCTL |= MEC_BIT(ESPI_IO_FCCTL_START_Pos);
 }
 
 void mec_espi_fc_op_abort(struct espi_io_regs *iobase)
 {
-    iobase->FCCTL |= BIT(ESPI_IO_FCCTL_ABORT_Pos);
+    iobase->FCCTL |= MEC_BIT(ESPI_IO_FCCTL_ABORT_Pos);
 }
 
 void mec_espi_fc_intr_ctrl(struct espi_io_regs *iobase, uint32_t msk, uint8_t en)
@@ -119,11 +119,11 @@ void mec_espi_fc_intr_ctrl(struct espi_io_regs *iobase, uint32_t msk, uint8_t en
         return;
     }
 
-    if (msk & BIT(MEC_ESPI_FC_INTR_DONE_POS)) {
-        r |= BIT(ESPI_IO_FCIEN_DONE_Pos);
+    if (msk & MEC_BIT(MEC_ESPI_FC_INTR_DONE_POS)) {
+        r |= MEC_BIT(ESPI_IO_FCIEN_DONE_Pos);
     }
-    if (msk & BIT(MEC_ESPI_FC_INTR_CHEN_CHG_POS)) {
-        r |= BIT(ESPI_IO_FCIEN_CHEN_CHG_Pos);
+    if (msk & MEC_BIT(MEC_ESPI_FC_INTR_CHEN_CHG_POS)) {
+        r |= MEC_BIT(ESPI_IO_FCIEN_CHEN_CHG_Pos);
     }
 
     if (en) {
@@ -272,7 +272,7 @@ int mec_espi_fc_xfr_start(struct espi_io_regs *iobase,
         return MEC_RET_ERR_INVAL;
     }
 
-    if (!IS_PTR_ALIGNED32(pxfr->buf_addr)) {
+    if (!MEC_IS_PTR_ALIGNED32(pxfr->buf_addr)) {
         return MEC_RET_ERR_DATA_ALIGN;
     }
 
@@ -303,18 +303,18 @@ int mec_espi_fc_xfr_start(struct espi_io_regs *iobase,
         break;
     }
 
-    iobase->FCIEN &= ~BIT(ESPI_IO_FCIEN_DONE_Pos);
-    iobase->FCSTS = MEC_ESPI_FC_ERR_ALL | BIT(ESPI_IO_FCSTS_DONE_Pos);
+    iobase->FCIEN &= (uint32_t)~MEC_BIT(ESPI_IO_FCIEN_DONE_Pos);
+    iobase->FCSTS = MEC_ESPI_FC_ERR_ALL | MEC_BIT(ESPI_IO_FCSTS_DONE_Pos);
     iobase->FCFA = pxfr->flash_addr;
     iobase->FCBA = pxfr->buf_addr;
     iobase->FCLEN = xfr_len;
-    if (flags & BIT(MEC_ESPI_FC_XFR_FLAG_START_IEN_POS)) {
-        iobase->FCIEN |= BIT(ESPI_IO_FCIEN_DONE_Pos);
+    if (flags & MEC_BIT(MEC_ESPI_FC_XFR_FLAG_START_IEN_POS)) {
+        iobase->FCIEN |= MEC_BIT(ESPI_IO_FCIEN_DONE_Pos);
     }
 
     iobase->FCCTL = ((((uint32_t)pxfr->tag << ESPI_IO_FCCTL_TAG_Pos) & ESPI_IO_FCCTL_TAG_Msk)
                      | ((fc_op << ESPI_IO_FCCTL_OP_Pos) & ESPI_IO_FCCTL_OP_Msk)
-                     | BIT(ESPI_IO_FCCTL_START_Pos));
+                     | MEC_BIT(ESPI_IO_FCCTL_START_Pos));
 
     return MEC_RET_OK;
 }

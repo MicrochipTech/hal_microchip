@@ -38,7 +38,7 @@ uint8_t mec_vci_out_get(struct vci_regs *regs)
         return 0;
     }
 
-    return (uint8_t)((regs->CFGIN >> VCI_CFGIN_OUT_Pos) & BIT(0));
+    return (uint8_t)((regs->CFGIN >> VCI_CFGIN_OUT_Pos) & MEC_BIT(0));
 }
 
 uint8_t mec_vci_ovrd_in_get(struct vci_regs *regs)
@@ -47,7 +47,7 @@ uint8_t mec_vci_ovrd_in_get(struct vci_regs *regs)
         return 0;
     }
 
-    return (uint8_t)((regs->CFGIN >> VCI_CFGIN_OVRD_IN_Pos) & BIT(0));
+    return (uint8_t)((regs->CFGIN >> VCI_CFGIN_OVRD_IN_Pos) & MEC_BIT(0));
 }
 
 /* VCI_IN[] pin filter enable/disable */
@@ -58,9 +58,9 @@ int mec_vci_in_filter_enable(struct vci_regs *regs, uint8_t enable)
     }
 
     if (enable) {
-        regs->CFGIN &= (uint32_t)~BIT(VCI_CFGIN_VCI_FILT_Pos);
+        regs->CFGIN &= (uint32_t)~MEC_BIT(VCI_CFGIN_VCI_FILT_Pos);
     } else {
-        regs->CFGIN |= BIT(VCI_CFGIN_VCI_FILT_Pos);
+        regs->CFGIN |= MEC_BIT(VCI_CFGIN_VCI_FILT_Pos);
     }
 
     return MEC_RET_OK;
@@ -76,9 +76,9 @@ int mec_vci_sw_vci_out_set(struct vci_regs *regs, uint8_t pin_state)
     }
 
     if (pin_state) {
-        regs->CFGIN |= BIT(VCI_CFGIN_FW_VCOUT_Pos);
+        regs->CFGIN |= MEC_BIT(VCI_CFGIN_FW_VCOUT_Pos);
     } else {
-        regs->CFGIN &= (uint32_t)~BIT(VCI_CFGIN_FW_VCOUT_Pos);
+        regs->CFGIN &= (uint32_t)~MEC_BIT(VCI_CFGIN_FW_VCOUT_Pos);
     }
 
     return MEC_RET_OK;
@@ -92,9 +92,9 @@ int mec_vci_sw_vci_out_enable(struct vci_regs *regs, uint8_t enable)
     }
 
     if (enable) { /* VCI_OUT pin state is set by bit[10] of this register */
-        regs->CFGIN |= BIT(VCI_CFGIN_VCOUT_SRC_Pos);
+        regs->CFGIN |= MEC_BIT(VCI_CFGIN_VCOUT_SRC_Pos);
     } else { /* VCI_OUT pin controlled by external pin inputs */
-        regs->CFGIN &= (uint32_t)~BIT(VCI_CFGIN_VCOUT_SRC_Pos);
+        regs->CFGIN &= (uint32_t)~MEC_BIT(VCI_CFGIN_VCOUT_SRC_Pos);
     }
 
     return MEC_RET_OK;

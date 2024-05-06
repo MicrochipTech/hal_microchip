@@ -14,7 +14,7 @@
 #include "mec_kbc_api.h"
 #include "mec_retval.h"
 
-#define MEC_KBC_GIRQ 15
+#define MEC_KBC_GIRQ         15
 #define MEC_KBC_OBE_GIRQ_POS 18
 #define MEC_KBC_IBF_GIRQ_POS 19
 
@@ -29,9 +29,9 @@ static void port92h_ctrl(uint8_t enable)
     struct port92_regs *regs = (struct port92_regs *)PORT92_BASE;
 
     if (enable) {
-        regs->P92ACT |= BIT(PORT92_P92ACT_ENABLE_Pos);
+        regs->P92ACT |= MEC_BIT(PORT92_P92ACT_ENABLE_Pos);
     } else {
-        regs->P92ACT &= (uint8_t)~BIT(PORT92_P92ACT_ENABLE_Pos);
+        regs->P92ACT &= (uint8_t)~MEC_BIT(PORT92_P92ACT_ENABLE_Pos);
     }
 }
 
@@ -78,7 +78,7 @@ int mec_kbc_init(struct kbc_regs *base, uint32_t flags)
     if (flags & MEC_KBC_RESET) {
         mec_pcr_blk_reset(MEC_PCR_KBC0);
     } else {
-        base->ACTV &= (uint8_t)~BIT(KBC_ACTV_ENABLE_Pos);
+        base->ACTV &= (uint8_t)~MEC_BIT(KBC_ACTV_ENABLE_Pos);
     }
 
     mec_kbc_girq_dis(base, MEC_KBC_IBF_IRQ | MEC_KBC_OBE_IRQ);
@@ -88,62 +88,62 @@ int mec_kbc_init(struct kbc_regs *base, uint32_t flags)
     port92h_ctrl(val);
 
     if (flags & MEC_KBC_GATEA20_FWC_EN) {
-        ctrl |= BIT(KBC_KECR_SAEN_Pos);
+        ctrl |= MEC_BIT(KBC_KECR_SAEN_Pos);
     }
 
     if (flags & (MEC_KBC_IBF_IRQ | MEC_KBC_OBE_IRQ)) {
-        ctrl |= BIT(KBC_KECR_OBFEN_Pos);
+        ctrl |= MEC_BIT(KBC_KECR_OBFEN_Pos);
     }
 
     if (flags & MEC_KBC_PCOBF_EN) {
-        ctrl |= BIT(KBC_KECR_PCOBFEN_Pos);
+        ctrl |= MEC_BIT(KBC_KECR_PCOBFEN_Pos);
     }
     if (flags & MEC_KBC_AUXOBF_EN) {
-        ctrl |= BIT(KBC_KECR_AUXH_Pos);
+        ctrl |= MEC_BIT(KBC_KECR_AUXH_Pos);
     }
 
     if (flags & MEC_KBC_UD3_SET) {
         if (flags & MEC_KBC_UD3_ONE) {
-            ctrl |= BIT(KBC_KECR_UD3_Pos);
+            ctrl |= MEC_BIT(KBC_KECR_UD3_Pos);
         }
     }
 
     if (flags & MEC_KBC_UD4_SET) {
         if (flags & MEC_KBC_UD4_0_ONE) {
-            ctrl |= BIT(KBC_KECR_UD4_Pos);
+            ctrl |= MEC_BIT(KBC_KECR_UD4_Pos);
         }
         if (flags & MEC_KBC_UD4_1_ONE) {
-            ctrl |= BIT(KBC_KECR_UD4_Pos + 1);
+            ctrl |= MEC_BIT(KBC_KECR_UD4_Pos + 1);
         }
     }
 
     if (flags & MEC_KBC_UD5_SET) {
         if (flags & MEC_KBC_UD5_ONE) {
-            ctrl |= BIT(KBC_KECR_UD5_Pos);
+            ctrl |= MEC_BIT(KBC_KECR_UD5_Pos);
         }
     }
 
     if (flags & MEC_KBC_UD0_SET) {
         msk |= KBC_KESTATUS_UD0_Msk;
         if (flags & MEC_KBC_UD0_ONE) {
-            val |= BIT(KBC_KESTATUS_UD0_Pos);
+            val |= MEC_BIT(KBC_KESTATUS_UD0_Pos);
         }
     }
 
     if (flags & MEC_KBC_UD1_SET) {
         msk |= KBC_KESTATUS_UD1_Msk;
         if (flags & MEC_KBC_UD1_SET) {
-            val |= BIT(KBC_KESTATUS_UD1_Pos);
+            val |= MEC_BIT(KBC_KESTATUS_UD1_Pos);
         }
     }
 
     if (flags & MEC_KBC_UD2_SET) {
         msk |= KBC_KESTATUS_UD2_Msk;
         if (flags & MEC_KBC_UD2_0_ONE) {
-            val |= BIT(KBC_KESTATUS_UD2_Pos);
+            val |= MEC_BIT(KBC_KESTATUS_UD2_Pos);
         }
         if (flags & MEC_KBC_UD2_1_ONE) {
-            val |= BIT(KBC_KESTATUS_UD2_Pos + 1);
+            val |= MEC_BIT(KBC_KESTATUS_UD2_Pos + 1);
         }
     }
 
@@ -152,7 +152,7 @@ int mec_kbc_init(struct kbc_regs *base, uint32_t flags)
     }
 
     base->KECR = ctrl;
-    base->ACTV |= BIT(KBC_ACTV_ENABLE_Pos);
+    base->ACTV |= MEC_BIT(KBC_ACTV_ENABLE_Pos);
     mec_kbc_girq_en(base, flags);
 
     return MEC_RET_OK;
@@ -172,9 +172,9 @@ int mec_kbc_activate(struct kbc_regs *base, uint8_t enable, uint8_t flags)
 
     if (flags & MEC_KBC_ACTV_KBC) {
         if (enable) {
-            base->ACTV |= BIT(KBC_ACTV_ENABLE_Pos);
+            base->ACTV |= MEC_BIT(KBC_ACTV_ENABLE_Pos);
         } else {
-            base->ACTV &= (uint8_t)~BIT(KBC_ACTV_ENABLE_Pos);
+            base->ACTV &= (uint8_t)~MEC_BIT(KBC_ACTV_ENABLE_Pos);
         }
     }
 
@@ -186,11 +186,11 @@ static uint32_t kbc_irq_bitmap(uint32_t flags)
     uint32_t bm = 0;
 
     if (flags & MEC_KBC_IBF_IRQ) {
-        bm |= BIT(MEC_KBC_IBF_GIRQ_POS);
+        bm |= MEC_BIT(MEC_KBC_IBF_GIRQ_POS);
     }
 
     if (flags & MEC_KBC_OBE_IRQ) {
-        bm |= BIT(MEC_KBC_OBE_GIRQ_POS);
+        bm |= MEC_BIT(MEC_KBC_OBE_GIRQ_POS);
     }
 
     return bm;
@@ -252,10 +252,10 @@ uint32_t mec_kbc_girq_result(struct kbc_regs *base)
 #endif
 
     temp = mec_girq_result_get(MEC_KBC_GIRQ);
-    if (temp & BIT(MEC_KBC_IBF_GIRQ_POS)) {
+    if (temp & MEC_BIT(MEC_KBC_IBF_GIRQ_POS)) {
         result |= MEC_KBC_IBF_IRQ;
     }
-    if (temp & BIT(MEC_KBC_OBE_GIRQ_POS)) {
+    if (temp & MEC_BIT(MEC_KBC_OBE_GIRQ_POS)) {
         result |= MEC_KBC_OBE_IRQ;
     }
 
@@ -270,7 +270,7 @@ int mec_kbc_is_enabled(struct kbc_regs *base)
     }
 #endif
 
-    if (base->ACTV & BIT(KBC_ACTV_ENABLE_Pos)) {
+    if (base->ACTV & MEC_BIT(KBC_ACTV_ENABLE_Pos)) {
         return 1;
     }
 
@@ -285,7 +285,7 @@ int mec_kbc_is_irq_gen_enabled(struct kbc_regs *base)
     }
 #endif
 
-    if (base->KECR & BIT(KBC_KECR_OBFEN_Pos)) {
+    if (base->KECR & MEC_BIT(KBC_KECR_OBFEN_Pos)) {
         return 1;
     }
 

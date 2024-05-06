@@ -21,14 +21,14 @@ extern "C"
 #endif
 
 /* 16-bit and 32-bit Basic Timers */
-#define MEC5_BTIMER_MAX_FREQ_HZ 48000000u
+#define MEC5_BTIMER_MAX_FREQ_HZ      48000000u
 #define MEC5_BTIMER_MAX_FREQ_DIVISOR 65536u
-#define MEC5_BTIMER_MIN_FREQ_HZ (MEC5_BTIMER_MAX_FREQ_HZ / MEC5_BTIMER_MAX_FREQ_DIVISOR)
+#define MEC5_BTIMER_MIN_FREQ_HZ      (MEC5_BTIMER_MAX_FREQ_HZ / MEC5_BTIMER_MAX_FREQ_DIVISOR)
 
-#define MEC5_BTIMER_CFG_FLAG_START_POS 0
+#define MEC5_BTIMER_CFG_FLAG_START_POS       0
 #define MEC5_BTIMER_CFG_FLAG_AUTO_RELOAD_POS 1
-#define MEC5_BTIMER_CFG_FLAG_COUNT_UP_POS 2
-#define MEC5_BTIMER_CFG_FLAG_INTR_EN_POS 4
+#define MEC5_BTIMER_CFG_FLAG_COUNT_UP_POS    2
+#define MEC5_BTIMER_CFG_FLAG_INTR_EN_POS     4
 
 /* forward reference */
 struct btmr_regs;
@@ -50,9 +50,9 @@ uint32_t mec_btimer_freq(struct btmr_regs *regs);
 
 void mec_btimer_pre_and_reload(struct btmr_regs *regs, uint32_t preload, uint8_t do_reload);
 
-#define MEC5_BTIMER_START_FLAG_IEN_POS 0
+#define MEC5_BTIMER_START_FLAG_IEN_POS  0
 #define MEC5_BTIMER_START_FLAG_AUTO_POS 1
-#define MEC5_BTIMER_START_FLAG_DIR_UP 2
+#define MEC5_BTIMER_START_FLAG_DIR_UP   2
 void mec_btimer_start_load(struct btmr_regs *regs, uint32_t initial_count, uint32_t flags);
 void mec_btimer_auto_restart(struct btmr_regs *regs, uint8_t enable);
 bool mec_btimer_is_auto_restart(struct btmr_regs *regs);
@@ -88,32 +88,32 @@ static inline void mec_btimer_count_set(struct btmr_regs *regs, uint32_t cnt)
 
 static inline uint32_t mec_btimer_status(struct btmr_regs *regs)
 {
-    return regs->STATUS & BIT(BTMR_STATUS_EVENT_Pos);
+    return regs->STATUS & MEC_BIT(BTMR_STATUS_EVENT_Pos);
 }
 
 static inline void mec_btimer_start(struct btmr_regs *regs)
 {
-    regs->CTRL |= (BIT(BTMR_CTRL_ENABLE_Pos) | BIT(BTMR_CTRL_START_Pos));
+    regs->CTRL |= (MEC_BIT(BTMR_CTRL_ENABLE_Pos) | MEC_BIT(BTMR_CTRL_START_Pos));
 }
 
 static inline void mec_btimer_stop(struct btmr_regs *regs)
 {
-    regs->CTRL &= (uint32_t)~BIT(BTMR_CTRL_START_Pos);
+    regs->CTRL &= (uint32_t)~MEC_BIT(BTMR_CTRL_START_Pos);
 }
 
 static inline void mec_btimer_halt(struct btmr_regs *regs)
 {
-    regs->CTRL |= BIT(BTMR_CTRL_HALT_Pos);
+    regs->CTRL |= MEC_BIT(BTMR_CTRL_HALT_Pos);
 }
 
 static inline void mec_btimer_unhalt(struct btmr_regs *regs)
 {
-    regs->CTRL &= (uint32_t)~BIT(BTMR_CTRL_HALT_Pos);
+    regs->CTRL &= (uint32_t)~MEC_BIT(BTMR_CTRL_HALT_Pos);
 }
 
 static inline void mec_btimer_reload(struct btmr_regs *regs)
 {
-    regs->CTRL |= BIT(BTMR_CTRL_RELOAD_Pos);
+    regs->CTRL |= MEC_BIT(BTMR_CTRL_RELOAD_Pos);
 }
 
 

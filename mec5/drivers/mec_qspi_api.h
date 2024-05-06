@@ -70,38 +70,38 @@ enum mec_qspi_cstm {
 };
 
 enum mec_qspi_status {
-    MEC_QSPI_STS_XFR_DONE = BIT(0),
-    MEC_QSPI_STS_DMA_DONE = BIT(1),
-    MEC_QSPI_STS_TXB_ERR = BIT(2), /* overflow TX FIFO or DMA buffer */
-    MEC_QSPI_STS_RXB_ERR = BIT(3), /* underflow RX FIFO or DMA buffer */
-    MEC_QSPI_STS_PROG_ERR = BIT(4), /* software misconfigured transfer */
-    MEC_QSPI_STS_LDMA_RX_ERR = BIT(5), /* Local-DMA error on receive */
-    MEC_QSPI_STS_LDMA_TX_ERR = BIT(6), /* Local-DMA error on transmit */
-    MEC_QSPI_STS_TXB_FULL = BIT(8), /* TX FIFO full */
-    MEC_QSPI_STS_TXB_EMPTY = BIT(9), /* TX FIFO empty */
-    MEC_QSPI_STS_TXB_REQ = BIT(10), /* TX FIFO reached high water mark */
-    MEC_QSPI_STS_TXB_STALL = BIT(11), /* TX FIFO empty when engine requests more data */
-    MEC_QSPI_STS_RXB_FULL = BIT(12), /* RX FIFO full */
-    MEC_QSPI_STS_RXB_EMPTY = BIT(13), /* RX FIFO empty */
-    MEC_QSPI_STS_RXB_REQ = BIT(14), /* RX FIFO reached high water mark */
-    MEC_QSPI_STS_RXB_STALL = BIT(15), /* No clocks generated due to full RX FIFO */
-    MEC_QSPI_STS_ACTIVE = BIT(16), /* QSPI is asserting its chip select */
+    MEC_QSPI_STS_XFR_DONE    = MEC_BIT(0),
+    MEC_QSPI_STS_DMA_DONE    = MEC_BIT(1),
+    MEC_QSPI_STS_TXB_ERR     = MEC_BIT(2), /* overflow TX FIFO or DMA buffer */
+    MEC_QSPI_STS_RXB_ERR     = MEC_BIT(3), /* underflow RX FIFO or DMA buffer */
+    MEC_QSPI_STS_PROG_ERR    = MEC_BIT(4), /* software misconfigured transfer */
+    MEC_QSPI_STS_LDMA_RX_ERR = MEC_BIT(5), /* Local-DMA error on receive */
+    MEC_QSPI_STS_LDMA_TX_ERR = MEC_BIT(6), /* Local-DMA error on transmit */
+    MEC_QSPI_STS_TXB_FULL    = MEC_BIT(8), /* TX FIFO full */
+    MEC_QSPI_STS_TXB_EMPTY   = MEC_BIT(9), /* TX FIFO empty */
+    MEC_QSPI_STS_TXB_REQ     = MEC_BIT(10), /* TX FIFO reached high water mark */
+    MEC_QSPI_STS_TXB_STALL   = MEC_BIT(11), /* TX FIFO empty when engine requests more data */
+    MEC_QSPI_STS_RXB_FULL    = MEC_BIT(12), /* RX FIFO full */
+    MEC_QSPI_STS_RXB_EMPTY   = MEC_BIT(13), /* RX FIFO empty */
+    MEC_QSPI_STS_RXB_REQ     = MEC_BIT(14), /* RX FIFO reached high water mark */
+    MEC_QSPI_STS_RXB_STALL   = MEC_BIT(15), /* No clocks generated due to full RX FIFO */
+    MEC_QSPI_STS_ACTIVE      = MEC_BIT(16), /* QSPI is asserting its chip select */
 };
 
 enum mec_qspi_intr_enables {
-    MEC_QSPI_IEN_XFR_DONE = BIT(0),
-    MEC_QSPI_IEN_DMA_DONE = BIT(1),
-    MEC_QSPI_IEN_TXB_ERR = BIT(2),
-    MEC_QSPI_IEN_RXB_ERR = BIT(3),
-    MEC_QSPI_IEN_PROG_ERR = BIT(4),
-    MEC_QSPI_IEN_LDMA_RX_ERR = BIT(5),
-    MEC_QSPI_IEN_LDMA_TX_ERR = BIT(6),
-    MEC_QSPI_IEN_TXB_FULL = BIT(8),
-    MEC_QSPI_IEN_TXB_EMPTY = BIT(9),
-    MEC_QSPI_IEN_TXB_REQ = BIT(10),
-    MEC_QSPI_IEN_RXB_FULL = BIT(12),
-    MEC_QSPI_IEN_RXB_EMPTY = BIT(13),
-    MEC_QSPI_IEN_RXB_REQ = BIT(14),
+    MEC_QSPI_IEN_XFR_DONE    = MEC_BIT(0),
+    MEC_QSPI_IEN_DMA_DONE    = MEC_BIT(1),
+    MEC_QSPI_IEN_TXB_ERR     = MEC_BIT(2),
+    MEC_QSPI_IEN_RXB_ERR     = MEC_BIT(3),
+    MEC_QSPI_IEN_PROG_ERR    = MEC_BIT(4),
+    MEC_QSPI_IEN_LDMA_RX_ERR = MEC_BIT(5),
+    MEC_QSPI_IEN_LDMA_TX_ERR = MEC_BIT(6),
+    MEC_QSPI_IEN_TXB_FULL    = MEC_BIT(8),
+    MEC_QSPI_IEN_TXB_EMPTY   = MEC_BIT(9),
+    MEC_QSPI_IEN_TXB_REQ     = MEC_BIT(10),
+    MEC_QSPI_IEN_RXB_FULL    = MEC_BIT(12),
+    MEC_QSPI_IEN_RXB_EMPTY   = MEC_BIT(13),
+    MEC_QSPI_IEN_RXB_REQ     = MEC_BIT(14),
 };
 
 enum mec_qspi_options {
@@ -116,10 +116,10 @@ enum mec_qspi_options {
 #define MEC_QSPI_STATE_OPEN_RX 2
 #define MEC_QSPI_STATE_MAX     3
 
-#define MEC_QSPI_FLAG_TX_OPCODE BIT(0)
-#define MEC_QSPI_FLAG_TX_ADDR   BIT(1)
-#define MEC_QSPI_FLAG_TX_DUMCLK BIT(2)
-#define MEC_QSPI_FLAG_TX_MODEB  BIT(3)
+#define MEC_QSPI_FLAG_TX_OPCODE MEC_BIT(0)
+#define MEC_QSPI_FLAG_TX_ADDR   MEC_BIT(1)
+#define MEC_QSPI_FLAG_TX_DUMCLK MEC_BIT(2)
+#define MEC_QSPI_FLAG_TX_MODEB  MEC_BIT(3)
 
 #define MEC_QSPI_CTX_DIR_RD 0U
 #define MEC_QSPI_CTX_DIR_WR 1U
@@ -226,10 +226,10 @@ int mec_qspi_wr_tx_fifo(struct qspi_regs *regs, const uint8_t *buf, uint32_t buf
 int mec_qspi_rd_rx_fifo(struct qspi_regs *regs, uint8_t *buf, uint32_t bufsz, uint32_t *nrd);
 
 
-#define MEC5_QSPI_BUILD_DESCR_TX_DATA BIT(0)
-#define MEC5_QSPI_BUILD_DESCR_TX_ZEROS BIT(1)
-#define MEC5_QSPI_BUILD_DESCR_TX_ONES BIT(2)
-#define MEC5_QSPI_BUILD_DESCR_RX_DATA BIT(3)
+#define MEC5_QSPI_BUILD_DESCR_TX_DATA  MEC_BIT(0)
+#define MEC5_QSPI_BUILD_DESCR_TX_ZEROS MEC_BIT(1)
+#define MEC5_QSPI_BUILD_DESCR_TX_ONES  MEC_BIT(2)
+#define MEC5_QSPI_BUILD_DESCR_RX_DATA  MEC_BIT(3)
 
 /* Build a 32-bit QSPI descriptor based on inputs.
  * ifm is type enum mec_qspi_io specifying the data bus: full-duplex, dual, or quad
@@ -269,8 +269,8 @@ uint8_t mec_qspi_ctx_alloc_ldma_chan(struct mec_qspi_context *ctx, uint8_t is_tx
 #define MEC5_QSPI_DCFG1_FLAG_IFM_FD         0u
 #define MEC5_QSPI_DCFG1_FLAG_IFM_DUAL       0x1
 #define MEC5_QSPI_DCFG1_FLAG_IFM_QUAD       0x2u
-#define MEC5_QSPI_DCFG1_FLAG_DIR_TX         BIT(2)
-#define MEC5_QSPI_DCFG1_FLAG_DIR_RX         BIT(3)
+#define MEC5_QSPI_DCFG1_FLAG_DIR_TX         MEC_BIT(2)
+#define MEC5_QSPI_DCFG1_FLAG_DIR_RX         MEC_BIT(3)
 #define MEC5_QSPI_DCFG1_FLAG_DMA_TX_POS     4
 #define MEC5_QSPI_DCFG1_FLAG_DMA_TX_MSK     0x30u
 #define MEC5_QSPI_DCFG1_FLAG_DMA_RX_POS     8

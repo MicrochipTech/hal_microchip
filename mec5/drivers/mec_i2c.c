@@ -67,8 +67,8 @@
  * data on the bus.
  */
 #define MEC_I2C_SMB_COMPL_STS_RW1C_MSK 0xe1397f00u
-#define MEC_I2C_SMB_COMPL_STS_RO_MSK 0x02020040u
-#define MEC_I2C_SMB_COMPL_EN_RW_MSK 0x3cu
+#define MEC_I2C_SMB_COMPL_STS_RO_MSK   0x02020040u
+#define MEC_I2C_SMB_COMPL_EN_RW_MSK    0x3cu
 
 #define MEC_I2C_SMB0_ECIA_INFO MEC5_ECIA_INFO(13, 0, 5, 20)
 #define MEC_I2C_SMB1_ECIA_INFO MEC5_ECIA_INFO(13, 1, 5, 21)
@@ -160,11 +160,11 @@ static void i2c_config(struct mec_i2c_smb_ctx *ctx, struct mec_i2c_smb_cfg *conf
                        struct mec_i2c_freq_cfg *custom_freq_cfg)
 {
     struct i2c_smb_regs *base = ctx->base;
-    uint8_t control = BIT(I2C_SMB_CTRL_PIN_Pos); /* clear low level HW status */
+    uint8_t control = MEC_BIT(I2C_SMB_CTRL_PIN_Pos); /* clear low level HW status */
 
     /* disable and set port MUX */
     base->CONFIG = (((uint32_t)config->port << I2C_SMB_CONFIG_PORT_SEL_Pos) & I2C_SMB_CONFIG_PORT_SEL_Msk);
-    base->CONFIG |= BIT(I2C_SMB_CONFIG_FEN_Pos); /* enable digital filter */
+    base->CONFIG |= MEC_BIT(I2C_SMB_CONFIG_FEN_Pos); /* enable digital filter */
 
     base->CTRL = control;
     ctx->i2c_ctrl_cached = control;
@@ -185,11 +185,12 @@ static void i2c_config(struct mec_i2c_smb_ctx *ctx, struct mec_i2c_smb_cfg *conf
     base->COMPL = MEC_I2C_SMB_COMPL_STS_RW1C_MSK;
 
     /* Enable output drive and HW ACK generation */
-    control = BIT(I2C_SMB_CTRL_PIN_Pos) | BIT(I2C_SMB_CTRL_ESO_Pos) | BIT(I2C_SMB_CTRL_ACK_Pos);
+    control = (MEC_BIT(I2C_SMB_CTRL_PIN_Pos) | MEC_BIT(I2C_SMB_CTRL_ESO_Pos)
+               | MEC_BIT(I2C_SMB_CTRL_ACK_Pos));
     ctx->i2c_ctrl_cached = control;
     base->CTRL = control;
 
-    base->CONFIG |= BIT(I2C_SMB_CONFIG_ENAB_Pos);
+    base->CONFIG |= MEC_BIT(I2C_SMB_CONFIG_ENAB_Pos);
     for (int i = 0; i < 8; i++) {
         base->EXTLEN = 0;
     }
@@ -214,7 +215,7 @@ int mec_i2c_smb_init(struct mec_i2c_smb_ctx *ctx, struct mec_i2c_smb_cfg *config
     mec_pcr_clr_blk_slp_en(info->pcr_id);
     mec_pcr_blk_reset(info->pcr_id);
 
-    if (!(BIT(config->port) & MEC5_I2C_SMB_PORT_MAP)) {
+    if (!(MEC_BIT(config->port) & MEC5_I2C_SMB_PORT_MAP)) {
         return MEC_RET_ERR_INVAL;
     }
 
@@ -297,7 +298,7 @@ int mec_i2c_smb_is_bus_owned(struct mec_i2c_smb_ctx *ctx)
 #endif
     struct i2c_smb_regs *base = ctx->base;
 
-    if (base->STATUS & BIT(I2C_SMB_STATUS_NBB_Pos)) {
+    if (base->STATUS & MEC_BIT(I2C_SMB_STATUS_NBB_Pos)) {
         return 0;
     }
 
@@ -331,8 +332,8 @@ uint8_t mec_i2c_smb_ctrl_get(struct mec_i2c_smb_ctx *ctx)
 /* Re-arm Target mode receive after an external STOP.  */
 int mec_i2c_smb_rearm_target_rx(struct mec_i2c_smb_ctx *ctx)
 {
-    uint8_t ctr = (BIT(I2C_SMB_CTRL_PIN_Pos) | BIT(I2C_SMB_CTRL_ESO_Pos)
-                   | BIT(I2C_SMB_CTRL_ACK_Pos));
+    uint8_t ctr = (MEC_BIT(I2C_SMB_CTRL_PIN_Pos) | MEC_BIT(I2C_SMB_CTRL_ESO_Pos)
+                   | MEC_BIT(I2C_SMB_CTRL_ACK_Pos));
 
     return mec_i2c_smb_ctrl_set(ctx, ctr);
 }
@@ -345,10 +346,10 @@ int mec_i2c_smb_auto_ack_enable(struct mec_i2c_smb_ctx *ctx, uint8_t ien)
     }
 #endif
     struct i2c_smb_regs *base = ctx->base;
-    uint8_t ctr = BIT(I2C_SMB_CTRL_ESO_Pos) | BIT(I2C_SMB_CTRL_ACK_Pos);
+    uint8_t ctr = MEC_BIT(I2C_SMB_CTRL_ESO_Pos) | MEC_BIT(I2C_SMB_CTRL_ACK_Pos);
 
     if (ien) {
-        ctr |= BIT(I2C_SMB_CTRL_ENI_Pos);
+        ctr |= MEC_BIT(I2C_SMB_CTRL_ENI_Pos);
     }
 
     ctx->i2c_ctrl_cached = ctr;
@@ -364,10 +365,10 @@ int mec_i2c_smb_auto_ack_disable(struct mec_i2c_smb_ctx *ctx, uint8_t ien)
     }
 #endif
     struct i2c_smb_regs *base = ctx->base;
-    uint8_t ctr = BIT(I2C_SMB_CTRL_ESO_Pos);
+    uint8_t ctr = MEC_BIT(I2C_SMB_CTRL_ESO_Pos);
 
     if (ien) {
-        ctr |= BIT(I2C_SMB_CTRL_ENI_Pos);
+        ctr |= MEC_BIT(I2C_SMB_CTRL_ENI_Pos);
     }
 
     ctx->i2c_ctrl_cached = ctr;
@@ -386,9 +387,9 @@ int mec_i2c_smb_idle_intr_enable(struct mec_i2c_smb_ctx *ctx, uint8_t enable)
     struct i2c_smb_regs *base = ctx->base;
 
     if (enable) {
-        base->CONFIG |= BIT(I2C_SMB_COMPL_IDLE_Pos);
+        base->CONFIG |= MEC_BIT(I2C_SMB_COMPL_IDLE_Pos);
     } else {
-        base->CONFIG &= ~BIT(I2C_SMB_COMPL_IDLE_Pos);
+        base->CONFIG &= (uint32_t)~MEC_BIT(I2C_SMB_COMPL_IDLE_Pos);
     }
 
     return MEC_RET_OK;
@@ -441,7 +442,7 @@ void mec_i2c_smb_wake_status_clr(struct mec_i2c_smb_ctx *ctx)
 
     struct i2c_smb_regs *base = ctx->base;
 
-    base->WAKE_STS = BIT(I2C_SMB_WAKE_STS_START_DET_Pos);
+    base->WAKE_STS = MEC_BIT(I2C_SMB_WAKE_STS_START_DET_Pos);
 }
 
 int mec_i2c_smb_is_idle_intr(struct mec_i2c_smb_ctx *ctx)
@@ -452,8 +453,8 @@ int mec_i2c_smb_is_idle_intr(struct mec_i2c_smb_ctx *ctx)
     }
 #endif
     struct i2c_smb_regs *base = ctx->base;
-    uint32_t cfg = base->CONFIG & BIT(I2C_SMB_CONFIG_ENI_IDLE_Pos);
-    uint32_t compl = base->COMPL & BIT(I2C_SMB_COMPL_IDLE_Pos);
+    uint32_t cfg = base->CONFIG & MEC_BIT(I2C_SMB_CONFIG_ENI_IDLE_Pos);
+    uint32_t compl = base->COMPL & MEC_BIT(I2C_SMB_COMPL_IDLE_Pos);
 
     if (cfg && compl) {
         return 1;
@@ -471,7 +472,7 @@ int mec_i2c_smb_idle_status_clr(struct mec_i2c_smb_ctx *ctx)
 #endif
     struct i2c_smb_regs *base = ctx->base;
 
-    base->COMPL |= BIT(I2C_SMB_COMPL_IDLE_Pos);
+    base->COMPL |= MEC_BIT(I2C_SMB_COMPL_IDLE_Pos);
 
     return 0;
 }
@@ -492,15 +493,15 @@ int mec_i2c_smb_start_gen(struct mec_i2c_smb_ctx *ctx, uint8_t target_addr, int 
     }
 #endif
     struct i2c_smb_regs *base = ctx->base;
-    uint8_t ctr = (BIT(I2C_SMB_CTRL_ESO_Pos) | BIT(I2C_SMB_CTRL_STA_Pos)
-                   | BIT(I2C_SMB_CTRL_ACK_Pos));
+    uint8_t ctr = (MEC_BIT(I2C_SMB_CTRL_ESO_Pos) | MEC_BIT(I2C_SMB_CTRL_STA_Pos)
+                   | MEC_BIT(I2C_SMB_CTRL_ACK_Pos));
 
     if (flags & MEC_I2C_SMB_BYTE_ENI) {
-        ctr |= BIT(I2C_SMB_CTRL_ENI_Pos);
+        ctr |= MEC_BIT(I2C_SMB_CTRL_ENI_Pos);
     }
 
-    if (base->STATUS & BIT(I2C_SMB_STATUS_NBB_Pos)) {
-        ctr |= BIT(I2C_SMB_CTRL_PIN_Pos);
+    if (base->STATUS & MEC_BIT(I2C_SMB_STATUS_NBB_Pos)) {
+        ctr |= MEC_BIT(I2C_SMB_CTRL_PIN_Pos);
         ctx->i2c_ctrl_cached = ctr;
         base->DATA = target_addr;
         base->CTRL = ctr;
@@ -521,11 +522,11 @@ int mec_i2c_smb_stop_gen(struct mec_i2c_smb_ctx *ctx)
     }
 #endif
     struct i2c_smb_regs *base = ctx->base;
-    uint8_t control = (BIT(I2C_SMB_CTRL_PIN_Pos) | BIT(I2C_SMB_CTRL_ESO_Pos)
-                       | BIT(I2C_SMB_CTRL_ACK_Pos) | BIT(I2C_SMB_CTRL_STO_Pos));
+    uint8_t control = (MEC_BIT(I2C_SMB_CTRL_PIN_Pos) | MEC_BIT(I2C_SMB_CTRL_ESO_Pos)
+                       | MEC_BIT(I2C_SMB_CTRL_ACK_Pos) | MEC_BIT(I2C_SMB_CTRL_STO_Pos));
 
     /* Nothing to do. Controller does not own the bus at this time */
-    if (base->STATUS & BIT(I2C_SMB_STATUS_NBB_Pos)) {
+    if (base->STATUS & MEC_BIT(I2C_SMB_STATUS_NBB_Pos)) {
         return MEC_RET_ERR_NOP;
     }
 
@@ -593,12 +594,12 @@ int mec_i2c_smb_bbctrl(struct mec_i2c_smb_ctx *ctx, uint8_t enable, uint8_t pin_
     uint8_t bbctr = 0u;
 
     if (enable) {
-        bbctr |= BIT(I2C_SMB_BBCTRL_BBEN_Pos);
-        if (!(pin_drive & BIT(MEC_I2C_BB_SCL_POS))) { /* drive low? */
-            bbctr |= BIT(I2C_SMB_BBCTRL_CLDIR_Pos);
+        bbctr |= MEC_BIT(I2C_SMB_BBCTRL_BBEN_Pos);
+        if (!(pin_drive & MEC_BIT(MEC_I2C_BB_SCL_POS))) { /* drive low? */
+            bbctr |= MEC_BIT(I2C_SMB_BBCTRL_CLDIR_Pos);
         }
-        if (!(pin_drive & BIT(MEC_I2C_BB_SDA_POS))) { /* drive low? */
-            bbctr |= BIT(I2C_SMB_BBCTRL_DADIR_Pos);
+        if (!(pin_drive & MEC_BIT(MEC_I2C_BB_SDA_POS))) { /* drive low? */
+            bbctr |= MEC_BIT(I2C_SMB_BBCTRL_DADIR_Pos);
         }
     }
 

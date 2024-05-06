@@ -14,14 +14,14 @@
 #include "mec_retval.h"
 
 #define MEC_PCR_PLL_FAST_FREQ_HZ 96000000
-#define MEC_PCR_PLL_FREQ_HZ 48000000
-#define MEC_PCR_PLL_MAX_CLK_DIV 48
+#define MEC_PCR_PLL_FREQ_HZ      48000000
+#define MEC_PCR_PLL_MAX_CLK_DIV  48
 
 #define MEC_PCR_RSTEN_UNLOCK 0xa6382d4cu
-#define MEC_PCR_RSTEN_LOCK 0xa6382d4du
+#define MEC_PCR_RSTEN_LOCK   0xa6382d4du
 
 #define MEC_PCR_PRIV_UNLOCK 0xa6382d4cu
-#define MEC_PCR_PRIV_LOCK 0xa6382d4du
+#define MEC_PCR_PRIV_LOCK   0xa6382d4du
 
 /* PCR Power Reset Status register RESET_VCC bit is RESET_HOST
  * 0 = reset active
@@ -29,7 +29,7 @@
  */
 int mec_pcr_is_host_reset(void)
 {
-    if (PCR->PRS & BIT(PCR_PRS_RESET_VCC_Pos)) {
+    if (PCR->PRS & MEC_BIT(PCR_PRS_RESET_VCC_Pos)) {
         return 0;
     }
     return 1;
@@ -37,7 +37,7 @@ int mec_pcr_is_host_reset(void)
 
 int mec_pcr_is_vcc_pwrgd(void)
 {
-    if (PCR->PRS & BIT(PCR_PRS_VCC_PWRGD_Pos)) {
+    if (PCR->PRS & MEC_BIT(PCR_PRS_VCC_PWRGD_Pos)) {
         return 1;
     }
     return 0;
@@ -52,13 +52,13 @@ uint32_t mec_pcr_vcc_power_good_state(void)
 int mec_pcr_is_turbo_clock(void)
 {
 #ifdef MEC5_FAM2_ID
-    if (PCR->TURBO_CLK & BIT(PCR_TURBO_CLK_FAST_CLK_Pos)) {
+    if (PCR->TURBO_CLK & MEC_BIT(PCR_TURBO_CLK_FAST_CLK_Pos)) {
         return 1;
     }
 
     return 0;
 #else
-    if (ECS->FEAT_LOCK & BIT(ECS_FEAT_LOCK_TURBO_FREQ_Pos)) {
+    if (ECS->FEAT_LOCK & MEC_BIT(ECS_FEAT_LOCK_TURBO_FREQ_Pos)) {
         return 0;
     }
 
@@ -72,13 +72,13 @@ uint32_t mec_pcr_cpu_max_freq(void)
 #ifdef MEC5_FAM2_ID
     uint32_t fhz = MEC_PCR_PLL_FREQ_HZ;
 
-    if (PCR->TURBO_CLK & BIT(PCR_TURBO_CLK_FAST_CLK_Pos)) {
+    if (PCR->TURBO_CLK & MEC_BIT(PCR_TURBO_CLK_FAST_CLK_Pos)) {
         fhz = MEC_PCR_PLL_FAST_FREQ_HZ;
     }
 #else
     uint32_t fhz = MEC_PCR_PLL_FAST_FREQ_HZ;
 
-    if (ECS->FEAT_LOCK & BIT(ECS_FEAT_LOCK_TURBO_FREQ_Pos)) {
+    if (ECS->FEAT_LOCK & MEC_BIT(ECS_FEAT_LOCK_TURBO_FREQ_Pos)) {
         fhz = MEC_PCR_PLL_FREQ_HZ;
     }
 #endif
@@ -174,7 +174,7 @@ int mec_pcr_cpu_clock_divider_set(enum mec_pcr_cpu_clk_div clk_div)
 
 int mec_pcr_is_pll_locked(void)
 {
-    if (PCR->OID & BIT(PCR_OID_PLL_LOCK_Pos)) {
+    if (PCR->OID & MEC_BIT(PCR_OID_PLL_LOCK_Pos)) {
         return 1;
     }
 
@@ -195,7 +195,7 @@ void mec_pcr_set_blk_slp_en(uint16_t pid)
     uint32_t idx = pid / 32u;
     uint32_t bpos = pid % 32u;
 
-    PCR->SLP_EN[idx] |= BIT(bpos);
+    PCR->SLP_EN[idx] |= MEC_BIT(bpos);
 }
 
 void mec_pcr_clr_blk_slp_en(uint16_t pid)
@@ -207,7 +207,7 @@ void mec_pcr_clr_blk_slp_en(uint16_t pid)
     uint32_t idx = pid / 32u;
     uint32_t bpos = pid % 32u;
 
-    PCR->SLP_EN[idx] &= ~BIT(bpos);
+    PCR->SLP_EN[idx] &= ~MEC_BIT(bpos);
 }
 
 uint8_t mec_pcr_is_blk_slp_en(uint16_t pid)
@@ -219,7 +219,7 @@ uint8_t mec_pcr_is_blk_slp_en(uint16_t pid)
         idx = pid / 32u;
         bpos = pid % 32u;
 
-        if (PCR->SLP_EN[idx] & BIT(bpos)) {
+        if (PCR->SLP_EN[idx] & MEC_BIT(bpos)) {
             return 1;
         }
     }
@@ -264,7 +264,7 @@ void mec_pcr_slp_en_por(void)
         PCR->SLP_EN[i] = 0;
     }
 
-    PCR->SLP_EN[3] = BIT(MEC_PCR_CRYPTO_ALL % 32u);
+    PCR->SLP_EN[3] = MEC_BIT(MEC_PCR_CRYPTO_ALL % 32u);
 }
 
 void mec_pcr_slp_en_set_all(void)
@@ -297,7 +297,7 @@ uint32_t mec_pcr_blk_reset(uint16_t pid)
     bpos = pid % 32u;
 
     PCR->RENLK = MEC_PCR_RSTEN_UNLOCK;
-    PCR->RST_EN[idx] = BIT(bpos);
+    PCR->RST_EN[idx] = MEC_BIT(bpos);
     temp = PCR->RST_EN[idx];
     PCR->RENLK = MEC_PCR_RSTEN_LOCK;
 
@@ -319,7 +319,7 @@ uint32_t mec_pcr_blk_reset_critical(uint16_t pid)
 
 void __attribute__((__noreturn__)) mec_pcr_reset_system(void)
 {
-    PCR->SRST |= BIT(PCR_SRST_SYS_RST_Pos);
+    PCR->SRST |= MEC_BIT(PCR_SRST_SYS_RST_Pos);
 
     while (1) {
         __NOP();
@@ -340,18 +340,18 @@ void __attribute__((__noreturn__)) mec_pcr_reset_system(void)
 void mec_pcr_release_reset_vcc(uint8_t release)
 {
     if (release) {
-        PCR->PRC &= ~BIT(PCR_PRC_PWR_INV_Pos);
+        PCR->PRC &= ~MEC_BIT(PCR_PRC_PWR_INV_Pos);
     } else {
-        PCR->PRC |= BIT(PCR_PRC_PWR_INV_Pos);
+        PCR->PRC |= MEC_BIT(PCR_PRC_PWR_INV_Pos);
     }
 }
 
 void mec_pcr_host_reset_select(uint8_t use_espi_platform_reset)
 {
     if (use_espi_platform_reset) {
-        PCR->PRC &= ~BIT(PCR_PRC_HOST_RSEL_Pos);
+        PCR->PRC &= ~MEC_BIT(PCR_PRC_HOST_RSEL_Pos);
     } else {
-        PCR->PRC |= BIT(PCR_PRC_HOST_RSEL_Pos);
+        PCR->PRC |= MEC_BIT(PCR_PRC_HOST_RSEL_Pos);
     }
 }
 
@@ -448,7 +448,7 @@ int mec_pcr_clk32k_is_config(enum mec_pll_clk32k_src pll_src,
     if ((pll == MEC_PLL_CLK32K_SRC_SI) || (periph == MEC_PERIPH_CLK32K_SRC_SI_SI)
         || (periph == MEC_PERIPH_CLK32K_SRC_PIN_SI)) {
         /* is Silicon OSC enabled? */
-        if (!(cs & BIT(VBATR_CLK32K_SRC_SILOSC_Pos))) {
+        if (!(cs & MEC_BIT(VBATR_CLK32K_SRC_SILOSC_Pos))) {
             return 0;
         }
     }
@@ -457,17 +457,17 @@ int mec_pcr_clk32k_is_config(enum mec_pll_clk32k_src pll_src,
     if ((pll_src == MEC_PLL_CLK32K_SRC_XTAL)
             || (periph_src == MEC_PERIPH_CLK32K_SRC_XTAL_XTAL)
             || (periph_src == MEC_PERIPH_CLK32K_SRC_PIN_XTAL)) {
-        if (flags & BIT(MEC_CLK32K_FLAG_XTAL_SE_POS)) {
-            if (!(cs & BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos))) {
+        if (flags & MEC_BIT(MEC_CLK32K_FLAG_XTAL_SE_POS)) {
+            if (!(cs & MEC_BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos))) {
                 return 0;
             }
         } else {
-            if (cs & BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos)) {
+            if (cs & MEC_BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos)) {
                 return 0;
             }
         }
         /* is crystal enabled? */
-        if (!(cs & BIT(VBATR_CLK32K_SRC_XTAL_Pos))) {
+        if (!(cs & MEC_BIT(VBATR_CLK32K_SRC_XTAL_Pos))) {
             return 0;
         }
     }
@@ -497,7 +497,7 @@ static int check_crystal(struct mec_pcr_clkmon_cfg *cmcfg)
     }
 
     /* disable and clear counters */
-    PCR->CTRL32K = BIT(PCR_CTRL32K_CLRCNT_Pos);
+    PCR->CTRL32K = MEC_BIT(PCR_CTRL32K_CLRCNT_Pos);
 
     /* Min and Max period counts */
     PCR->PERMINC = cmcfg->period_min;
@@ -510,18 +510,18 @@ static int check_crystal(struct mec_pcr_clkmon_cfg *cmcfg)
 
     /* Start monitor */
     PCR->SIS32K = 0xffffffffu;
-    PCR->CTRL32K = BIT(PCR_CTRL32K_PERIOD_CNT_Pos) | BIT(PCR_CTRL32K_DCNT_EN_Pos)
-                    | BIT(PCR_CTRL32K_VALCNT_EN_Pos);
+    PCR->CTRL32K = MEC_BIT(PCR_CTRL32K_PERIOD_CNT_Pos) | MEC_BIT(PCR_CTRL32K_DCNT_EN_Pos)
+                    | MEC_BIT(PCR_CTRL32K_VALCNT_EN_Pos);
 
     do {
         temp = PCR->SIS32K;
-    } while ((temp & (BIT(PCR_SIS32K_PD_FAIL_Pos) | BIT(PCR_SIS32K_VALID_Pos))) == 0);
+    } while ((temp & (MEC_BIT(PCR_SIS32K_PD_FAIL_Pos) | MEC_BIT(PCR_SIS32K_VALID_Pos))) == 0);
 
     /* disable and clear counters */
-    PCR->CTRL32K = BIT(PCR_CTRL32K_CLRCNT_Pos);
+    PCR->CTRL32K = MEC_BIT(PCR_CTRL32K_CLRCNT_Pos);
     PCR->SIS32K = 0xffffffffu;
 
-    if (temp & BIT(PCR_SIS32K_PD_FAIL_Pos)) {
+    if (temp & MEC_BIT(PCR_SIS32K_PD_FAIL_Pos)) {
         ret = MEC_RET_ERR_HW;
     }
 
@@ -599,7 +599,7 @@ int mec_pcr_clk32k_init(enum mec_pll_clk32k_src pll_src,
     }
 
     /* disable and clear counters */
-    PCR->CTRL32K = BIT(PCR_CTRL32K_CLRCNT_Pos);
+    PCR->CTRL32K = MEC_BIT(PCR_CTRL32K_CLRCNT_Pos);
 
     /* HW config matches requested config? */
     if (mec_pcr_clk32k_is_config(pll_src, periph_src, flags)) {
@@ -607,7 +607,7 @@ int mec_pcr_clk32k_init(enum mec_pll_clk32k_src pll_src,
     }
 
     /* enable silicon oscillator */
-    VBATR->CLK32K_SRC |= BIT(VBATR_CLK32K_SRC_SILOSC_Pos);
+    VBATR->CLK32K_SRC |= MEC_BIT(VBATR_CLK32K_SRC_SILOSC_Pos);
     spin_delay(256u);
 
     /* configure Peripherals to use silicon oscillator */
@@ -626,19 +626,19 @@ int mec_pcr_clk32k_init(enum mec_pll_clk32k_src pll_src,
             || (periph_src == MEC_PERIPH_CLK32K_SRC_XTAL_XTAL)
             || (periph_src == MEC_PERIPH_CLK32K_SRC_PIN_XTAL)) {
 
-        if (flags & BIT(MEC_CLK32K_FLAG_XTAL_SE_POS)) {
-            VBATR->CLK32K_SRC |= BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos);
+        if (flags & MEC_BIT(MEC_CLK32K_FLAG_XTAL_SE_POS)) {
+            VBATR->CLK32K_SRC |= MEC_BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos);
         }
 
         /* enable crystal high startup current */
-        VBATR->CLK32K_SRC |= BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos);
+        VBATR->CLK32K_SRC |= MEC_BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos);
 
         /* start crystal */
-        VBATR->CLK32K_SRC |= BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos);
+        VBATR->CLK32K_SRC |= MEC_BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos);
         spin_delay(1000u);
 
         /* disable crystal high startup current */
-        VBATR->CLK32K_SRC |= ~BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos);
+        VBATR->CLK32K_SRC |= ~MEC_BIT(VBATR_CLK32K_SRC_XTAL_XOSEL_Pos);
 
         ret = check_crystal(cfg);
         if (ret) {
@@ -694,9 +694,9 @@ uint32_t mec_pcr_blk_privilege_enable(uint8_t pid, uint8_t enable)
 
     PCR->PP_LOCK = MEC_PCR_PRIV_UNLOCK;
     if (enable) {
-        PCR->EC_PRIV_EN[idx] |= BIT(bpos);
+        PCR->EC_PRIV_EN[idx] |= MEC_BIT(bpos);
     } else {
-        PCR->EC_PRIV_EN[idx] &= ~BIT(bpos);
+        PCR->EC_PRIV_EN[idx] &= ~MEC_BIT(bpos);
     }
     temp = PCR->EC_PRIV_EN[idx];
     PCR->PP_LOCK = MEC_PCR_PRIV_LOCK;

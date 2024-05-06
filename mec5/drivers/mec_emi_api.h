@@ -25,25 +25,25 @@ enum mec_emi_mbox {
 };
 
 enum mec_emi_flags {
-    MEC_EMI_RESET = BIT(0),
+    MEC_EMI_RESET = MEC_BIT(0),
 };
 
 enum mec_emi_swi {
-    MEC_EMI_SWI_1 = BIT(1),
-    MEC_EMI_SWI_2 = BIT(2),
-    MEC_EMI_SWI_3 = BIT(3),
-    MEC_EMI_SWI_4 = BIT(4),
-    MEC_EMI_SWI_5 = BIT(5),
-    MEC_EMI_SWI_6 = BIT(6),
-    MEC_EMI_SWI_7 = BIT(7),
-    MEC_EMI_SWI_8 = BIT(8),
-    MEC_EMI_SWI_9 = BIT(9),
-    MEC_EMI_SWI_10 = BIT(10),
-    MEC_EMI_SWI_11 = BIT(11),
-    MEC_EMI_SWI_12 = BIT(12),
-    MEC_EMI_SWI_13 = BIT(13),
-    MEC_EMI_SWI_14 = BIT(14),
-    MEC_EMI_SWI_15 = BIT(15),
+    MEC_EMI_SWI_1  = MEC_BIT(1),
+    MEC_EMI_SWI_2  = MEC_BIT(2),
+    MEC_EMI_SWI_3  = MEC_BIT(3),
+    MEC_EMI_SWI_4  = MEC_BIT(4),
+    MEC_EMI_SWI_5  = MEC_BIT(5),
+    MEC_EMI_SWI_6  = MEC_BIT(6),
+    MEC_EMI_SWI_7  = MEC_BIT(7),
+    MEC_EMI_SWI_8  = MEC_BIT(8),
+    MEC_EMI_SWI_9  = MEC_BIT(9),
+    MEC_EMI_SWI_10 = MEC_BIT(10),
+    MEC_EMI_SWI_11 = MEC_BIT(11),
+    MEC_EMI_SWI_12 = MEC_BIT(12),
+    MEC_EMI_SWI_13 = MEC_BIT(13),
+    MEC_EMI_SWI_14 = MEC_BIT(14),
+    MEC_EMI_SWI_15 = MEC_BIT(15),
 };
 
 enum mec_emi_mem_region {

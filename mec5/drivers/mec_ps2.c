@@ -7,7 +7,6 @@
 #include <stdint.h>
 
 #include <device_mec5.h>
-#include "mec_pcfg.h"
 #include "mec_defs.h"
 #include "mec_ecia_api.h"
 #include "mec_pcr_api.h"
@@ -28,7 +27,7 @@
  * MEC5 PS/2 Controller 0 implements two ports.
  * MEC5 PS/2 Controller 1 implements one port.
  */
-#define MEC_PS2_WAKE_GIRQ 21
+#define MEC_PS2_WAKE_GIRQ        21
 #define MEC_PS2_WAKE_0A_GIRQ_POS 18 /* Controller 0 Port A */
 #define MEC_PS2_WAKE_0B_GIRQ_POS 19 /* Controller 0 Port B */
 #define MEC_PS2_WAKE_1B_GIRQ_POS 21 /* Controller 1 Port B */
@@ -70,9 +69,9 @@ static struct mec_ps2_info const *find_ps2_info(uintptr_t base_addr)
 static void ps2_clear_all_status(struct ps2_regs *regs)
 {
     /* read and discard data to clear RX_RDY RO status */
-    regs->STATUS = regs->RTXB | (BIT(PS2_STATUS_RXTMO_Pos) | BIT(PS2_STATUS_PE_Pos)
-                                 | BIT(PS2_STATUS_FE_Pos) | BIT(PS2_STATUS_TXTMO_Pos)
-                                 | BIT(PS2_STATUS_TXSTTMO_Pos));
+    regs->STATUS = regs->RTXB | (MEC_BIT(PS2_STATUS_RXTMO_Pos) | MEC_BIT(PS2_STATUS_PE_Pos)
+                                 | MEC_BIT(PS2_STATUS_FE_Pos) | MEC_BIT(PS2_STATUS_TXTMO_Pos)
+                                 | MEC_BIT(PS2_STATUS_TXSTTMO_Pos));
 }
 
 /* PS/2 registers (not visible to the Host)
@@ -98,7 +97,7 @@ int mec_ps2_init(struct ps2_regs *regs, uint8_t port, uint32_t flags)
         return MEC_RET_ERR_INVAL;
     }
 
-    if (!(psi->port_map & BIT(port))) {
+    if (!(psi->port_map & MEC_BIT(port))) {
         return MEC_RET_ERR_INVAL;
     }
 
@@ -128,7 +127,7 @@ int mec_ps2_init(struct ps2_regs *regs, uint8_t port, uint32_t flags)
     ctrl |= (uint8_t)((temp << PS2_CTRL_STOP_Pos) & PS2_CTRL_STOP_Msk);
 
     if (flags & MEC_PS2_FLAGS_ENABLE) {
-        ctrl |= BIT(PS2_CTRL_ENABLE_Pos);
+        ctrl |= MEC_BIT(PS2_CTRL_ENABLE_Pos);
     }
 
     regs->CTRL = ctrl;
@@ -233,9 +232,9 @@ void mec_ps2_girq_wake_clr(struct ps2_regs *base, uint8_t port)
 void mec_ps2_direction(struct ps2_regs *regs, uint8_t dir_tx)
 {
     if (dir_tx) {
-        regs->CTRL |= BIT(PS2_CTRL_TREN_Pos);
+        regs->CTRL |= MEC_BIT(PS2_CTRL_TREN_Pos);
     } else {
-        regs->CTRL &= (uint8_t)~BIT(PS2_CTRL_TREN_Pos);
+        regs->CTRL &= (uint8_t)~MEC_BIT(PS2_CTRL_TREN_Pos);
     }
 }
 

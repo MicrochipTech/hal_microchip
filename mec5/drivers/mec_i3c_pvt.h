@@ -138,9 +138,9 @@ enum tgt_evt_sts_reg_bits
 #define COMMAND_HDR_DDR_READ_BITPOS           (1U << 14)
 #define COMMAND_HDR_DDR_WRITE_BITPOS          (1U << 13)
 
-#define COMMAND_CMD_PRESENT                    (1U << 15) // BIT_15_MASK 
-#define COMMAND_DEF_BYTE_PRESENT               (1U << 25) // BIT_25_MASK 
-#define COMMAND_RESPONSE_ON_COMPLETION         (1U << 26) // BIT_26_MASK 
+#define COMMAND_CMD_PRESENT                    (1U << 15) // BIT_15_MASK
+#define COMMAND_DEF_BYTE_PRESENT               (1U << 25) // BIT_25_MASK
+#define COMMAND_RESPONSE_ON_COMPLETION         (1U << 26) // BIT_26_MASK
 #define COMMAND_READ_XFER                      (1U << 28) // BIT_28_MASK
 #define COMMAND_STOP_ON_COMPLETION             (1U << 30) // BIT_30_MASK
 #define COMMAND_PACKET_ERROR_CHECK             (1U << 31) // BIT_30_MASK
@@ -566,6 +566,10 @@ enum interrupt_status_reg_bits
 #define MAX_CLK_DATA_TURN_11_ns   3U
 #define MAX_CLK_DATA_TURN_12_ns   4U
 /*------------------------------MXDS_CLK_DATA_TURN----------------------*/
+
+/* forward declarations */
+struct i3c_host_regs;
+struct i3c_sec_regs;
 
 uint32_t _i3c_intr_sts_get(struct i3c_host_regs *regs);
 void _i3c_intr_sts_clear(struct i3c_host_regs *regs, uint32_t mask);

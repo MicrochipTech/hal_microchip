@@ -51,25 +51,25 @@ void mec_rtimer_intr_ctrl(struct rtmr_regs *regs, uint8_t enable);
 static inline void mec_rtimer_auto_reload(struct rtmr_regs *regs, uint8_t enable)
 {
     if (enable) {
-        regs->CTRL |= BIT(RTMR_CTRL_AUTO_RELOAD_Pos);
+        regs->CTRL |= MEC_BIT(RTMR_CTRL_AUTO_RELOAD_Pos);
     } else {
-        regs->CTRL &= (uint32_t)~BIT(RTMR_CTRL_AUTO_RELOAD_Pos);
+        regs->CTRL &= (uint32_t)~MEC_BIT(RTMR_CTRL_AUTO_RELOAD_Pos);
     }
 }
 
 static inline void mec_rtimer_stop(struct rtmr_regs *regs)
 {
-    regs->CTRL &= (uint32_t)~BIT(RTMR_CTRL_START_Pos);
+    regs->CTRL &= (uint32_t)~MEC_BIT(RTMR_CTRL_START_Pos);
 }
 
 static inline void mec_rtimer_start(struct rtmr_regs *regs)
 {
-    regs->CTRL |= BIT(RTMR_CTRL_START_Pos);
+    regs->CTRL |= MEC_BIT(RTMR_CTRL_START_Pos);
 }
 
 static inline bool mec_rtimer_is_started(struct rtmr_regs *regs)
 {
-    return (regs->CTRL & BIT(RTMR_CTRL_START_Pos)) ? true : false;
+    return (regs->CTRL & MEC_BIT(RTMR_CTRL_START_Pos)) ? true : false;
 }
 
 static inline uint32_t mec_rtimer_count(struct rtmr_regs *regs)
@@ -93,12 +93,12 @@ static inline void mec_rtimer_preload_set(struct rtmr_regs *regs, uint32_t prelo
 
 static inline void mec_rtimer_halt(struct rtmr_regs *regs)
 {
-    regs->CTRL |= BIT(RTMR_CTRL_FW_HALT_Pos);
+    regs->CTRL |= MEC_BIT(RTMR_CTRL_FW_HALT_Pos);
 }
 
 static inline void mec_rtimer_unhalt(struct rtmr_regs *regs)
 {
-    regs->CTRL &= (uint32_t)~BIT(RTMR_CTRL_FW_HALT_Pos);
+    regs->CTRL &= (uint32_t)~MEC_BIT(RTMR_CTRL_FW_HALT_Pos);
 }
 
 static inline bool mec_rtimer_is_counting(struct rtmr_regs *regs)
@@ -114,7 +114,7 @@ static inline void mec_rtimer_stop_and_load(struct rtmr_regs *regs, uint32_t cou
                                             uint8_t start_val)
 {
     regs->CTRL = 0U;
-    regs->CTRL = BIT(RTMR_CTRL_ENABLE_Pos);
+    regs->CTRL = MEC_BIT(RTMR_CTRL_ENABLE_Pos);
     regs->PRELOAD = count_down;
     regs->CTRL = start_val;
 }

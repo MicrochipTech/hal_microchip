@@ -29,27 +29,27 @@ extern "C"
 struct kbc_regs;
 
 enum mec_kbc_flags {
-    MEC_KBC_IBF_IRQ = BIT(0),
-    MEC_KBC_OBE_IRQ = BIT(1),
-    MEC_KBC_PCOBF_EN = BIT(2),
-    MEC_KBC_AUXOBF_EN = BIT(3),
-    MEC_KBC_PORT92_EN = BIT(4),
-    MEC_KBC_GATEA20_FWC_EN = BIT(5),
-    MEC_KBC_RESET = BIT(7),
-    MEC_KBC_UD0_SET = BIT(8),
-    MEC_KBC_UD1_SET = BIT(9),
-    MEC_KBC_UD2_SET = BIT(10),
-    MEC_KBC_UD3_SET = BIT(11),
-    MEC_KBC_UD4_SET = BIT(12),
-    MEC_KBC_UD5_SET = BIT(13),
-    MEC_KBC_UD0_ONE = BIT(16),
-    MEC_KBC_UD1_ONE = BIT(17),
-    MEC_KBC_UD2_0_ONE = BIT(18),
-    MEC_KBC_UD2_1_ONE = BIT(19),
-    MEC_KBC_UD3_ONE = BIT(20),
-    MEC_KBC_UD4_0_ONE = BIT(21),
-    MEC_KBC_UD4_1_ONE = BIT(22),
-    MEC_KBC_UD5_ONE = BIT(23),
+    MEC_KBC_IBF_IRQ        = MEC_BIT(0),
+    MEC_KBC_OBE_IRQ        = MEC_BIT(1),
+    MEC_KBC_PCOBF_EN       = MEC_BIT(2),
+    MEC_KBC_AUXOBF_EN      = MEC_BIT(3),
+    MEC_KBC_PORT92_EN      = MEC_BIT(4),
+    MEC_KBC_GATEA20_FWC_EN = MEC_BIT(5),
+    MEC_KBC_RESET          = MEC_BIT(7),
+    MEC_KBC_UD0_SET        = MEC_BIT(8),
+    MEC_KBC_UD1_SET        = MEC_BIT(9),
+    MEC_KBC_UD2_SET        = MEC_BIT(10),
+    MEC_KBC_UD3_SET        = MEC_BIT(11),
+    MEC_KBC_UD4_SET        = MEC_BIT(12),
+    MEC_KBC_UD5_SET        = MEC_BIT(13),
+    MEC_KBC_UD0_ONE        = MEC_BIT(16),
+    MEC_KBC_UD1_ONE        = MEC_BIT(17),
+    MEC_KBC_UD2_0_ONE      = MEC_BIT(18),
+    MEC_KBC_UD2_1_ONE      = MEC_BIT(19),
+    MEC_KBC_UD3_ONE        = MEC_BIT(20),
+    MEC_KBC_UD4_0_ONE      = MEC_BIT(21),
+    MEC_KBC_UD4_1_ONE      = MEC_BIT(22),
+    MEC_KBC_UD5_ONE        = MEC_BIT(23),
 };
 
 enum mec_kbc_status_pos {
@@ -64,14 +64,14 @@ enum mec_kbc_status_pos {
 };
 
 enum mec_kbc_status {
-    MEC_KBC_STS_OBF = BIT(0),
-    MEC_KBC_STS_IBF = BIT(1),
-    MEC_KBC_STS_UD0 = BIT(2),
-    MEC_KBC_STS_CMD = BIT(3),
-    MEC_KBC_STS_UD1 = BIT(4),
-    MEC_KBC_STS_AUXOBF = BIT(5),
-    MEC_KBC_STS_UD2_B0 = BIT(6),
-    MEC_KBC_STS_UD2_B1 = BIT(7),
+    MEC_KBC_STS_OBF    = MEC_BIT(0),
+    MEC_KBC_STS_IBF    = MEC_BIT(1),
+    MEC_KBC_STS_UD0    = MEC_BIT(2),
+    MEC_KBC_STS_CMD    = MEC_BIT(3),
+    MEC_KBC_STS_UD1    = MEC_BIT(4),
+    MEC_KBC_STS_AUXOBF = MEC_BIT(5),
+    MEC_KBC_STS_UD2_B0 = MEC_BIT(6),
+    MEC_KBC_STS_UD2_B1 = MEC_BIT(7),
 };
 
 int mec_kbc_init(struct kbc_regs *base, uint32_t flags);

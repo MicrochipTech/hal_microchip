@@ -53,8 +53,8 @@
 #define MEC_ACPI_EC3_NVIC_NUM 178
 #define MEC_ACPI_EC4_NVIC_NUM 179
 
-#define MEC_ACPI_EC_STS_RW_MSK (BIT(2) | BIT(4) | BIT(5) | BIT(6) | BIT(7))
-#define MEC_ACPI_EC_STS_RO_MSK (BIT(0) | BIT(1) | BIT(3))
+#define MEC_ACPI_EC_STS_RW_MSK (MEC_BIT(2) | MEC_BIT(4) | MEC_BIT(5) | MEC_BIT(6) | MEC_BIT(7))
+#define MEC_ACPI_EC_STS_RO_MSK (MEC_BIT(0) | MEC_BIT(1) | MEC_BIT(3))
 
 struct mec_acpi_ec_info {
     uintptr_t base_addr;
@@ -111,7 +111,7 @@ int mec_acpi_ec_init(struct acpi_ec_regs *regs, uint32_t flags)
     if (flags & MEC_ACPI_EC_RESET) {
         mec_pcr_blk_reset(info->pcr_id);
     } else { /* clear IBF and OBE status */
-        if (regs->AEC_BYTE_CTRL & BIT(ACPI_EC_AEC_BYTE_CTRL_FOUR_BYTE_MODE_Pos)) {
+        if (regs->AEC_BYTE_CTRL & MEC_BIT(ACPI_EC_AEC_BYTE_CTRL_FOUR_BYTE_MODE_Pos)) {
             regs->AEC_H2E_DATA;
         } else {
             /* TODO */
@@ -121,24 +121,24 @@ int mec_acpi_ec_init(struct acpi_ec_regs *regs, uint32_t flags)
     mec_acpi_ec_girq_clr(regs, MEC_ACPI_EC_IBF_IRQ | MEC_ACPI_EC_OBE_IRQ);
 
     if (flags & MEC_ACPI_EC_4BYTE_MODE) {
-        regs->AEC_BYTE_CTRL |= BIT(ACPI_EC_AEC_BYTE_CTRL_FOUR_BYTE_MODE_Pos);
+        regs->AEC_BYTE_CTRL |= MEC_BIT(ACPI_EC_AEC_BYTE_CTRL_FOUR_BYTE_MODE_Pos);
     } else {
-        regs->AEC_BYTE_CTRL &= (uint8_t)~BIT(ACPI_EC_AEC_BYTE_CTRL_FOUR_BYTE_MODE_Pos);
+        regs->AEC_BYTE_CTRL &= (uint8_t)~MEC_BIT(ACPI_EC_AEC_BYTE_CTRL_FOUR_BYTE_MODE_Pos);
     }
 
     if (flags & MEC_ACPI_EC_UD0A_SET) {
         if (flags & MEC_ACPI_EC_UD0A_ONE) {
-            regs->AEC_STATUS |= BIT(ACPI_EC_AEC_STATUS_UD0A_Pos);
+            regs->AEC_STATUS |= MEC_BIT(ACPI_EC_AEC_STATUS_UD0A_Pos);
         } else {
-            regs->AEC_STATUS &= (uint8_t)~BIT(ACPI_EC_AEC_STATUS_UD0A_Pos);
+            regs->AEC_STATUS &= (uint8_t)~MEC_BIT(ACPI_EC_AEC_STATUS_UD0A_Pos);
         }
     }
 
     if (flags & MEC_ACPI_EC_UD1A_SET) {
         if (flags & MEC_ACPI_EC_UD1A_ONE) {
-            regs->AEC_STATUS |= BIT(ACPI_EC_AEC_STATUS_UD1A_Pos);
+            regs->AEC_STATUS |= MEC_BIT(ACPI_EC_AEC_STATUS_UD1A_Pos);
         } else {
-            regs->AEC_STATUS &= (uint8_t)~BIT(ACPI_EC_AEC_STATUS_UD1A_Pos);
+            regs->AEC_STATUS &= (uint8_t)~MEC_BIT(ACPI_EC_AEC_STATUS_UD1A_Pos);
         }
     }
 
@@ -152,11 +152,11 @@ static uint32_t acpi_ec_irq_bitmap(const struct mec_acpi_ec_info *info, uint32_t
     uint32_t bm = 0;
 
     if (flags & MEC_ACPI_EC_IBF_IRQ) {
-        bm |= BIT(MEC5_ECIA_INFO_GIRQ_POS(info->devi[MEC_ACPI_EC_IBF_DEVI_IDX]));
+        bm |= MEC_BIT(MEC5_ECIA_INFO_GIRQ_POS(info->devi[MEC_ACPI_EC_IBF_DEVI_IDX]));
     }
 
     if (flags & MEC_ACPI_EC_OBE_IRQ) {
-        bm |= BIT(MEC5_ECIA_INFO_GIRQ_POS(info->devi[MEC_ACPI_EC_OBE_DEVI_IDX]));
+        bm |= MEC_BIT(MEC5_ECIA_INFO_GIRQ_POS(info->devi[MEC_ACPI_EC_OBE_DEVI_IDX]));
     }
 
     return bm;
@@ -225,10 +225,10 @@ uint32_t mec_acpi_ec_girq_result(struct acpi_ec_regs *regs)
     ibf_bit = MEC5_ECIA_INFO_GIRQ_POS(info->devi[MEC_ACPI_EC_IBF_DEVI_IDX]);
     obe_bit = MEC5_ECIA_INFO_GIRQ_POS(info->devi[MEC_ACPI_EC_OBE_DEVI_IDX]);
     temp = mec_girq_result_get(MEC_ACPI_EC_GIRQ);
-    if (temp & BIT(ibf_bit)) {
+    if (temp & MEC_BIT(ibf_bit)) {
         result |= MEC_ACPI_EC_IBF_IRQ;
     }
-    if (temp & BIT(obe_bit)) {
+    if (temp & MEC_BIT(obe_bit)) {
         result |= MEC_ACPI_EC_OBE_IRQ;
     }
 
@@ -268,7 +268,7 @@ int mec_acpi_ec_is_4byte_mode(struct acpi_ec_regs *regs)
         return 0u;
     }
 #endif
-    if (regs && (regs->AEC_BYTE_CTRL & BIT(ACPI_EC_AEC_BYTE_CTRL_FOUR_BYTE_MODE_Pos))) {
+    if (regs && (regs->AEC_BYTE_CTRL & MEC_BIT(ACPI_EC_AEC_BYTE_CTRL_FOUR_BYTE_MODE_Pos))) {
         return 1;
     }
 
@@ -364,7 +364,7 @@ uint8_t mec_acpi_ec_host_to_ec_data_rd8(struct acpi_ec_regs *regs, uint8_t offse
 #endif
     uint32_t addr = (uint32_t)&regs->AEC_H2E_DATA + (uint32_t)(offset & 0x3u);
 
-    return MMCR8(addr);
+    return MEC_MMCR8(addr);
 }
 
 void mec_acpi_ec_host_to_ec_data_wr8(struct acpi_ec_regs *regs, uint8_t offset, uint8_t data)
@@ -376,7 +376,7 @@ void mec_acpi_ec_host_to_ec_data_wr8(struct acpi_ec_regs *regs, uint8_t offset, 
 #endif
     uint32_t addr = (uint32_t)&regs->AEC_H2E_DATA + (uint32_t)(offset & 0x3u);
 
-    MMCR8(addr) = data;
+    MEC_MMCR8(addr) = data;
 }
 
 /* --- */
@@ -409,7 +409,7 @@ uint8_t mec_acpi_ec_e2h_data_rd8(struct acpi_ec_regs *regs, uint8_t offset)
 #endif
     uint32_t addr = (uint32_t)&regs->AEC_E2H_DATA + (uint32_t)(offset & 0x3u);
 
-    return MMCR8(addr);
+    return MEC_MMCR8(addr);
 }
 
 void mec_acpi_ec_e2h_data_wr8(struct acpi_ec_regs *regs, uint8_t offset, uint8_t data)
@@ -421,7 +421,7 @@ void mec_acpi_ec_e2h_data_wr8(struct acpi_ec_regs *regs, uint8_t offset, uint8_t
 #endif
     uint32_t addr = (uint32_t)&regs->AEC_E2H_DATA + (uint32_t)(offset & 0x3u);
 
-    MMCR8(addr) = data;
+    MEC_MMCR8(addr) = data;
 }
 
 /* end mec_acpi_ec.c */

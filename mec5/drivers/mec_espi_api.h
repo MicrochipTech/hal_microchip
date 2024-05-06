@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "mec_defs.h"
 
 /* Interfaces to any C modules */
 #ifdef __cplusplus
@@ -487,20 +488,20 @@ enum espi_ctvw_irq_bank {
 #define MEC_ESPI_VWG_CFG_SRC2_IRQ_POS 14
 #define MEC_ESPI_VWG_CFG_SRC3_IRQ_POS 15
 
-#define MEC_ESPI_VWG_CFG_SRC_RST_VAL_ALL (BIT(MEC_ESPI_VWG_CFG_SRC0_RST_VAL_POS)  \
-                                          | BIT(MEC_ESPI_VWG_CFG_SRC1_RST_VAL_POS) \
-                                          | BIT(MEC_ESPI_VWG_CFG_SRC2_RST_VAL_POS) \
-                                          | BIT(MEC_ESPI_VWG_CFG_SRC3_RST_VAL_POS))
-#define MEC_ESPI_VWG_CFG_SRC_VAL_ALL (BIT(MEC_ESPI_VWG_CFG_SRC0_VAL_POS)  \
-                                      | BIT(MEC_ESPI_VWG_CFG_SRC1_VAL_POS) \
-                                      | BIT(MEC_ESPI_VWG_CFG_SRC2_VAL_POS) \
-                                      | BIT(MEC_ESPI_VWG_CFG_SRC3_VAL_POS))
-#define MEC_ESPI_VWG_CFG_SRC_IRQ_ALL (BIT(MEC_ESPI_VWG_CFG_SRC0_IRQ_POS)  \
-                                      | BIT(MEC_ESPI_VWG_CFG_SRC1_IRQ_POS) \
-                                      | BIT(MEC_ESPI_VWG_CFG_SRC2_IRQ_POS) \
-                                      | BIT(MEC_ESPI_VWG_CFG_SRC3_IRQ_POS))
-#define MEC_ESPI_VWG_CFG_ALL_PROP (BIT(MEC_ESPI_VWG_CFG_HI_POS) \
-                                   | BIT(MEC_ESPI_VWG_CFG_RST_SRC_POS) \
+#define MEC_ESPI_VWG_CFG_SRC_RST_VAL_ALL (MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_RST_VAL_POS)  \
+                                          | MEC_BIT(MEC_ESPI_VWG_CFG_SRC1_RST_VAL_POS) \
+                                          | MEC_BIT(MEC_ESPI_VWG_CFG_SRC2_RST_VAL_POS) \
+                                          | MEC_BIT(MEC_ESPI_VWG_CFG_SRC3_RST_VAL_POS))
+#define MEC_ESPI_VWG_CFG_SRC_VAL_ALL (MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_VAL_POS)  \
+                                      | MEC_BIT(MEC_ESPI_VWG_CFG_SRC1_VAL_POS) \
+                                      | MEC_BIT(MEC_ESPI_VWG_CFG_SRC2_VAL_POS) \
+                                      | MEC_BIT(MEC_ESPI_VWG_CFG_SRC3_VAL_POS))
+#define MEC_ESPI_VWG_CFG_SRC_IRQ_ALL (MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_IRQ_POS)  \
+                                      | MEC_BIT(MEC_ESPI_VWG_CFG_SRC1_IRQ_POS) \
+                                      | MEC_BIT(MEC_ESPI_VWG_CFG_SRC2_IRQ_POS) \
+                                      | MEC_BIT(MEC_ESPI_VWG_CFG_SRC3_IRQ_POS))
+#define MEC_ESPI_VWG_CFG_ALL_PROP (MEC_BIT(MEC_ESPI_VWG_CFG_HI_POS) \
+                                   | MEC_BIT(MEC_ESPI_VWG_CFG_RST_SRC_POS) \
                                    | MEC_ESPI_VWG_CFG_SRC_RST_VAL_ALL \
                                    | MEC_ESPI_VWG_CFG_SRC_VAL_ALL \
                                    | MEC_ESPI_VWG_CFG_SRC_IRQ_ALL)
