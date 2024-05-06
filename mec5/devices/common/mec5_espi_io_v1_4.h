@@ -312,7 +312,8 @@ typedef struct espi_io_regs {                   /*!< (@ 0x400F3400) ESPI_IO Stru
 /* =========================================================  CAPFC  ========================================================= */
 #define ESPI_IO_CAPFC_MAX_PLD_SIZE_Pos    (0UL)                     /*!< MAX_PLD_SIZE (Bit 0)                                  */
 #define ESPI_IO_CAPFC_MAX_PLD_SIZE_Msk    (0x7UL)                   /*!< MAX_PLD_SIZE (Bitfield-Mask: 0x07)                    */
-#define ESPI_IO_CAPFC_SHARING_SUPP_Pos    (3UL)                     /*!< SHARING_SUPP (Bit 3)                                  */
+#define ESPI_IO_CAPFC_CAF_SHARING_Pos     (3UL)                     /*!< CAF_SHARING_SUPP (Bit 3)                              */
+#define ESPI_IO_CAPFC_TAF_SHARING_Pos     (4UL)                     /*!< TAF_SHARING_SUPP (Bit 4)                              */
 #define ESPI_IO_CAPFC_SHARING_SUPP_Msk    (0x18UL)                  /*!< SHARING_SUPP (Bitfield-Mask: 0x03)                    */
 #define ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Pos (5UL)                   /*!< TAF_MAX_READ_SIZE (Bit 5)                             */
 #define ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Msk (0xe0UL)                /*!< TAF_MAX_READ_SIZE (Bitfield-Mask: 0x07)               */
