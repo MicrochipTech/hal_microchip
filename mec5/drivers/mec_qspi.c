@@ -3,6 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -96,6 +97,43 @@ uint32_t mec_qspi_get_freq(struct qspi_regs *base)
     }
 
     return qspi_get_freq(base);
+}
+
+uint32_t mec_qspi_freq_div(struct qspi_regs *base)
+{
+    uint32_t fdiv = 0;
+
+    if ((uintptr_t)base == (uintptr_t)(QSPI0_BASE)) {
+        fdiv = (base->MODE & QSPI_MODE_CLKDIV_Msk) >> QSPI_MODE_CLKDIV_Pos;
+    }
+
+    if (fdiv == 0) {
+        fdiv = 0x10000u;
+    }
+
+    return fdiv;
+}
+
+/* Return the raw 16-bit clock divider field from QSPI Mode register.
+ * 0 = divide by maximum (0x10000)
+ * 1 - 0xffff is divide by this value
+ */
+uint16_t mec_qspi_freq_div_raw(struct qspi_regs *base)
+{
+    if ((uintptr_t)base != (uintptr_t)(QSPI0_BASE)) {
+        return 0;
+    }
+
+    return (uint16_t)((base->MODE & QSPI_MODE_CLKDIV_Msk) >> QSPI_MODE_CLKDIV_Pos);
+}
+
+bool mec_qspi_is_enabled(struct qspi_regs *regs)
+{
+    if ((uintptr_t)regs != (uintptr_t)QSPI0_BASE) {
+        return false;
+    }
+
+    return (regs->MODE & MEC_BIT(QSPI_MODE_ACTV_Pos)) ? true : false;
 }
 
 /* Compute an estimate of time in nanoseconds to clock in/out one byte.
@@ -1042,7 +1080,7 @@ int mec_qspi_cfg_gen_ts_clocks(struct mec_qspi_context *ctx, uint32_t nclocks, u
 {
     uint32_t didx = 0, descr = 0;
 
-    if ((nio_pins != 1) || (nio_pins != 2) || (nio_pins != 4)) {
+    if (!((nio_pins == 1) || (nio_pins == 2) || (nio_pins == 4))) {
         return MEC_RET_ERR_INVAL;
     }
 

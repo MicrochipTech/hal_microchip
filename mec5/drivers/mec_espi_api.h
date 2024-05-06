@@ -40,6 +40,7 @@
 #include "mec_espi_fc.h"
 #include "mec_espi_oob.h"
 #include "mec_espi_pc.h"
+#include "mec_espi_taf.h"
 #include "mec_espi_vw.h"
 
 #endif /* #ifndef _MEC_ESPI_API_H */

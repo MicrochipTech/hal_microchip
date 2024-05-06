@@ -22,6 +22,7 @@
 #define MEC_RET_ERR_NO_RES        13
 #define MEC_RET_ERR_HW_NOT_INIT   14
 #define MEC_RET_ERR_BUS_NOT_OWNED 15 /* Bus not owned by controller */
+#define MEC_RET_ERR_HW_NOT_SUPP   16
 
 #define MEC_FALSE 0
 #define MEC_TRUE  1

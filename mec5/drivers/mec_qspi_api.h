@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "device_mec5.h"
 #include "mec_defs.h"
 #include "mec_retval.h"
 
@@ -152,8 +153,12 @@ struct qspi_regs;
 /* Return QSPI controller SPI clock source in Hz */
 uint32_t mec_qspi_max_spi_clock(void);
 
+bool mec_qspi_is_enabled(struct qspi_regs *regs);
+
 /* Return current QSPI frequency in Hz */
 uint32_t mec_qspi_get_freq(struct qspi_regs *base);
+uint32_t mec_qspi_freq_div(struct qspi_regs *base);
+uint16_t mec_qspi_freq_div_raw(struct qspi_regs *base);
 int mec_qspi_set_freq(struct qspi_regs *base, uint32_t freqhz);
 int mec_qspi_byte_time_ns(struct qspi_regs *base, uint32_t *btime_ns);
 

@@ -73,7 +73,7 @@ enum mec_pcr_scr_id {
     MEC_PCR_ACPI_EC3,
     MEC_PCR_ACPI_EC4,
     MEC_PCR_P80BD0 = 89, /* index 2 bit 25 */
-    MEC_PCR_ESPI_SAF = 91, /* index 2 bit 27 */
+    MEC_PCR_ESPI_TAF = 91, /* index 2 bit 27 */
     MEC_PCR_UART2 = 92, /* index 2 bit 28 */
     MEC_PCR_GLUE = 93, /* index 2 bit 29 */
     MEC_PCR_UART3, /* index 2 bit 30 */

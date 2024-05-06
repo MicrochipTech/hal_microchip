@@ -19,6 +19,9 @@
 /* Timer modules checks ID */
 #define MEC_BTIMER_CHECK_ID
 
+/* Enable register pointer checks in eSPI TAF API's */
+#define MEC_ESPI_TAF_CHECK_REG_ADDR
+
 /* Enable checks of I2C base adress passed to I2C API's */
 #define MEC_I2C_BASE_CHECK
 
