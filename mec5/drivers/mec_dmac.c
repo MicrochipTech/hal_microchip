@@ -3,6 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -148,6 +149,19 @@ int mec_dmac_enable(struct dma_regs *base, uint8_t enable)
     }
 
     return MEC_RET_OK;
+}
+
+bool mec_dmac_is_enabled(struct dma_regs *base)
+{
+    if ((uintptr_t)base != (uintptr_t)DMAC_BASE) {
+        return false;
+    }
+
+    if (base->MCTRL & MEC_BIT(DMA_MCTRL_MACTV_Pos)) {
+        return true;
+    }
+
+    return false;
 }
 
 int mec_dma_chan_ia_status_clr(struct dma_regs *base, enum mec_dmac_channel channel)
@@ -328,6 +342,7 @@ int mec_dma_chan_intr_status_clr(struct dma_regs *base, enum mec_dmac_channel ch
     }
 
     base->CHAN[chan].ISTATUS = MEC_DMA_CHAN_ALL_STATUS;
+    ECIA0->GIRQ[MEC_DMAC_GIRQ_IDX].SOURCE = MEC_BIT(chan);
 
     return MEC_RET_OK;
 }
@@ -377,6 +392,19 @@ bool mec_dma_chan_is_busy(struct dma_regs *base, enum mec_dmac_channel chan)
     }
 
     return false;
+}
+
+int mec_dma_chan_halt(struct dma_regs *base, enum mec_dmac_channel chan)
+{
+    uint32_t halt = (MEC_BIT(DMA_CHAN_CTRL_HFC_RUN_Pos) | MEC_BIT(DMA_CHAN_CTRL_SWFC_RUN_Pos));
+
+    if (!base || (chan >= MEC_DMAC_CHAN_MAX)) {
+        return false;
+    }
+
+    base->CHAN[chan].CTRL &= ~halt;
+
+    return MEC_RET_OK;
 }
 
 int mec_dma_chan_stop(struct dma_regs *base, enum mec_dmac_channel chan)
