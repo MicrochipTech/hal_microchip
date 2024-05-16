@@ -291,11 +291,23 @@ void I3C_Thresholds_Init(struct mec_i3c_ctx *ctx)
     // In-Band Interrupt Status Threshold Value.
     _i3c_ibi_status_threshold_set(regs, 0x00);
 
+#if CONFIG_I3C_MEC5_USE_DMA
+
+    // Transmit Buffer Threshold Value
+    _i3c_tx_buf_threshold_set(regs, DATA_BUF_THLD_TX_FIFO_EMPTY_4);
+
+    // Receive Buffer Threshold Value
+    _i3c_rx_buf_threshold_set(regs, DATA_BUF_THLD_RX_FIFO_4);
+
+#else
+
     // Transmit Buffer Threshold Value
     _i3c_tx_buf_threshold_set(regs, DATA_BUF_THLD_TX_FIFO_EMPTY_1);
 
     // Receive Buffer Threshold Value
     _i3c_rx_buf_threshold_set(regs, DATA_BUF_THLD_RX_FIFO_1);
+
+#endif
 
     // Transfer Start Threshold Value
     _i3c_tx_start_threshold_set(regs, DATA_BUF_THLD_TX_FIFO_START_1);
