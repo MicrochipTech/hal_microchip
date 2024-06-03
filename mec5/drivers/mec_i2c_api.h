@@ -78,6 +78,12 @@ enum mec_i2c_ien {
     MEC_I2C_NL_IEN_AAT_POS,
 };
 
+enum mec_i2c_nl_cm_event {
+    MEC_I2C_NL_CM_EVENT_NONE = 0,
+    MEC_I2C_NL_CM_EVENT_W2R,
+    MEC_I2C_NL_CM_EVENT_ALL_DONE,
+};
+
 struct mec_i2c_freq_cfg {
     uint32_t freqhz;
     uint32_t idle_scaling;
@@ -168,6 +174,33 @@ uint8_t mec_hal_i2c_smb_bbctrl_pin_states(struct mec_i2c_smb_ctx *ctx);
 
 int mec_hal_i2c_nl_cm_cfg_start(struct mec_i2c_smb_ctx *ctx, uint16_t ntx, uint16_t nrx,
                                 uint32_t flags);
+
+uint32_t mec_hal_i2c_nl_cm_event(struct mec_i2c_smb_regs *regs);
+
+static inline uint32_t mec_hal_i2c_nl_cm_cmd(struct mec_i2c_smb_regs *regs)
+{
+    return regs->CM_CMD;
+}
+
+static inline void mec_hal_i2c_nl_cm_proceed(struct mec_i2c_smb_regs *regs)
+{
+    regs->CM_CMD |= MEC_BIT(MEC_I2C_SMB_CM_CMD_MPROCEED_Pos);
+}
+
+static inline void mec_hal_i2c_nl_cm_txb_write(struct mec_i2c_smb_regs *regs, uint8_t data_byte)
+{
+    regs->CM_TXB = data_byte;
+}
+
+static inline uint32_t mec_hal_i2c_nl_tm_cmd(struct mec_i2c_smb_regs *regs)
+{
+    return regs->TM_CMD;
+}
+
+static inline void mec_hal_i2c_nl_tm_proceed(struct mec_i2c_smb_regs *regs)
+{
+    regs->TM_CMD |= MEC_BIT(MEC_I2C_SMB_TM_CMD_SPROCEED_Pos);
+}
 
 void mec_hal_i2c_pm_save_disable(void);
 void mec_hal_i2c_pm_restore(void);

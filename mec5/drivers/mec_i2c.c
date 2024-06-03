@@ -24,6 +24,8 @@
  *          is not checked during a STOP phase. If LAB occurs this controller will tri-state
  *          its pins and continue to clock in the address/data from the external controller.
  *          On the 9th clock NIPEND and LAB will both assert.
+ *          I2C-NL CM FSM will transition to IDLE state after 9th clock (n)ACK bit and
+ *          clear the PIN bit to 1(de-asserted).
  * bit[2] = AAS = 1 indicates an external Controller issued (RPT)-START + target address
  *          the target address matches one of the two target addresses in this controller's
  *          own address register or the I2C generate call address(0x00). NOTE: general
@@ -75,6 +77,8 @@
 #define MEC_I2C_SMB2_ECIA_INFO MEC5_ECIA_INFO(13, 2, 5, 22)
 #define MEC_I2C_SMB3_ECIA_INFO MEC5_ECIA_INFO(13, 3, 5, 23)
 #define MEC_I2C_SMB4_ECIA_INFO MEC5_ECIA_INFO(13, 4, 5, 158)
+
+#define MEC_I2C_NL_DEBUG_SAVE_CM_CMD
 
 struct mec_i2c_info {
     uintptr_t base_addr;
@@ -673,6 +677,10 @@ uint8_t mec_hal_i2c_smb_bbctrl_pin_states(struct mec_i2c_smb_ctx *ctx)
 
 /* -------- I2C-NL -------- */
 
+#ifdef MEC_I2C_NL_DEBUG_SAVE_CM_CMD
+static volatile uint32_t mec_i2c_nl_dbg_save[4];
+#endif
+
 int mec_hal_i2c_nl_cm_cfg_start(struct mec_i2c_smb_ctx *ctx, uint16_t ntx, uint16_t nrx,
                                 uint32_t flags)
 {
@@ -715,9 +723,41 @@ int mec_hal_i2c_nl_cm_cfg_start(struct mec_i2c_smb_ctx *ctx, uint16_t ntx, uint1
         regs->CONFIG |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENMI_Pos);
     }
 
+#ifdef MEC_I2C_NL_DEBUG_SAVE_CM_CMD
+    mec_i2c_nl_dbg_save[0] = cmd;
+    mec_i2c_nl_dbg_save[1] = regs->CONFIG;
+    mec_i2c_nl_dbg_save[2] = regs->COMPL;
+    mec_i2c_nl_dbg_save[3] = regs->EXTLEN;
+#endif
+
     regs->CM_CMD = cmd;
 
     return MEC_RET_OK;
+}
+
+/* I2C-NL FSM clears MRUN and MPROCEED when both wrCnt and rdCnt transition to 0.
+ * MRUN==1 and MPROCEED is cleared to 0 when FSM requires software to reconfigure
+ * DMA for the direction change from write to read. After the Rpt-Start and rdAddr
+ * are transmitted and (n)ACK'd the FSM clears MPROCEED only.
+ * NOTE: any error should clear MRUN and MPROCEED.
+ */
+uint32_t mec_hal_i2c_nl_cm_event(struct mec_i2c_smb_regs *regs)
+{
+#ifdef MEC_I2C_BASE_CHECK
+    if (!regs) {
+        return MEC_I2C_NL_CM_EVENT_NONE;
+    }
+#endif
+
+    uint32_t cm_cmd = regs->CM_CMD & 0x03u;
+
+    if (cm_cmd == 0) {
+        return MEC_I2C_NL_CM_EVENT_ALL_DONE;
+    } else if (cm_cmd == 0x01) {
+        return MEC_I2C_NL_CM_EVENT_W2R;
+    } else {
+        return MEC_I2C_NL_CM_EVENT_NONE;
+    }
 }
 
 /* ---- Power Management ----
