@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <device_mec5.h>
 #include "mec_defs.h"
 #include "mec_retval.h"
 
@@ -230,6 +231,7 @@ int mec_hal_i2c_smb_read_byte(struct mec_i2c_smb_ctx *ctx, uint8_t *msg_byte);
 
 int mec_hal_i2c_smb_bbctrl(struct mec_i2c_smb_ctx *ctx, uint8_t enable, uint8_t pin_drive);
 uint8_t mec_hal_i2c_smb_bbctrl_pin_states(struct mec_i2c_smb_ctx *ctx);
+uint8_t mec_hal_i2c_smb_bbmon_pin_states(struct mec_i2c_smb_regs *regs);
 
 /* ---- I2C Network Layer ---- */
 struct mec_i2c_smb_nl_state {
@@ -279,10 +281,10 @@ int mec_hal_i2c_nl_cm_xfr_count_set(struct mec_i2c_smb_regs *regs, uint8_t is_re
 
 static inline void mec_hal_i2c_nl_flush_buffers(struct mec_i2c_smb_regs *regs)
 {
-    regs->CONFIG |= (MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_TM_TXB_Pos)
-                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_TM_RXB_Pos)
-                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_CTXB_Pos)
-                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_CRXB_Pos));
+    regs->CONFIG |= (MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_TTXB_Pos)
+                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_TRXB_Pos)
+                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_HTXB_Pos)
+                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_HRXB_Pos));
 }
 
 /* Get copy of address transmitted by external controller.

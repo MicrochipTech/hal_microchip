@@ -6,6 +6,36 @@
 #ifndef _MEC5_GPIO_8F_6PORT_V1_5_H
 #define _MEC5_GPIO_8F_6PORT_V1_5_H
 
+#include <stdint.h>
+
+#ifndef __I
+#ifdef __cplusplus
+#define __I volatile
+#else
+#define __I volatile const
+#endif
+#endif
+
+#ifndef __O
+#define __O volatile
+#endif
+
+#ifndef __IO
+#define __IO volatile
+#endif
+
+#ifndef __IM
+#define __IM volatile const
+#endif
+
+#ifndef __OM
+#define __OM volatile
+#endif
+
+#ifndef __IOM
+#define __IOM volatile
+#endif
+
 /** @addtogroup Device_Peripheral_peripherals
   * @{
   */
