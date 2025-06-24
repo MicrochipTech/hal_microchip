@@ -20,8 +20,8 @@
 #define MEC_PS2_0_GIRQ_POS 10
 #define MEC_PS2_1_GIRQ_POS 11
 
-#define MEC_PS2_0_ECIA_INFO MEC5_ECIA_INFO(18, 10, 10, 100)
-#define MEC_PS2_1_ECIA_INFO MEC5_ECIA_INFO(18, 11, 10, 101)
+#define MEC_PS2_0_ECIA_INFO MEC_ECIA_INFO(18, 10, 10, 100)
+#define MEC_PS2_1_ECIA_INFO MEC_ECIA_INFO(18, 11, 10, 101)
 
 /* PS/2 port wake event: start bit detection
  * NOTE: PS/2 ports are separate pins and the controller can only be
@@ -34,9 +34,9 @@
 #define MEC_PS2_WAKE_0B_GIRQ_POS 19 /* Controller 0 Port B */
 #define MEC_PS2_WAKE_1B_GIRQ_POS 21 /* Controller 1 Port B */
 
-#define MEC_PS2_WAKE_0A_ECIA_INFO MEC5_ECIA_INFO(21, 13, 18, 129)
-#define MEC_PS2_WAKE_0B_ECIA_INFO MEC5_ECIA_INFO(21, 13, 19, 130)
-#define MEC_PS2_WAKE_1B_ECIA_INFO MEC5_ECIA_INFO(21, 13, 21, 132)
+#define MEC_PS2_WAKE_0A_ECIA_INFO MEC_ECIA_INFO(21, 13, 18, 129)
+#define MEC_PS2_WAKE_0B_ECIA_INFO MEC_ECIA_INFO(21, 13, 19, 130)
+#define MEC_PS2_WAKE_1B_ECIA_INFO MEC_ECIA_INFO(21, 13, 21, 132)
 
 struct mec_ps2_info {
     uintptr_t base_addr;

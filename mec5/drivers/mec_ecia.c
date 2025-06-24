@@ -7,7 +7,6 @@
 #include <stdint.h>
 
 #include <device_mec5.h>
-#include "mec_pcfg.h"
 #include "mec_defs.h"
 #include "mec_ecia_api.h"
 #include "mec_retval.h"
@@ -508,8 +507,8 @@ uint32_t mec_hal_girq_result_test(uint32_t girq_num, uint32_t bitpos)
 /* Set or clear GIRQ enable for a peripheral source. */
 void mec_hal_girq_ctrl(uint32_t devi, int enable)
 {
-    uint32_t gidx = MEC5_ECIA_INFO_GIRQZ(devi);
-    uint32_t gpos = MEC5_ECIA_INFO_GIRQ_POS(devi);
+    uint32_t gidx = MEC_ECIA_INFO_GIRQZ(devi);
+    uint32_t gpos = MEC_ECIA_INFO_GIRQ_POS(devi);
 
     if (gidx >= MEC5_ECIA_NUM_GIRQS) {
         return;
@@ -528,8 +527,8 @@ void mec_hal_girq_ctrl(uint32_t devi, int enable)
  */
 uint32_t mec_hal_girq_src(uint32_t devi)
 {
-    uint32_t gidx = MEC5_ECIA_INFO_GIRQZ(devi);
-    uint32_t gpos = MEC5_ECIA_INFO_GIRQ_POS(devi);
+    uint32_t gidx = MEC_ECIA_INFO_GIRQZ(devi);
+    uint32_t gpos = MEC_ECIA_INFO_GIRQ_POS(devi);
 
     if (gidx >= MEC5_ECIA_NUM_GIRQS) {
         return 0;
@@ -540,8 +539,8 @@ uint32_t mec_hal_girq_src(uint32_t devi)
 
 uint32_t mec_hal_girq_result(uint32_t devi)
 {
-    uint32_t gidx = MEC5_ECIA_INFO_GIRQZ(devi);
-    uint32_t gpos = MEC5_ECIA_INFO_GIRQ_POS(devi);
+    uint32_t gidx = MEC_ECIA_INFO_GIRQZ(devi);
+    uint32_t gpos = MEC_ECIA_INFO_GIRQ_POS(devi);
 
     if (gidx >= MEC5_ECIA_NUM_GIRQS) {
         return 0;
@@ -553,8 +552,8 @@ uint32_t mec_hal_girq_result(uint32_t devi)
 /* Clear GIRQ source(status) for a peripheral source. */
 void mec_hal_girq_clr_src(uint32_t devi)
 {
-    uint32_t gidx = MEC5_ECIA_INFO_GIRQZ(devi);
-    uint32_t gpos = MEC5_ECIA_INFO_GIRQ_POS(devi);
+    uint32_t gidx = MEC_ECIA_INFO_GIRQZ(devi);
+    uint32_t gpos = MEC_ECIA_INFO_GIRQ_POS(devi);
 
     if (gidx >= MEC5_ECIA_NUM_GIRQS) {
         return;
@@ -595,7 +594,7 @@ int mec_hal_ecia_is_direct(uint32_t devi)
         return 0;
     }
 
-    uint32_t girq_num = MEC5_ECIA_INFO_GIRQZ(devi) + MEC5_ECIA_FIRST_GIRQ_NOS;
+    uint32_t girq_num = MEC_ECIA_INFO_GIRQZ(devi) + MEC5_ECIA_FIRST_GIRQ_NOS;
 
     if (!(MEC_BIT(girq_num) & MEC5_ECIA_DIRECT_BITMAP)) {
         return 0;
@@ -613,10 +612,10 @@ int mec_hal_ecia_is_direct(uint32_t devi)
 
 void mec_hal_ecia_nvic_enable(uint32_t devi)
 {
-    uint32_t nvic_extn = MEC5_ECIA_INFO_NVIC_AGGR(devi);
+    uint32_t nvic_extn = MEC_ECIA_INFO_NVIC_AGGR(devi);
 
     if (mec_hal_ecia_is_direct(devi)) {
-        nvic_extn = MEC5_ECIA_INFO_NVIC_DIRECT(devi);
+        nvic_extn = MEC_ECIA_INFO_NVIC_DIRECT(devi);
     }
 
     nvic_extirq_enable(nvic_extn);
@@ -624,10 +623,10 @@ void mec_hal_ecia_nvic_enable(uint32_t devi)
 
 void mec_hal_ecia_nvic_disable(uint32_t devi)
 {
-    uint32_t nvic_extn = MEC5_ECIA_INFO_NVIC_AGGR(devi);
+    uint32_t nvic_extn = MEC_ECIA_INFO_NVIC_AGGR(devi);
 
     if (mec_hal_ecia_is_direct(devi)) {
-        nvic_extn = MEC5_ECIA_INFO_NVIC_DIRECT(devi);
+        nvic_extn = MEC_ECIA_INFO_NVIC_DIRECT(devi);
     }
 
     nvic_extirq_disable(nvic_extn);
@@ -635,10 +634,10 @@ void mec_hal_ecia_nvic_disable(uint32_t devi)
 
 void mec_hal_ecia_nvic_clr_pend(uint32_t devi)
 {
-    uint32_t nvic_extn = MEC5_ECIA_INFO_NVIC_AGGR(devi);
+    uint32_t nvic_extn = MEC_ECIA_INFO_NVIC_AGGR(devi);
 
     if (mec_hal_ecia_is_direct(devi)) {
-        nvic_extn = MEC5_ECIA_INFO_NVIC_DIRECT(devi);
+        nvic_extn = MEC_ECIA_INFO_NVIC_DIRECT(devi);
     }
 
     nvic_extirq_pend_clear(nvic_extn);
@@ -646,10 +645,10 @@ void mec_hal_ecia_nvic_clr_pend(uint32_t devi)
 
 uint32_t mec_hal_ecia_nvic_get_pending(uint32_t devi)
 {
-    uint32_t extn = MEC5_ECIA_INFO_NVIC_AGGR(devi);
+    uint32_t extn = MEC_ECIA_INFO_NVIC_AGGR(devi);
 
     if (mec_hal_ecia_is_direct(devi)) {
-        extn = MEC5_ECIA_INFO_NVIC_DIRECT(devi);
+        extn = MEC_ECIA_INFO_NVIC_DIRECT(devi);
     }
 
     return nvic_extirq_pend_get(extn);
@@ -657,10 +656,10 @@ uint32_t mec_hal_ecia_nvic_get_pending(uint32_t devi)
 
 uint8_t mec_hal_ecia_nvic_get_pri(uint32_t devi)
 {
-    uint32_t extn = MEC5_ECIA_INFO_NVIC_AGGR(devi);
+    uint32_t extn = MEC_ECIA_INFO_NVIC_AGGR(devi);
 
     if (mec_hal_ecia_is_direct(devi)) {
-        extn = MEC5_ECIA_INFO_NVIC_DIRECT(devi);
+        extn = MEC_ECIA_INFO_NVIC_DIRECT(devi);
     }
 
     return (uint8_t)(nvic_extirq_priority_get(extn));
@@ -668,10 +667,10 @@ uint8_t mec_hal_ecia_nvic_get_pri(uint32_t devi)
 
 void mec_hal_ecia_nvic_set_pri(uint32_t devi, uint8_t priority)
 {
-    uint32_t extn = MEC5_ECIA_INFO_NVIC_AGGR(devi);
+    uint32_t extn = MEC_ECIA_INFO_NVIC_AGGR(devi);
 
     if (mec_hal_ecia_is_direct(devi)) {
-        extn = MEC5_ECIA_INFO_NVIC_DIRECT(devi);
+        extn = MEC_ECIA_INFO_NVIC_DIRECT(devi);
     }
 
     if (priority > MEC5_NVIC_PRI_LO_VAL) {

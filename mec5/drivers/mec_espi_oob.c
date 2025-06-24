@@ -7,12 +7,13 @@
 #include <stdint.h>
 
 #include <device_mec5.h>
-#include "mec_pcfg.h"
 #include "mec_defs.h"
 #include "mec_ecia_api.h"
-#include "mec_espi_api.h"
-#include "mec_pcr_api.h"
+#include "mec_espi_core.h"
+#include "mec_espi_oob.h"
 #include "mec_retval.h"
+#include "mec_mmcr.h"
+#include "mec_espi_regs.h"
 
 /* ---- eSPI Out-Of-Band (OOB) Channel ---- */
 #define MEC5_ESPI_GIRQ               19
@@ -22,12 +23,12 @@
 #define MEC5_ESPI_OOB_DN_GIRQ_POS    5
 #define MEC5_ESPI_OOB_DN_NVIC_DIRECT 108
 
-#define MEC_ESPI_OOB_UP_ECIA_INFO MEC5_ECIA_INFO(MEC5_ESPI_GIRQ, MEC5_ESPI_OOB_UP_GIRQ_POS, \
-                                                 MEC5_ESPI_GIRQ_AGGR_NVIC, \
-                                                 MEC5_ESPI_OOB_UP_NVIC_DIRECT)
-#define MEC_ESPI_OOB_DN_ECIA_INFO MEC5_ECIA_INFO(MEC5_ESPI_GIRQ, MEC5_ESPI_OOB_DN_GIRQ_POS, \
-                                                 MEC5_ESPI_GIRQ_AGGR_NVIC, \
-                                                 MEC5_ESPI_OOB_DN_NVIC_DIRECT)
+#define MEC_ESPI_OOB_UP_ECIA_INFO MEC_ECIA_INFO(MEC5_ESPI_GIRQ, MEC5_ESPI_OOB_UP_GIRQ_POS, \
+                                                MEC5_ESPI_GIRQ_AGGR_NVIC, \
+                                                MEC5_ESPI_OOB_UP_NVIC_DIRECT)
+#define MEC_ESPI_OOB_DN_ECIA_INFO MEC_ECIA_INFO(MEC5_ESPI_GIRQ, MEC5_ESPI_OOB_DN_GIRQ_POS, \
+                                                MEC5_ESPI_GIRQ_AGGR_NVIC, \
+                                                MEC5_ESPI_OOB_DN_NVIC_DIRECT)
 
 #define MEC_ESPI_OOB_TX_STS_RW1C \
     (MEC_ESPI_IO_OOBTXSTS_DONE_Msk | MEC_ESPI_IO_OOBTXSTS_CHEN_CHG_Msk \
@@ -97,34 +98,34 @@ uint32_t mec_hal_espi_oob_girq_result(void)
     return bitmap_to_msk(result);
 }
 
-void mec_hal_espi_oob_ready_set(struct mec_espi_io_regs *iobase)
+void mec_hal_espi_oob_ready_set(uintptr_t iorb)
 {
-    iobase->OOBRDY = MEC_BIT(MEC_ESPI_IO_OOBRDY_OOB_READY_Pos);
+    mmcr8_set_bit(iorb + MEC_ESPI_OOB_RDY_OFS, MEC_ESPI_CHAN_RDY_POS);
 }
 
-int mec_hal_espi_oob_is_ready(struct mec_espi_io_regs *iobase)
+int mec_hal_espi_oob_is_ready(uintptr_t iorb)
 {
-    if (iobase->OOBRDY & MEC_BIT(MEC_ESPI_IO_OOBRDY_OOB_READY_Pos)) {
-        return 1;
-    }
-
-    return 0;
+    return mmcr8_test_bit(iorb + MEC_ESPI_OOB_RDY_OFS, MEC_ESPI_CHAN_RDY_POS);
 }
 
 /* OOB TX Status register channel enable change bit matches API defined
  * position (bit[1]). Current channel enable state is at bit[9] in the
  * register; move to bit[0].
  */
-uint32_t mec_hal_espi_oob_en_status(struct mec_espi_io_regs *iobase)
+uint32_t mec_hal_espi_oob_en_status(uintptr_t iorb)
 {
-    uint32_t txsts = iobase->OOBTXSTS;
-    uint32_t en = txsts & MEC_BIT(MEC_ESPI_IO_OOBTXSTS_CHEN_CHG_Pos); /* bit[1] */
+    uint32_t v = mmcr32_rd(iorb + MEC_ESPI_OOB_TX_SR_OFS);
+    uint32_t status = 0;
 
-    if (txsts & MEC_BIT(MEC_ESPI_IO_OOBTXSTS_CHEN_STATE_Pos)) {
-        en |= MEC_BIT(MEC_ESPI_CHAN_ENABLED_POS);
+    if ((v & MEC_BIT(MEC_ESPI_OOB_TX_SR_CHEN_POS)) != 0) {
+        status |= MEC_BIT(0);
     }
 
-    return en;
+    if ((v & MEC_BIT(MEC_ESPI_OOB_TX_SR_CENC_POS)) != 0) {
+        status |= MEC_BIT(1);
+    }
+
+    return status;
 }
 
 /* Return the maximum eSPI OOB packet size in bytes selected by the eSPI Host when
@@ -132,17 +133,17 @@ uint32_t mec_hal_espi_oob_en_status(struct mec_espi_io_regs *iobase)
  * OOB is different than the other channels. Size encoding are the
  * same but OOB adds 9 bytes to the standard sizes.
  */
-uint32_t mec_hal_espi_oob_max_pkt_size(struct mec_espi_io_regs *iobase)
+uint32_t mec_hal_espi_oob_max_pkt_size(uintptr_t iorb)
 {
-    uint32_t sz;
+    uint32_t v = mmcr32_rd(iorb + MEC_ESPI_OOB_RX_CR_OFS);
+    uint32_t sz = MEC_ESPI_OOB_MPLD_SZ_GET(v);
 
-    sz = (iobase->OOBRXC & MEC_ESPI_IO_OOBRXC_MAX_PLD_SZ_Msk) >> MEC_ESPI_IO_OOBRXC_MAX_PLD_SZ_Pos;
     if ((sz == 0) || (sz > 3u)) { /* reserved values */
         return 0;
     }
 
     sz += 5u;
-    sz = (1u << sz) + 9u; /* add OOB MCHP packet wrapper size of 9 bytes */
+    sz = MEC_BIT(sz) + MEC_ESPI_OOB_ADDED_SIZE;
 
     return sz;
 }
@@ -156,39 +157,37 @@ uint32_t mec_hal_espi_oob_max_pkt_size(struct mec_espi_io_regs *iobase)
  * HW limit check is disabled. This means no Data Overrun check will be made on
  * incoming data allowing potential buffer overrun corrupting memory.
  */
-int mec_hal_espi_oob_buffer_set(struct mec_espi_io_regs *iobase, uint8_t dir,
+int mec_hal_espi_oob_buffer_set(uintptr_t iorb, uint8_t dir,
                                 struct mec_espi_oob_buf * buf)
 {
-    uint32_t temp, lenb, maxlen;
+    uint32_t v = 0, lenb = 0, maxlen = 0;
 
-    if (!iobase || !buf) {
+    if ((iorb == 0) || (buf == NULL)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    if (buf->maddr & 0x03u) {
+    if (!MEC_IS_PTR_ALIGNED32(buf->maddr)) {
         return MEC_RET_ERR_DATA_ALIGN;
     }
 
-    if (!buf->len) {
+    if (buf->len == 0) {
         return MEC_RET_ERR_DATA_LEN;
     }
 
-    maxlen = mec_hal_espi_oob_max_pkt_size(iobase);
+    maxlen = mec_hal_espi_oob_max_pkt_size(iorb);
     lenb = buf->len;
     if (lenb > maxlen) {
         lenb = maxlen;
     }
 
     if (dir == MEC_ESPI_OOB_DIR_DN) {
-        iobase->OOBRXA = buf->maddr;
-        temp = iobase->OOBRXL & (uint32_t)~(MEC_ESPI_IO_OOBRXL_RX_BUF_LEN_Msk);
-        temp |= ((lenb << MEC_ESPI_IO_OOBRXL_RX_BUF_LEN_Pos) & MEC_ESPI_IO_OOBRXL_RX_BUF_LEN_Msk);
-        iobase->OOBRXL = temp;
+        mmcr32_wr(buf->maddr, iorb + MEC_ESPI_OOB_RX_BA_OFS);
+        v = MEC_ESPI_OOB_RXL_BLEN_SET(lenb);
+        mmcr32_update_field(iorb + MEC_ESPI_OOB_RXL_OFS, v, MEC_ESPI_OOB_RXL_BLEN_MSK);
     } else {
-        iobase->OOBTXA = buf->maddr;
-        temp = iobase->OOBTXL & (uint32_t)~(MEC_ESPI_IO_OOBTXL_TX_MSG_LEN_Msk);
-        temp |= ((lenb << MEC_ESPI_IO_OOBTXL_TX_MSG_LEN_Pos) & MEC_ESPI_IO_OOBTXL_TX_MSG_LEN_Msk);
-        iobase->OOBTXL = temp;
+        mmcr32_wr(buf->maddr, iorb + MEC_ESPI_OOB_TX_BA_OFS);
+        v = MEC_ESPI_OOB_TXL_MLEN_SET(lenb);
+        mmcr32_update_field(iorb + MEC_ESPI_OOB_TXL_OFS, v, MEC_ESPI_OOB_TXL_MLEN_MSK);
     }
 
     return MEC_RET_OK;
@@ -199,100 +198,95 @@ int mec_hal_espi_oob_buffer_set(struct mec_espi_io_regs *iobase, uint8_t dir,
  * NOTE: RX available bit is write-only. Once set it causes the OOB receive enable to be
  * set in the OOB RX Status register.
  */
-void mec_hal_espi_oob_rx_buffer_avail(struct mec_espi_io_regs *iobase)
+void mec_hal_espi_oob_rx_buffer_avail(uintptr_t iorb)
 {
-    iobase->OOBRXC |= MEC_BIT(MEC_ESPI_IO_OOBRXC_RX_AVAIL_Pos);
+    mmcr32_set_bit(iorb + MEC_ESPI_OOB_RX_CR_OFS, MEC_ESPI_OOB_RX_CR_SRA_POS);
 }
 
 /* Enable OOB channel interrupts to the EC
  * NOTE: All of the OOB errors cause DONE status to be set.
  */
-void mec_hal_espi_oob_intr_ctrl(struct mec_espi_io_regs *iobase, uint32_t msk, uint8_t en)
+void mec_hal_espi_oob_intr_ctrl(uintptr_t iorb, uint32_t msk, uint8_t en)
 {
-    uint32_t txien = 0;
+    uint32_t tx_ien_msk = 0;
 
-    if (msk & MEC_BIT(MEC_ESPI_OOB_DN_INTR_DONE_POS)) {
-        if (en) {
-            iobase->OOBRXIEN |= MEC_BIT(MEC_ESPI_IO_OOBRXIEN_DONE_Pos);
+    if (msk & MEC_BIT(MEC_ESPI_OOB_UP_INTR_DONE_POS)) {
+        tx_ien_msk |= MEC_BIT(MEC_ESPI_OOB_TX_IER_DONE_POS);
+    }
+
+    if (msk & MEC_BIT(MEC_ESPI_OOB_UP_INTR_CHEN_CHG_POS)) {
+        tx_ien_msk |= MEC_BIT(MEC_ESPI_OOB_TX_IER_CENC_POS);
+    }
+
+    if (tx_ien_msk != 0) {
+        if (en != 0) {
+            mmcr32_set_bits(iorb + MEC_ESPI_OOB_TX_IER_OFS, tx_ien_msk);
         } else {
-            iobase->OOBRXIEN &= (uint32_t)~MEC_BIT(MEC_ESPI_IO_OOBRXIEN_DONE_Pos);
+            mmcr32_clr_bits(iorb + MEC_ESPI_OOB_TX_IER_OFS, tx_ien_msk);
         }
     }
 
-    if (msk & MEC_BIT(MEC_ESPI_OOB_UP_INTR_DONE_POS)) {
-        txien |= MEC_BIT(MEC_ESPI_IO_OOBTXIEN_DONE_Pos);
-    }
-    if (msk & MEC_BIT(MEC_ESPI_OOB_UP_INTR_CHEN_CHG_POS)) {
-        txien |= MEC_BIT(MEC_ESPI_IO_OOBTXIEN_CHEN_CHG_Pos);
-    }
-
-    if (en) {
-        iobase->OOBTXIEN |= txien;
-    } else {
-        iobase->OOBTXIEN &= ~txien;
+    if (msk & MEC_BIT(MEC_ESPI_OOB_DN_INTR_DONE_POS)) {
+        if (en) {
+            mmcr32_set_bit(iorb + MEC_ESPI_OOB_RX_IER_OFS, MEC_ESPI_OOB_RX_IER_DONE_POS);
+        } else {
+            mmcr32_clr_bit(iorb + MEC_ESPI_OOB_RX_IER_OFS, MEC_ESPI_OOB_RX_IER_DONE_POS);
+        }
     }
 }
 
-void mec_hal_espi_oob_tx_start(struct mec_espi_io_regs *iobase, uint8_t tag, uint8_t start)
+void mec_hal_espi_oob_tx_start(uintptr_t iorb, uint8_t tag, uint8_t start)
 {
-    uint32_t txctrl = iobase->OOBTXC & (uint32_t)~(MEC_ESPI_IO_OOBTXC_OOB_TX_TAG_Msk);
+    uint32_t v = MEC_ESPI_OOB_TX_TAG_SET(tag);
 
-    txctrl |= (((uint32_t)tag << MEC_ESPI_IO_OOBTXC_OOB_TX_TAG_Pos)
-               & MEC_ESPI_IO_OOBTXC_OOB_TX_TAG_Msk);
-    iobase->OOBTXC = txctrl;
+    mmcr32_update_field(iorb + MEC_ESPI_OOB_TX_CR_OFS, v, MEC_ESPI_OOB_TX_TAG_MSK);
 
-    if (start) {
-        iobase->OOBTXC |= MEC_BIT(MEC_ESPI_IO_OOBTXC_START_Pos);
+    if (start != 0) {
+        mmcr32_set_bit(iorb + MEC_ESPI_OOB_TX_CR_OFS, MEC_ESPI_OOB_TX_CR_START_POS);
     }
 }
 
-int mec_hal_espi_oob_tx_is_busy(struct mec_espi_io_regs *iobase)
+int mec_hal_espi_oob_tx_is_busy(uintptr_t iorb)
 {
-    if (iobase->OOBTXSTS & MEC_BIT(MEC_ESPI_IO_OOBTXSTS_BUSY_Pos)) {
-        return 1;
-    }
-
-    return 0;
+    return mmcr32_test_bit(iorb + MEC_ESPI_OOB_TX_SR_OFS, MEC_ESPI_OOB_TX_SR_DONE_POS);
 }
 
-uint8_t mec_hal_espi_oob_rx_tag(struct mec_espi_io_regs *iobase)
+/* Get TAG value we received in last OOB RX message */
+uint8_t mec_hal_espi_oob_rx_tag(uintptr_t iorb)
 {
-    uint32_t tag = ((iobase->OOBRXSTS & MEC_ESPI_IO_OOBRXSTS_OOB_RX_TAG_Msk) >>
-                    MEC_ESPI_IO_OOBRXSTS_OOB_RX_TAG_Pos);
+    uint32_t v = mmcr32_rd(iorb + MEC_ESPI_OOB_RX_SR_OFS);
+    uint32_t tag = MEC_ESPI_OOB_TX_TAG_GET(v);
 
-    return (uint8_t)(tag & 0xffu);
+    return (uint8_t)tag;
 }
 
-uint32_t mec_hal_espi_oob_received_len(struct mec_espi_io_regs *iobase)
+/* Get length of last received OOB RX message */
+uint32_t mec_hal_espi_oob_received_len(uintptr_t iorb)
 {
-    uint32_t recvlen = 0;
+    uint32_t v = mmcr32_rd(iorb + MEC_ESPI_OOB_RXL_OFS);
 
-    if (iobase) {
-        recvlen = iobase->OOBRXL & MEC_ESPI_IO_OOBRXL_RECV_MSG_LEN_Msk;
-        recvlen >>= MEC_ESPI_IO_OOBRXL_RECV_MSG_LEN_Pos;
-    }
-
-    return recvlen;
+    return (uint32_t)MEC_ESPI_OOB_RXL_MLEN_GET(v);
 }
 
-uint32_t mec_hal_espi_oob_status(struct mec_espi_io_regs *iobase, uint8_t dir)
+/* Get raw register status of specified OOB direction */
+uint32_t mec_hal_espi_oob_status(uintptr_t iorb, uint8_t dir)
 {
     if (dir == MEC_ESPI_OOB_DIR_DN) {
-        return iobase->OOBRXSTS;
+        return mmcr32_rd(iorb + MEC_ESPI_OOB_RX_SR_OFS);
     } else {
-        return iobase->OOBTXSTS;
+        return mmcr32_rd(iorb + MEC_ESPI_OOB_TX_SR_OFS);
     }
 }
 
 int mec_hal_espi_oob_is_done(uint32_t status, uint8_t dir)
 {
-    uint8_t done_pos = MEC_ESPI_IO_OOBTXSTS_DONE_Pos;
+    uint8_t done_pos = MEC_ESPI_OOB_TX_SR_DONE_POS;
 
     if (dir == MEC_ESPI_OOB_DIR_DN) {
-        done_pos = MEC_ESPI_IO_OOBRXSTS_DONE_Pos;
+        done_pos = MEC_ESPI_OOB_RX_SR_DONE_POS;
     }
 
-    if (status & MEC_BIT(done_pos)) {
+    if ((status & MEC_BIT(done_pos)) != 0) {
         return 1;
     }
 
@@ -301,12 +295,10 @@ int mec_hal_espi_oob_is_done(uint32_t status, uint8_t dir)
 
 int mec_hal_espi_oob_is_error(uint32_t status, uint8_t dir)
 {
-    uint32_t msk = (MEC_ESPI_IO_OOBTXSTS_EC_BUS_ERR_Msk
-                    | MEC_ESPI_IO_OOBTXSTS_START_OVRUN_Msk
-                    | MEC_ESPI_IO_OOBTXSTS_BAD_REQ_Msk);
+    uint32_t msk = MEC_ESPI_OOB_TX_SR_ALL_ERR_MSK;
 
     if (dir == MEC_ESPI_OOB_DIR_DN) {
-        msk = (MEC_ESPI_IO_OOBRXSTS_EC_BUS_ERR_Msk | MEC_ESPI_IO_OOBRXSTS_DATA_OVRUN_Msk);
+        msk = MEC_ESPI_OOB_RX_SR_ALL_ERR_MSK;
     }
 
     if (status & msk) {
@@ -316,14 +308,19 @@ int mec_hal_espi_oob_is_error(uint32_t status, uint8_t dir)
     return 0;
 }
 
+/* Check if OOB status has channel enable change event
+ * param status = OOB TX status register value
+ * return 0: no channel enable change
+ * return 1: disable to enable change
+ * return -1: enable to disable change
+ */
 int mec_hal_espi_oob_up_is_chan_event(uint32_t status)
 {
     int ev = 0; /* no event */
 
-    if (status & MEC_BIT(MEC_ESPI_IO_OOBTXSTS_CHEN_CHG_Pos)) {
-        if (status & MEC_BIT(MEC_ESPI_IO_OOBTXSTS_CHEN_STATE_Pos)) {
-            /* 0 -> 1 is enable */
-            ev = 1;
+    if (status & MEC_BIT(MEC_ESPI_OOB_TX_SR_CENC_POS)) {
+        if (status & MEC_BIT(MEC_ESPI_OOB_TX_SR_CHEN_POS)) {
+            ev = 1; /* 0 -> 1 is enable */
         } else {
             ev = -1; /* 1 -> 0 disable */
         }
@@ -332,40 +329,38 @@ int mec_hal_espi_oob_up_is_chan_event(uint32_t status)
     return ev;
 }
 
-void mec_hal_espi_oob_status_clr_done(struct mec_espi_io_regs *iobase, uint8_t dir)
+void mec_hal_espi_oob_status_clr_done(uintptr_t iorb, uint8_t dir)
 {
    if (dir == MEC_ESPI_OOB_DIR_UP) {
-       iobase->OOBTXSTS = MEC_BIT(MEC_ESPI_IO_OOBTXSTS_DONE_Pos);
+       mmcr32_set_bit(iorb + MEC_ESPI_OOB_TX_SR_OFS, MEC_ESPI_OOB_TX_SR_DONE_POS);
    } else {
-       iobase->OOBRXSTS = MEC_BIT(MEC_ESPI_IO_OOBRXSTS_DONE_Pos);
+       mmcr32_set_bit(iorb + MEC_ESPI_OOB_RX_SR_OFS, MEC_ESPI_OOB_RX_SR_DONE_POS);
    }
-
-
 }
 
-void mec_hal_espi_oob_status_clr_err(struct mec_espi_io_regs *iobase, uint8_t dir)
+void mec_hal_espi_oob_status_clr_err(uintptr_t iorb, uint8_t dir)
 {
     if (dir == MEC_ESPI_OOB_DIR_UP) {
-        iobase->OOBTXSTS = (MEC_ESPI_IO_OOBTXSTS_EC_BUS_ERR_Msk
-                            | MEC_ESPI_IO_OOBTXSTS_START_OVRUN_Msk
-                            | MEC_ESPI_IO_OOBTXSTS_BAD_REQ_Msk);
+        mmcr32_set_bits(iorb + MEC_ESPI_OOB_TX_SR_OFS, MEC_ESPI_OOB_TX_SR_ALL_ERR_MSK);
     } else {
-        iobase->OOBRXSTS = (MEC_ESPI_IO_OOBRXSTS_EC_BUS_ERR_Msk
-                            | MEC_ESPI_IO_OOBRXSTS_DATA_OVRUN_Msk);
+        mmcr32_set_bits(iorb + MEC_ESPI_OOB_RX_SR_OFS, MEC_ESPI_OOB_RX_SR_ALL_ERR_MSK);
     }
 }
 
-void mec_hal_espi_oob_status_clr_chen_change(struct mec_espi_io_regs *iobase)
+void mec_hal_espi_oob_status_clr_chen_change(uintptr_t iorb)
 {
-    iobase->OOBTXSTS = MEC_BIT(MEC_ESPI_IO_OOBTXSTS_CHEN_CHG_Pos);
+    mmcr32_set_bit(iorb + MEC_ESPI_OOB_TX_SR_OFS, MEC_ESPI_OOB_TX_SR_CENC_POS);
 }
 
-void mec_hal_espi_oob_status_clr_all(struct mec_espi_io_regs *iobase, uint8_t dir)
+void mec_hal_espi_oob_status_clr_all(uintptr_t iorb, uint8_t dir)
 {
+    uint32_t msk = MEC_BIT(MEC_ESPI_OOB_RX_SR_DONE_POS) | MEC_ESPI_OOB_RX_SR_ALL_ERR_MSK;
+
     if (dir == MEC_ESPI_OOB_DIR_DN) {
-        iobase->OOBRXSTS = MEC_ESPI_OOB_RX_STS_RW1C;
+        mmcr32_set_bits(iorb + MEC_ESPI_OOB_RX_SR_OFS, msk);
     } else {
-        iobase->OOBTXSTS = MEC_ESPI_OOB_TX_STS_RW1C;
+        msk = MEC_BIT(MEC_ESPI_OOB_TX_SR_DONE_POS) | MEC_ESPI_OOB_TX_SR_ALL_ERR_MSK;
+        mmcr32_set_bits(iorb + MEC_ESPI_OOB_TX_SR_OFS, msk);
     }
 }
 

@@ -12,164 +12,178 @@
 #include "mec_espi_api.h"
 #include "mec_pcr_api.h"
 #include "mec_retval.h"
+#include "mec_mmcr.h"
+#include "mec_espi_regs.h"
 
 /* ---- eSPI Reset interrupt ---- */
-#define MEC_ESPI_RESET_ECIA_INFO MEC5_ECIA_INFO(19, 7, 11, 110)
+#define MEC_ESPI_RESET_ECIA_INFO MEC_ECIA_INFO(19, 7, 11, 110)
 
-static void set_supported_channels(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_supported_channels(uintptr_t ioreg_base, uint32_t capabilities)
 {
-    uint32_t mask = (MEC_ESPI_IO_CAP0_PC_SUPP_Msk | MEC_ESPI_IO_CAP0_VW_SUPP_Msk
-                     | MEC_ESPI_IO_CAP0_OOB_SUPP_Msk | MEC_ESPI_IO_CAP0_FC_SUPP_Msk);
-    uint32_t temp = 0;
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP0_OFS;
+    uint8_t mask = MEC_ESPI_CAP0_SUPP_MSK;
+    uint8_t v = 0;
 
     if (capabilities & MEC_BIT(MEC_ESPI_CFG_PERIPH_CHAN_SUP_POS)) {
-        temp |= MEC_BIT(MEC_ESPI_IO_CAP0_PC_SUPP_Pos);
+        v |= MEC_BIT(MEC_ESPI_CAP0_PC_SUPP_POS);
     }
 
     if (capabilities & MEC_BIT(MEC_ESPI_CFG_VW_CHAN_SUP_POS)) {
-        temp |= MEC_BIT(MEC_ESPI_IO_CAP0_VW_SUPP_Pos);
+        v |= MEC_BIT(MEC_ESPI_CAP0_VW_SUPP_POS);
     }
 
     if (capabilities & MEC_BIT(MEC_ESPI_CFG_OOB_CHAN_SUP_POS)) {
-        temp |= MEC_BIT(MEC_ESPI_IO_CAP0_OOB_SUPP_Pos);
+        v |= MEC_BIT(MEC_ESPI_CAP0_OOB_SUPP_POS);
     }
 
     if (capabilities & MEC_BIT(MEC_ESPI_CFG_FLASH_CHAN_SUP_POS)) {
-        temp |= MEC_BIT(MEC_ESPI_IO_CAP0_FC_SUPP_Pos);
+        v |= MEC_BIT(MEC_ESPI_CAP0_PC_SUPP_POS);
     }
 
-    iobase->CAP0 = (uint8_t)((iobase->CAP0 & ~mask) | temp);
+    mmcr8_update_field(rb, v, mask);
 }
 
-static void set_supported_max_freq(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_supported_max_freq(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint32_t mask = MEC_ESPI_IO_CAP1_MAX_FREQ_SUPP_Msk;
-    uint32_t temp = capabilities & MEC_ESPI_CFG_MAX_SUPP_FREQ_MSK;
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP1_OFS;
+    uint8_t mask = MEC_ESPI_CAP1_MAX_FREQ_MSK;
+    uint8_t v = 0;
 
-    temp >>= MEC_ESPI_CFG_MAX_SUPP_FREQ_POS;
-    temp = (temp << MEC_ESPI_IO_CAP1_MAX_FREQ_SUPP_Pos) & MEC_ESPI_IO_CAP1_MAX_FREQ_SUPP_Msk;
+    v = (uint8_t)((caps >> MEC_ESPI_CFG_MAX_SUPP_FREQ_POS) & MEC_ESPI_CFG_MAX_SUPP_FREQ_MSK0);
 
-    iobase->CAP1 = (uint8_t)((iobase->CAP1 & ~mask) | temp);
+    mmcr8_update_field(rb, v, mask);
 }
 
 /* eSPI capabilties 1 register has maximum supported frequency field.
  * The field values match the API enum mec_espi_max_freq values.
  */
-static uint32_t get_max_freq(struct mec_espi_io_regs *iobase)
+static uint32_t get_max_freq(uintptr_t ioreg_base)
 {
-    uint32_t hwfreq =
-        ((iobase->CAP1 & MEC_ESPI_IO_CAP1_MAX_FREQ_SUPP_Msk) >> MEC_ESPI_IO_CAP1_MAX_FREQ_SUPP_Pos);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP1_OFS;
+    uint32_t encoded_freq = mmcr8_rd(rb);
 
-    return hwfreq;
+    encoded_freq = MEC_ESPI_CAP1_MAX_FREQ_GET(encoded_freq);
+
+    return encoded_freq;
 }
 
-static void set_supported_io_modes(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_supported_io_modes(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint32_t temp = iobase->CAP1 & ~(MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Msk);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP1_OFS;
+    uint32_t v = ((caps & MEC_ESPI_CFG_IO_MODE_SUPP_MSK) >> MEC_ESPI_CFG_IO_MODE_SUPP_POS);
 
-    temp |= ((((capabilities >> MEC_ESPI_CFG_IO_MODE_SUPP_POS)
-             & MEC_ESPI_CFG_IO_MODE_SUPP_MSK0) << MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Pos)
-             & MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Msk);
+    v |= MEC_ESPI_CAP1_IOM_SET(v);
 
-    iobase->CAP1 = (uint8_t)(temp & 0xffu);
+    mmcr8_update_field(rb, v, MEC_ESPI_CAP1_IOM_MSK);
 }
 
 /* eSPI capabilities 1 register contains a bitfield for supported I/O modes.
  * Our API enum mec_espi_io_mode values are indentical hardware bitfield values.
  */
-static uint32_t get_supported_io_modes(struct mec_espi_io_regs *iobase)
+static uint32_t get_supported_io_modes(uintptr_t ioreg_base)
 {
-    uint32_t iom =
-        ((iobase->CAP1 & MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Msk) >> MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Pos);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP1_OFS;
+    uint32_t iom = mmcr8_rd(rb);
 
-    return ((iom << MEC_ESPI_CFG_IO_MODE_SUPP_POS) & MEC_ESPI_CFG_IO_MODE_SUPP_MSK);
+    iom = MEC_ESPI_CAP1_IOM_GET(iom);
+
+    return (iom << MEC_ESPI_CFG_IO_MODE_SUPP_POS) & MEC_ESPI_CFG_IO_MODE_SUPP_MSK;
 }
 
-static void set_supported_alert_io_pin_mode(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+/* CAP1 has 3 bits for nALERT
+ * b[6] = RW ALERT pin drive type: 0=push-pull, 1=open-drain.
+ *        Firmware uses this bit to advertise nALERT pin drive type is push-pull only(0) or
+ *        can do both push-pull and open-drain (1).
+ * b[7] = RO from HW Config 08h b[23]: Host selected 0=push-pull, 1=open-drain
+ * b[3] = RO rom HW Config 08h b[28]: Host selected 0=nALERT muxed on IO[1], 1=nALERT on pin
+ */
+static void set_supported_alert_io_pin_mode(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint32_t temp = iobase->CAP1 & ~(MEC_ESPI_IO_CAP1_ALERT_OD_SUPP_Msk);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP1_OFS;
 
-    if (capabilities & MEC_BIT(MEC_ESPI_CFG_ALERT_OD_SUPP_POS)) {
-        temp |= MEC_BIT(MEC_ESPI_IO_CAP1_ALERT_OD_SUPP_Pos);
+    if (caps & MEC_BIT(MEC_ESPI_CFG_ALERT_OD_SUPP_POS)) { /* we support push-pull & open-drain */
+        mmcr8_set_bit(rb, MEC_ESPI_CAP1_ALERT_OD_CAP_POS);
+    } else { /* inform Host we only support push-pull nALERT pin */
+        mmcr8_clr_bit(rb, MEC_ESPI_CAP1_ALERT_OD_CAP_POS);
     }
-
-    iobase->CAP1 = (uint8_t)(temp & 0xffu);
 }
 
-static void set_pc_capabilities(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_pc_capabilities(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint32_t temp = iobase->CAPPC & ~(MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Msk);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_PC_OFS;
+    uint32_t v = (caps & MEC_ESPI_CFG_PC_MAX_PLD_SZ_MSK) >> MEC_ESPI_CFG_PC_MAX_PLD_SZ_POS; 
 
-    temp |= ((((capabilities >> MEC_ESPI_CFG_PC_MAX_PLD_SZ_POS)
-             & MEC_ESPI_CFG_PC_MAX_PLD_SZ_MSK0) << MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Pos)
-             & MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Msk);
+    v = MEC_ESPI_CAP_PC_MPLS_SET(v);
 
-    iobase->CAPPC = (uint8_t)(temp & 0xffu);
+    mmcr8_update_field(rb, v, MEC_ESPI_CAP_PC_MPLS_MSK);
 }
 
-static uint32_t get_pc_max_pld_size(struct mec_espi_io_regs *iobase)
+static uint32_t get_pc_max_pld_size(uintptr_t ioreg_base)
 {
-    uint32_t pldsz =
-        ((iobase->CAPPC & MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Msk) >> MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Pos);
-
-    return ((pldsz << MEC_ESPI_CFG_PC_MAX_PLD_SZ_POS) & MEC_ESPI_CFG_PC_MAX_PLD_SZ_MSK);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_PC_OFS;
+    uint32_t v = mmcr8_rd(rb);
+ 
+    return ((v << MEC_ESPI_CFG_PC_MAX_PLD_SZ_POS) & MEC_ESPI_CFG_PC_MAX_PLD_SZ_MSK);
 }
 
-static void set_vw_capabilities(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_vw_capabilities(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint32_t temp = iobase->CAPVW & ~(MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Msk);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_VW_OFS;
+    uint32_t v = (caps & MEC_ESPI_CFG_VW_CNT_MAX_MSK) >> MEC_ESPI_CFG_VW_CNT_MAX_POS;
 
-    temp |= ((((capabilities >> MEC_ESPI_CFG_VW_CNT_MAX_POS)
-             & MEC_ESPI_CFG_VW_CNT_MAX_MSK0) << MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Pos)
-             & MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Msk);
-
-    iobase->CAPVW = (uint8_t)(temp & 0xffu);
+    v = MEC_ESPI_CAP_VW_MAX_GRPS_SET(v);
+    
+    mmcr8_update_field(rb, v, MEC_ESPI_CAP_VW_MAX_GRPS_MSK);
 }
 
-static uint32_t get_vw_groups_max_cnt(struct mec_espi_io_regs *iobase)
+static uint32_t get_vw_groups_max_cnt(uintptr_t ioreg_base)
 {
-    uint32_t nvwg =
-        ((iobase->CAPVW & MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Msk) >> MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Pos);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_VW_OFS;
+    uint32_t v = mmcr8_rd(rb);
 
-    return ((nvwg << MEC_ESPI_CFG_VW_CNT_MAX_POS) & MEC_ESPI_CFG_VW_CNT_MAX_MSK);
+    v = MEC_ESPI_CAP_VW_MAX_GRPS_GET(v);
+
+    return ((v << MEC_ESPI_CFG_VW_CNT_MAX_POS) & MEC_ESPI_CFG_VW_CNT_MAX_MSK);
 }
 
-static void set_oob_capabilities(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_oob_capabilities(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint32_t temp = iobase->CAPOOB & ~(MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Msk);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_OOB_OFS;
+    uint32_t v = (caps & MEC_ESPI_CFG_OOB_MAX_PLD_SZ_MSK) >> MEC_ESPI_CFG_OOB_MAX_PLD_SZ_POS;
 
-    temp |= ((((capabilities >> MEC_ESPI_CFG_OOB_MAX_PLD_SZ_POS)
-             & MEC_ESPI_CFG_OOB_MAX_PLD_SZ_MSK0) << MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Pos)
-             & MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Msk);
+    v = MEC_ESPI_CAP_OOB_MPLD_SET(v);
 
-    iobase->CAPOOB = (uint8_t)(temp & 0xffu);
+    mmcr8_update_field(rb, v, MEC_ESPI_CAP_OOB_MPLD_MSK);
 }
 
-static uint32_t get_oob_pld_size(struct mec_espi_io_regs *iobase)
+static uint32_t get_oob_pld_size(uintptr_t ioreg_base)
 {
-    uint32_t pldsz =
-        ((iobase->CAPOOB & MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Msk) >> MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Pos);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_OOB_OFS;
+    uint32_t v = mmcr8_rd(rb);
 
-    return ((pldsz << MEC_ESPI_CFG_OOB_MAX_PLD_SZ_POS) & MEC_ESPI_CFG_OOB_MAX_PLD_SZ_MSK);
+    v = MEC_ESPI_CAP_OOB_MPLD_GET(v);
+    
+    return ((v << MEC_ESPI_CFG_OOB_MAX_PLD_SZ_POS) & MEC_ESPI_CFG_OOB_MAX_PLD_SZ_MSK);
 }
 
-static void set_fc_max_pld(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_fc_max_pld(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint32_t temp = ((capabilities >> MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_POS)
-                     & MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_MSK0);
-    uint8_t msk = MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Msk;
-    uint8_t regval = (uint8_t)((temp << MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Pos)
-                               & MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Msk);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_FC_OFS;
+    uint32_t v = (caps & MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_MSK) >> MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_POS;
 
-    iobase->CAPFC = (iobase->CAPFC & ~msk) | regval;
+    v = MEC_ESPI_CAP_FC_MPLD_SET(v);
+
+    mmcr8_update_field(rb, v, MEC_ESPI_CAP_FC_MPLD_MSK);
 }
 
-static uint32_t get_fc_pld_size(struct mec_espi_io_regs *iobase)
+static uint32_t get_fc_pld_size(uintptr_t ioreg_base)
 {
-    uint32_t pldsz =
-        ((iobase->CAPFC & MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Msk) >> MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Pos);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_FC_OFS;
+    uint32_t v = mmcr8_rd(rb);
 
-    return ((pldsz << MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_POS) & MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_MSK);
+    v = MEC_ESPI_CAP_FC_MPLD_GET(v);
+
+    return ((v << MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_POS) & MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_MSK);
 }
 
 static uint8_t fc_sharing_hw(uint32_t cfg)
@@ -178,12 +192,12 @@ static uint8_t fc_sharing_hw(uint32_t cfg)
 
     if (cfg & MEC_BIT(MEC_ESPI_CFG_FLASH_SHARED_TAF_POS)) {
         if (cfg & MEC_BIT(MEC_ESPI_CFG_FLASH_SHARED_CAF_POS)) {
-            cap |= (MEC_ESPI_IO_CAPFC_SHARING_SUPP_CAF_TAF << MEC_ESPI_IO_CAPFC_SHARING_SUPP_Pos);
+            cap |= MEC_ESPI_CAP_FC_SM_CAF_TAF;
         } else { /* TAF only */
-            cap |= (MEC_ESPI_IO_CAPFC_SHARING_SUPP_TAF << MEC_ESPI_IO_CAPFC_SHARING_SUPP_Pos);
+            cap |= MEC_ESPI_CAP_FC_SM_TAF;
         }
-    } else {
-        cap |= (MEC_ESPI_IO_CAPFC_SHARING_SUPP_CAF << MEC_ESPI_IO_CAPFC_SHARING_SUPP_Pos);
+    } else { /* CAF only */
+        cap |= MEC_ESPI_CAP_FC_SM_CAF;
     }
 
     return cap;
@@ -193,7 +207,7 @@ static uint32_t fc_sharing_get(uint32_t fc_cap)
 {
     uint32_t cfg = 0;
 
-    fc_cap = (fc_cap & MEC_ESPI_IO_CAPFC_SHARING_SUPP_Msk) >> MEC_ESPI_IO_CAPFC_SHARING_SUPP_Pos;
+    fc_cap = (fc_cap & MEC_ESPI_CAP_FC_SM_MSK) >> MEC_ESPI_CAP_FC_SM_POS;
     if (fc_cap == MEC_ESPI_IO_CAPFC_SHARING_SUPP_TAF) {
         cfg |= MEC_BIT(MEC_ESPI_CFG_FLASH_SHARED_TAF_POS);
     } else {
@@ -206,51 +220,41 @@ static uint32_t fc_sharing_get(uint32_t fc_cap)
     return cfg;
 }
 
-static void set_fc_shared_mode(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_fc_shared_mode(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint8_t msk = MEC_ESPI_IO_CAPFC_SHARING_SUPP_Msk;
-    uint8_t regval = fc_sharing_hw(capabilities);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_FC_OFS;
+    uint32_t v = fc_sharing_hw(caps);
 
-    iobase->CAPFC = (iobase->CAPFC & ~msk) | regval;
+    v = MEC_ESPI_CAP_FC_SM_SET(v);
+
+    mmcr8_update_field(rb, v, MEC_ESPI_CAP_FC_SM_MSK);
 }
 
-static uint32_t get_fc_shared_mode(struct mec_espi_io_regs *iobase)
+static uint32_t get_fc_shared_mode(uintptr_t ioreg_base)
 {
-    uint32_t fcsh = fc_sharing_get(iobase->CAPFC);
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_FC_OFS;
+    uint32_t v = mmcr8_rd(rb);
+    uint32_t fcsh = fc_sharing_get(v);
 
     return fcsh;
 }
 
-static void set_fc_capabilities(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_fc_capabilities(uintptr_t ioreg_base, uint32_t caps)
 {
-    uint32_t temp = ((capabilities >> MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_POS)
-                     & MEC_ESPI_CFG_FLASH_MAX_PLD_SZ_MSK0);
-    uint8_t msk = (MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Msk | MEC_ESPI_IO_CAPFC_SHARING_SUPP_Msk
-                   | MEC_ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Msk);
-    uint8_t regval = (uint8_t)((temp << MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Pos)
-                               & MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Msk);
-
-    if (capabilities & MEC_BIT(MEC_ESPI_CFG_FLASH_SHARED_TAF_POS)) {
-        if (capabilities & MEC_BIT(MEC_ESPI_CFG_FLASH_SHARED_CAF_POS)) {
-            regval |=
-                (MEC_ESPI_IO_CAPFC_SHARING_SUPP_CAF_TAF << MEC_ESPI_IO_CAPFC_SHARING_SUPP_Pos);
-        } else {
-            regval |= (MEC_ESPI_IO_CAPFC_SHARING_SUPP_TAF << MEC_ESPI_IO_CAPFC_SHARING_SUPP_Pos);
-        }
-    } else {
-        regval |= (MEC_ESPI_IO_CAPFC_SHARING_SUPP_CAF << MEC_ESPI_IO_CAPFC_SHARING_SUPP_Pos);
-    }
-
-    iobase->CAPFC = (iobase->CAPFC & ~msk) | regval;
+    set_fc_max_pld(ioreg_base, caps);
+    set_fc_shared_mode(ioreg_base, caps);
 }
 
-static uint32_t get_fc_taf_max_rdsz(struct mec_espi_io_regs *iobase)
+/* Flash channel capabilities register TAF max payload size is fixed at 64 bytes per
+ * Intel TAF specification.
+ */
+static uint32_t get_fc_taf_max_rdsz(uintptr_t ioreg_base)
 {
+    uintptr_t rb = ioreg_base + MEC_ESPI_CAP_FC_OFS;
+    uint32_t v = mmcr8_rd(rb);
     uint32_t rdsz = 0;
-    uint32_t capfc = iobase->CAPFC;
 
-    rdsz = ((capfc & MEC_ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Msk)
-            >> MEC_ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Pos);
+    rdsz = MEC_ESPI_CAP_FC_TAF_MRRQ_GET(v);
     rdsz &= MEC_ESPI_CAP_FLASH_SHARED_MAX_RD_REQ_SZ_MSK0;
     rdsz <<= MEC_ESPI_CAP_FLASH_SHARED_MAX_RD_REQ_SZ_POS;
 
@@ -260,14 +264,15 @@ static uint32_t get_fc_taf_max_rdsz(struct mec_espi_io_regs *iobase)
 /* If Platform Reset is peformed is different way than eSPI PLTRST# virtual wire
  * we set a bit so our eSPI controller will ignore PLTRST# VWire.
  */
-static void set_pltrst_source(struct mec_espi_io_regs *iobase, uint32_t capabilities)
+static void set_pltrst_source(uintptr_t ioreg_base, uint32_t caps)
 {
+    uintptr_t rb = ioreg_base + MEC_ESPI_PLTRST_SRC_OFS;
     uint8_t host_reset_sel = 0;
 
-    if (capabilities & MEC_BIT(MEC_ESPI_CFG_PLTRST_EXT_POS)) {
-        iobase->PLTRST_SRC |= MEC_BIT(MEC_ESPI_IO_PLTRST_SRC_SEL_Pos);
+    if (caps & MEC_BIT(MEC_ESPI_CFG_PLTRST_EXT_POS)) {
+        mmcr8_set_bit(rb, MEC_ESPI_PLTRST_SRC_POS);
     } else { /* use PLTRST# virtual wire */
-        iobase->PLTRST_SRC &= (uint8_t)~MEC_BIT(MEC_ESPI_IO_PLTRST_SRC_SEL_Pos);
+        mmcr8_clr_bit(rb, MEC_ESPI_PLTRST_SRC_POS);
         host_reset_sel = MEC_PCR_PLATFORM_RST_IS_ESPI_PLTRST;
     }
 
@@ -275,24 +280,31 @@ static void set_pltrst_source(struct mec_espi_io_regs *iobase, uint32_t capabili
 }
 
 /* ---- Public API ---- */
-void mec_hal_espi_reset_change_clr(struct mec_espi_io_regs *iobase)
+void mec_hal_espi_reset_change_clr(uintptr_t ioreg_base)
 {
-    iobase->ERIS = MEC_BIT(MEC_ESPI_IO_ERIS_CHG_Pos);
+    uintptr_t rb = ioreg_base + MEC_ESPI_RESET_SR_OFS;
+
+    mmcr8_set_bit(rb, MEC_ESPI_RESET_SR_CHG_POS);
     mec_hal_girq_clr_src(MEC_ESPI_RESET_ECIA_INFO);
 }
 
 /* Return bits indicating ESPI_RESET# has changed and its current state */
-uint32_t mec_hal_espi_reset_state(struct mec_espi_io_regs *iobase)
+uint32_t mec_hal_espi_reset_state(uintptr_t ioreg_base)
 {
-    return iobase->ERIS & (MEC_ESPI_IO_ERIS_CHG_Msk | MEC_ESPI_IO_ERIS_STATE_Msk);
+    uintptr_t rb = ioreg_base + MEC_ESPI_RESET_SR_OFS;
+    uint32_t v = mmcr8_rd(rb);
+
+    return v & (MEC_BIT(MEC_ESPI_RESET_SR_CHG_POS) | MEC_BIT(MEC_ESPI_RESET_SR_STATE_POS));
 }
 
-void mec_hal_espi_reset_change_intr_en(struct mec_espi_io_regs *iobase, uint8_t enable)
+void mec_hal_espi_reset_change_intr_en(uintptr_t ioreg_base, uint8_t enable)
 {
-    if (enable) {
-        iobase->ERIE |= MEC_BIT(MEC_ESPI_IO_ERIE_CHG_INTR_Pos);
+    uintptr_t rb = ioreg_base + MEC_ESPI_RESET_IER_OFS;
+
+    if (enable != 0) {
+        mmcr8_set_bit(rb, MEC_ESPI_RESET_IER_EN_POS);
     } else {
-        iobase->ERIE &= (uint8_t)~MEC_BIT(MEC_ESPI_IO_ERIE_CHG_INTR_Pos);
+        mmcr8_clr_bit(rb, MEC_ESPI_RESET_IER_EN_POS);
     }
 }
 
@@ -323,25 +335,25 @@ uint32_t mec_hal_espi_reset_girq_result(void)
  */
 int mec_hal_espi_init(struct mec_espi_config *cfg)
 {
-    if (!cfg) {
+    if ((cfg == 0) || (cfg->iobase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    struct mec_espi_io_regs *iobase = cfg->iobase;
+    uintptr_t ioreg_base = cfg->iobase;
     uint32_t girq_en = 0u;
 
-    set_supported_channels(iobase, cfg->capabilities);
-    set_supported_max_freq(iobase, cfg->capabilities);
-    set_supported_io_modes(iobase, cfg->capabilities);
-    set_supported_alert_io_pin_mode(iobase, cfg->capabilities);
-    set_pc_capabilities(iobase, cfg->capabilities);
-    set_vw_capabilities(iobase, cfg->capabilities);
-    set_oob_capabilities(iobase, cfg->capabilities);
-    set_fc_capabilities(iobase, cfg->capabilities);
-    set_pltrst_source(iobase, cfg->capabilities);
+    set_supported_channels(ioreg_base, cfg->capabilities);
+    set_supported_max_freq(ioreg_base, cfg->capabilities);
+    set_supported_io_modes(ioreg_base, cfg->capabilities);
+    set_supported_alert_io_pin_mode(ioreg_base, cfg->capabilities);
+    set_pc_capabilities(ioreg_base, cfg->capabilities);
+    set_vw_capabilities(ioreg_base, cfg->capabilities);
+    set_oob_capabilities(ioreg_base, cfg->capabilities);
+    set_fc_capabilities(ioreg_base, cfg->capabilities);
+    set_pltrst_source(ioreg_base, cfg->capabilities);
 
-    mec_hal_espi_reset_change_intr_en(iobase, 0);
-    mec_hal_espi_reset_change_clr(iobase);
+    mec_hal_espi_reset_change_intr_en(ioreg_base, 0);
+    mec_hal_espi_reset_change_clr(ioreg_base);
 
     if (cfg->cfg_flags & MEC_BIT(MEC_ESPI_CFG_FLAG_VW_CT_GIRQ_EN_POS)) {
         MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].EN_SET = 0x0fffffffu;
@@ -392,85 +404,82 @@ int mec_hal_espi_init(struct mec_espi_config *cfg)
 /* Enable eSPI controller after all static configuration has been performed.
  * MEC eSPI activate must be set before the Host de-asserts ESPI_RESET#.
  */
-void mec_hal_espi_activate(struct mec_espi_io_regs *iobase, uint8_t enable)
+void mec_hal_espi_activate(uintptr_t ioreg_base, uint8_t enable)
 {
-    if (enable) {
-        iobase->ACTV |= MEC_BIT(MEC_ESPI_IO_ACTV_EN_Pos);
+    uintptr_t rb = ioreg_base + MEC_ESPI_ACTV_OFS;
+
+    if (enable != 0) {
+        mmcr8_set_bit(rb, MEC_ESPI_ACTV_EN_POS);
     } else {
-        iobase->ACTV &= (uint32_t)~MEC_BIT(MEC_ESPI_IO_ACTV_EN_Pos);
+        mmcr8_clr_bit(rb, MEC_ESPI_ACTV_EN_POS);
     }
 }
 
-int mec_hal_espi_is_activated(struct mec_espi_io_regs *iobase)
+int mec_hal_espi_is_activated(uintptr_t ioreg_base)
 {
-    if (iobase) {
-        if (iobase->ACTV & MEC_BIT(MEC_ESPI_IO_ACTV_EN_Pos)) {
-            return 1;
-        }
-    }
+    uintptr_t rb = ioreg_base + MEC_ESPI_ACTV_OFS;
 
-    return 0;
+    return mmcr8_test_bit(rb, MEC_ESPI_ACTV_EN_POS);
 }
 
-int mec_hal_espi_capability_set(struct mec_espi_io_regs *iobase,
-                                enum mec_espi_global_cap cap, uint32_t cfg)
+int mec_hal_espi_capability_set(uintptr_t ioreg_base, enum mec_espi_global_cap cap, uint32_t cfg)
 {
-    if (!iobase) {
+    if (ioreg_base == 0) {
         return MEC_RET_ERR_INVAL;
     }
 
     switch (cap) {
     case MEC_ESPI_CAP_MAX_FREQ:
-        set_supported_max_freq(iobase, cfg);
+        set_supported_max_freq(ioreg_base, cfg);
         break;
     case MEC_ESPI_CAP_IO_MODE:
-        set_supported_io_modes(iobase, cfg);
+        set_supported_io_modes(ioreg_base, cfg);
         break;
     case MEC_ESPI_CAP_ALERT_OD:
-        set_supported_alert_io_pin_mode(iobase, cfg);
+        set_supported_alert_io_pin_mode(ioreg_base, cfg);
         break;
     case MEC_ESPI_CAP_PERIPH_CHAN:
         if (cfg & MEC_BIT(MEC_ESPI_CFG_PERIPH_CHAN_SUP_POS)) {
-            iobase->CAP0 |= MEC_BIT(MEC_ESPI_IO_CAP0_PC_SUPP_Pos);
+            mmcr8_set_bit(ioreg_base + MEC_ESPI_CAP0_OFS, MEC_ESPI_CAP0_PC_SUPP_POS);
         } else {
-            iobase->CAP0 &= (uint8_t)~MEC_BIT(MEC_ESPI_IO_CAP0_PC_SUPP_Pos);
+            mmcr8_clr_bit(ioreg_base + MEC_ESPI_CAP0_OFS, MEC_ESPI_CAP0_PC_SUPP_POS);
         }
         break;
     case MEC_ESPI_CAP_PC_MAX_PLD_SIZE:
-        set_pc_capabilities(iobase, cfg);
+        set_pc_capabilities(ioreg_base, cfg);
         break;
     case  MEC_ESPI_CAP_VWIRE_CHAN:
         if (cfg & MEC_BIT(MEC_ESPI_CFG_VW_CHAN_SUP_POS)) {
-            iobase->CAP0 |= MEC_BIT(MEC_ESPI_IO_CAP0_VW_SUPP_Pos);
+            mmcr8_set_bit(ioreg_base + MEC_ESPI_CAP0_OFS, MEC_ESPI_CAP0_VW_SUPP_POS);
         } else {
-            iobase->CAP0 &= (uint8_t)~MEC_BIT(MEC_ESPI_IO_CAP0_VW_SUPP_Pos);
+            mmcr8_clr_bit(ioreg_base + MEC_ESPI_CAP0_OFS, MEC_ESPI_CAP0_VW_SUPP_POS);
         }
         break;
     case MEC_ESPI_CAP_MAX_VW_COUNT:
-        set_vw_capabilities(iobase, cfg);
+        set_vw_capabilities(ioreg_base, cfg);
         break;
     case MEC_ESPI_CAP_OOB_CHAN:
         if (cfg & MEC_BIT(MEC_ESPI_CFG_OOB_CHAN_SUP_POS)) {
-            iobase->CAP0 |= MEC_BIT(MEC_ESPI_IO_CAP0_OOB_SUPP_Pos);
+            mmcr8_set_bit(ioreg_base + MEC_ESPI_CAP0_OFS, MEC_ESPI_CAP0_OOB_SUPP_POS);
         } else {
-            iobase->CAP0 &= (uint8_t)~MEC_BIT(MEC_ESPI_IO_CAP0_OOB_SUPP_Pos);
+            mmcr8_clr_bit(ioreg_base + MEC_ESPI_CAP0_OFS, MEC_ESPI_CAP0_OOB_SUPP_POS);
         }
         break;
     case MEC_ESPI_CAP_OOB_MAX_PLD_SIZE:
-        set_oob_capabilities(iobase, cfg);
+        set_oob_capabilities(ioreg_base, cfg);
         break;
     case MEC_ESPI_CAP_FLASH_CHAN:
         if (cfg & MEC_BIT(MEC_ESPI_CFG_FLASH_CHAN_SUP_POS)) {
-            iobase->CAP0 |= MEC_BIT(MEC_ESPI_IO_CAP0_FC_SUPP_Pos);
+            mmcr8_set_bit(ioreg_base + MEC_ESPI_CAP0_OFS, MEC_ESPI_CAP0_FC_SUPP_POS);
         } else {
-            iobase->CAP0 &= (uint8_t)~MEC_BIT(MEC_ESPI_IO_CAP0_FC_SUPP_Pos);
+            mmcr8_set_bit(ioreg_base + MEC_ESPI_CAP0_OFS, MEC_ESPI_CAP0_FC_SUPP_POS);
         }
         break;
     case MEC_ESPI_CAP_FC_MAX_PLD_SIZE:
-        set_fc_max_pld(iobase, cfg);
+        set_fc_max_pld(ioreg_base, cfg);
         break;
     case MEC_ESPI_CAP_FC_SHARING:
-        set_fc_shared_mode(iobase, cfg);
+        set_fc_shared_mode(ioreg_base, cfg);
         break;
     default:
         return MEC_RET_ERR_INVAL;
@@ -479,13 +488,17 @@ int mec_hal_espi_capability_set(struct mec_espi_io_regs *iobase,
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_capabilities_get(struct mec_espi_io_regs *iobase, uint32_t *cfg)
+int mec_hal_espi_capabilities_get(uintptr_t iobase, uint32_t *cfg)
 {
     uint32_t cv = 0;
+    uint8_t cap0 = 0, cap1 = 0;
 
-    if (!iobase || !cfg) {
+    if ((iobase == 0) || (cfg == NULL)) {
         return MEC_RET_ERR_INVAL;
     }
+
+    cap0 = mmcr8_rd(iobase + MEC_ESPI_CAP0_OFS);
+    cap1 = mmcr8_rd(iobase + MEC_ESPI_CAP1_OFS);
 
     /* Max frequency */
     cv |= ((get_max_freq(iobase) << MEC_ESPI_CFG_MAX_SUPP_FREQ_POS)
@@ -495,32 +508,36 @@ int mec_hal_espi_capabilities_get(struct mec_espi_io_regs *iobase, uint32_t *cfg
     cv |= get_supported_io_modes(iobase);
 
     /* Supports open-drain Alert pin */
-    if (iobase->CAP1 & MEC_BIT(MEC_ESPI_IO_CAP1_ALERT_OD_SUPP_Pos)) {
+    if ((cap1 & MEC_BIT(MEC_ESPI_CAP1_ALERT_OD_CAP_POS)) != 0) {
         cv |= MEC_BIT(MEC_ESPI_CFG_ALERT_OD_SUPP_POS);
     }
 
     /* Peripheral channel */
-    if (iobase->CAP0 & MEC_BIT(MEC_ESPI_IO_CAP0_PC_SUPP_Pos)) {
+    if ((cap0 & MEC_BIT(MEC_ESPI_CAP0_PC_SUPP_POS)) != 0) {
         cv |= MEC_BIT(MEC_ESPI_CFG_PERIPH_CHAN_SUP_POS);
     }
+
     cv |= get_pc_max_pld_size(iobase);
 
     /* VW channel */
-    if (iobase->CAP0 & MEC_BIT(MEC_ESPI_IO_CAP0_VW_SUPP_Pos)) {
+    if ((cap0 & MEC_BIT(MEC_ESPI_CAP0_VW_SUPP_POS)) != 0) {
         cv |= MEC_BIT(MEC_ESPI_CFG_VW_CHAN_SUP_POS);
     }
+
     cv |= get_vw_groups_max_cnt(iobase);
 
     /* OOB channel */
-    if (iobase->CAP0 & MEC_BIT(MEC_ESPI_IO_CAP0_OOB_SUPP_Pos)) {
+    if ((cap0 & MEC_BIT(MEC_ESPI_CAP0_OOB_SUPP_POS)) != 0) {
         cv |= MEC_BIT(MEC_ESPI_CFG_OOB_CHAN_SUP_POS);
     }
+
     cv |= get_oob_pld_size(iobase);
 
     /* Flash channel */
-    if (iobase->CAP0 & MEC_BIT(MEC_ESPI_IO_CAP0_FC_SUPP_Pos)) {
+    if ((cap0 & MEC_BIT(MEC_ESPI_CAP0_FC_SUPP_POS)) != 0) {
         cv |= MEC_BIT(MEC_ESPI_CFG_FLASH_CHAN_SUP_POS);
     }
+
     cv |= get_fc_pld_size(iobase);
     cv |= get_fc_shared_mode(iobase);
     cv |= get_fc_taf_max_rdsz(iobase);
@@ -530,173 +547,173 @@ int mec_hal_espi_capabilities_get(struct mec_espi_io_regs *iobase, uint32_t *cfg
     return MEC_RET_OK;
 }
 
-static void set_espi_global_cap(struct mec_espi_io_regs *iobase, uint32_t cfg)
+static void set_espi_global_cap(uintptr_t iobase, uint32_t cfg)
 {
-    uint32_t msk = (MEC_ESPI_IO_CAP0_PC_SUPP_Msk | MEC_ESPI_IO_CAP0_VW_SUPP_Msk
-                    | MEC_ESPI_IO_CAP0_OOB_SUPP_Msk | MEC_ESPI_IO_CAP0_FC_SUPP_Msk);
-    uint32_t cap = 0;
+    uint32_t v = 0;
+    uint8_t host_reset_sel = 0;
+    uint8_t cap = 0;
+    uint8_t msk = MEC_ESPI_CAP0_SUPP_MSK;
 
     if (cfg & MEC_BIT(MEC_ESPI_CAP_GL_SUPP_PC_POS)) {
-        cap |= MEC_BIT(MEC_ESPI_IO_CAP0_PC_SUPP_Pos);
+        cap |= MEC_BIT(MEC_ESPI_CAP0_PC_SUPP_POS);
     }
     if (cfg & MEC_BIT(MEC_ESPI_CAP_GL_SUPP_VW_POS)) {
-        cap |= MEC_BIT(MEC_ESPI_IO_CAP0_VW_SUPP_Pos);
+        cap |= MEC_BIT(MEC_ESPI_CAP0_VW_SUPP_POS);
     }
     if (cfg & MEC_BIT(MEC_ESPI_CAP_GL_SUPP_OOB_POS)) {
-        cap |= MEC_BIT(MEC_ESPI_IO_CAP0_OOB_SUPP_Pos);
+        cap |= MEC_BIT(MEC_ESPI_CAP0_OOB_SUPP_POS);
     }
     if (cfg & MEC_BIT(MEC_ESPI_CAP_GL_SUPP_FLASH_POS)) {
-        cap |= MEC_BIT(MEC_ESPI_IO_CAP0_FC_SUPP_Pos);
+        cap |= MEC_BIT(MEC_ESPI_CAP0_FC_SUPP_POS);
     }
-    iobase->CAP0 = (iobase->CAP0 & (uint8_t)~msk) | (uint8_t)(cap & msk);
 
-    cap = (cfg & MEC_ESPI_CAP_GL_MAX_FREQ_MSK) >> MEC_ESPI_CAP_GL_MAX_FREQ_POS;
-    cap |= (((cfg & MEC_ESPI_CAP_GL_IOM_MSK) >> MEC_ESPI_CAP_GL_IOM_POS)
-            << MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Pos);
+    mmcr8_update_field(iobase + MEC_ESPI_CAP0_OFS, cap, msk);
 
+    v = (cfg & MEC_ESPI_CAP_GL_MAX_FREQ_MSK) >> MEC_ESPI_CAP_GL_MAX_FREQ_POS;
+    cap = (uint8_t)MEC_ESPI_CAP1_MAX_FREQ_SET(v);
+
+    v = ((cfg & MEC_ESPI_CAP_GL_IOM_MSK) >> MEC_ESPI_CAP_GL_IOM_POS);
+    cap |= (uint8_t)MEC_ESPI_CAP1_IOM_SET(v);
+    
     if (cfg & MEC_BIT(MEC_ESPI_CAP_GL_SUPP_ALERT_OD_POS)) {
-        cap |= MEC_BIT(MEC_ESPI_IO_CAP1_ALERT_OD_SUPP_Pos);
+        cap |= MEC_BIT(MEC_ESPI_CAP1_ALERT_OD_CAP_POS);
     }
 
-    msk = (MEC_ESPI_IO_CAP1_MAX_FREQ_SUPP_Msk | MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Msk
-           | MEC_ESPI_IO_CAP1_ALERT_OD_SEL_Msk);
-    iobase->CAP1 = (iobase->CAP1 & (uint8_t)~msk) | (uint8_t)(cap & msk);
+    msk = (MEC_ESPI_CAP1_MAX_FREQ_MSK | MEC_ESPI_CAP1_IOM_MSK |
+           MEC_BIT(MEC_ESPI_CAP1_ALERT_OD_CAP_POS));
 
-    msk = MEC_ESPI_IO_PLTRST_SRC_SEL_Msk;
-    cap = 0;
+    mmcr8_update_field(iobase + MEC_ESPI_CAP1_OFS, cap, msk);
+
     if (cfg & MEC_BIT(MEC_ESPI_CAP_GL_PLTRST_EXT_POS)) {
-        cap |= MEC_BIT(MEC_ESPI_IO_PLTRST_SRC_SEL_Pos);
+        mmcr8_set_bit(iobase + MEC_ESPI_PLTRST_SRC_OFS, MEC_ESPI_PLTRST_SRC_POS);
+    } else {
+        mmcr8_clr_bit(iobase + MEC_ESPI_PLTRST_SRC_OFS, MEC_ESPI_PLTRST_SRC_POS);
+        host_reset_sel = MEC_PCR_PLATFORM_RST_IS_ESPI_PLTRST;
     }
 
-    iobase->PLTRST_SRC = (iobase->PLTRST_SRC & (uint8_t)~msk) | (uint8_t)(cap & msk);
+    mec_hal_pcr_host_reset_select(host_reset_sel);
 }
 
-static uint32_t get_espi_global_cap(struct mec_espi_io_regs *iobase)
+static uint32_t get_espi_global_cap(uintptr_t iobase)
 {
+    uint32_t hwval = mmcr8_rd(iobase + MEC_ESPI_CAP0_OFS);
     uint32_t cfg = 0;
-    uint32_t hwval = iobase->CAP0;
+    uint32_t v = 0;
 
-    if (hwval & MEC_BIT(MEC_ESPI_IO_CAP0_PC_SUPP_Pos)) {
+    if ((hwval & MEC_BIT(MEC_ESPI_CAP0_PC_SUPP_POS)) != 0) {
         cfg |= MEC_BIT(MEC_ESPI_CAP_GL_SUPP_PC_POS);
     }
-    if (hwval & MEC_BIT(MEC_ESPI_IO_CAP0_VW_SUPP_Pos)) {
+    if ((hwval & MEC_BIT(MEC_ESPI_CAP0_VW_SUPP_POS)) != 0) {
         cfg |= MEC_BIT(MEC_ESPI_CAP_GL_SUPP_VW_POS);
     }
-    if (hwval & MEC_BIT(MEC_ESPI_IO_CAP0_OOB_SUPP_Pos)) {
+    if ((hwval & MEC_BIT(MEC_ESPI_CAP0_OOB_SUPP_POS)) != 0) {
         cfg |= MEC_BIT(MEC_ESPI_CAP_GL_SUPP_OOB_POS);
     }
-    if (hwval & MEC_BIT(MEC_ESPI_IO_CAP0_FC_SUPP_Pos)) {
+    if ((hwval & MEC_BIT(MEC_ESPI_CAP0_FC_SUPP_POS)) != 0) {
         cfg |= MEC_BIT(MEC_ESPI_CAP_GL_SUPP_FLASH_POS);
     }
 
-    hwval = iobase->CAP1;
-    cfg |= (((hwval & MEC_ESPI_IO_CAP1_MAX_FREQ_SUPP_Msk) >> MEC_ESPI_IO_CAP1_MAX_FREQ_SUPP_Pos)
-            << MEC_ESPI_CAP_GL_MAX_FREQ_POS);
-    cfg |= (((hwval & MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Msk) >> MEC_ESPI_IO_CAP1_IO_MODE_SUPP_Pos)
-            << MEC_ESPI_CAP_GL_IOM_POS);
-    if (hwval & MEC_BIT(MEC_ESPI_IO_CAP1_ALERT_OD_SUPP_Pos)) {
+    hwval = mmcr8_rd(iobase + MEC_ESPI_CAP1_OFS);
+    v = MEC_ESPI_CAP1_MAX_FREQ_GET(hwval);
+    cfg |= ((v << MEC_ESPI_CAP_GL_MAX_FREQ_POS) & MEC_ESPI_CAP_GL_MAX_FREQ_MSK);
+    v = MEC_ESPI_CAP1_IOM_GET(hwval);
+    cfg |= ((v << MEC_ESPI_CAP_GL_IOM_POS) & MEC_ESPI_CAP_GL_IOM_MSK);
+
+    if (hwval & MEC_BIT(MEC_ESPI_CAP1_ALERT_OD_CAP_POS)) {
         cfg |= MEC_BIT(MEC_ESPI_CAP_GL_SUPP_ALERT_OD_POS);
     }
 
-    if (iobase->PLTRST_SRC & MEC_BIT(MEC_ESPI_IO_PLTRST_SRC_SEL_Pos)) {
+    if (mmcr8_test_bit(iobase + MEC_ESPI_PLTRST_SRC_OFS, MEC_ESPI_PLTRST_SRC_POS) != 0) {
         cfg |= MEC_BIT(MEC_ESPI_CAP_GL_PLTRST_EXT_POS);
     }
 
     return cfg;
 }
 
-static void set_espi_pc_cap(struct mec_espi_io_regs *iobase, uint32_t cfg)
+static void set_espi_pc_cap(uintptr_t iobase, uint32_t cfg)
 {
-    uint32_t msk = MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Msk;
-    uint32_t cap = (((cfg & MEC_ESPI_CAP_PC_MAX_PLD_SIZE_MSK) >> MEC_ESPI_CAP_PC_MAX_PLD_SIZE_POS)
-                    << MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Pos);
+    uint32_t v = ((cfg & MEC_ESPI_CAP_PC_MAX_PLD_SIZE_MSK) >> MEC_ESPI_CAP_PC_MAX_PLD_SIZE_POS);
 
-    iobase->CAPPC = (uint8_t)((iobase->CAPPC & (uint8_t)~msk) | (cap & msk));
+    v = MEC_ESPI_CAP_PC_MPLS_SET(v);
+    mmcr8_update_field(iobase + MEC_ESPI_CAP_PC_OFS, v, MEC_ESPI_CAP_PC_MPLS_MSK);
 }
 
-static uint32_t get_espi_pc_cap(struct mec_espi_io_regs *iobase)
+static uint32_t get_espi_pc_cap(uintptr_t iobase)
 {
-    uint32_t rval =
-        ((iobase->CAPPC & MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Msk) >> MEC_ESPI_IO_CAPPC_PC_MAX_PLD_Pos);
+    uint32_t v = mmcr8_rd(iobase + MEC_ESPI_CAP_PC_OFS);
+    
+    v = MEC_ESPI_CAP_PC_MPLS_GET(v);
 
-    return ((rval << MEC_ESPI_CAP_PC_MAX_PLD_SIZE_POS) & MEC_ESPI_CAP_PC_MAX_PLD_SIZE_MSK);
+    return ((v << MEC_ESPI_CAP_PC_MAX_PLD_SIZE_POS) & MEC_ESPI_CAP_PC_MAX_PLD_SIZE_MSK);
 }
 
-static void set_espi_vw_cap(struct mec_espi_io_regs *iobase, uint32_t cfg)
+static void set_espi_vw_cap(uintptr_t iobase, uint32_t cfg)
 {
-    uint32_t msk = MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Msk;
-    uint32_t cap =
-        (((cfg & MEC_ESPI_CAP_VW_MAX_VW_GRP_CNT_MSK) >> MEC_ESPI_CAP_VW_MAX_VW_GRP_CNT_POS)
-         << MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Pos);
+    uint32_t v = (cfg & MEC_ESPI_CAP_VW_MAX_VW_GRP_CNT_MSK) >> MEC_ESPI_CAP_VW_MAX_VW_GRP_CNT_POS;
 
-    iobase->CAPVW = (uint8_t)((iobase->CAPVW & (uint8_t)~msk) | (cap & msk));
+    v = MEC_ESPI_CAP_VW_MAX_GRPS_SET(v);
+    mmcr8_update_field(iobase + MEC_ESPI_CAP_VW_OFS, v, MEC_ESPI_CAP_VW_MAX_GRPS_MSK);
 }
 
-static uint32_t get_espi_vw_cap(struct mec_espi_io_regs *iobase)
+static uint32_t get_espi_vw_cap(uintptr_t iobase)
 {
-    uint32_t rval =
-        ((iobase->CAPVW & MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Msk) >> MEC_ESPI_IO_CAPVW_MAX_VW_CNT_Pos);
+    uint32_t v = mmcr8_rd(iobase + MEC_ESPI_CAP_VW_OFS);
 
-    return ((rval << MEC_ESPI_CAP_VW_MAX_VW_GRP_CNT_POS) & MEC_ESPI_CAP_VW_MAX_VW_GRP_CNT_MSK);
+    v = MEC_ESPI_CAP_VW_MAX_GRPS_GET(v);
+    
+    return ((v << MEC_ESPI_CAP_VW_MAX_VW_GRP_CNT_POS) & MEC_ESPI_CAP_VW_MAX_VW_GRP_CNT_MSK);
 }
 
-static void set_espi_oob_cap(struct mec_espi_io_regs *iobase, uint32_t cfg)
+static void set_espi_oob_cap(uintptr_t iobase, uint32_t cfg)
 {
-    uint32_t msk = MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Msk;
-    uint32_t cap =
-        (((cfg & MEC_ESPI_CAP_OOB_MAX_PLD_SIZE_MSK) >> MEC_ESPI_CAP_OOB_MAX_PLD_SIZE_POS)
-         << MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Pos);
+    uint32_t v = (cfg & MEC_ESPI_CAP_OOB_MAX_PLD_SIZE_MSK) >> MEC_ESPI_CAP_OOB_MAX_PLD_SIZE_POS;
 
-    iobase->CAPOOB = (uint8_t)((iobase->CAPOOB & (uint8_t)~msk) | (cap | msk));
+    v = MEC_ESPI_CAP_OOB_MPLD_SET(v);
+
+    mmcr8_update_field(iobase + MEC_ESPI_CAP_OOB_OFS, v, MEC_ESPI_CAP_OOB_MPLD_MSK);
 }
 
-static uint32_t get_espi_oob_cap(struct mec_espi_io_regs *iobase)
+static uint32_t get_espi_oob_cap(uintptr_t iobase)
 {
-    uint32_t rval =
-        ((iobase->CAPOOB & MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Msk) >> MEC_ESPI_IO_CAPOOB_MAX_PLD_SIZE_Pos);
+    uint32_t v = mmcr8_rd(iobase + MEC_ESPI_CAP_OOB_OFS);
 
-    return ((rval << MEC_ESPI_CAP_OOB_MAX_PLD_SIZE_POS) & MEC_ESPI_CAP_OOB_MAX_PLD_SIZE_MSK);
+    v = MEC_ESPI_CAP_OOB_MPLD_GET(v);
+
+    return ((v << MEC_ESPI_CAP_OOB_MAX_PLD_SIZE_POS) & MEC_ESPI_CAP_OOB_MAX_PLD_SIZE_MSK);
 }
 
-static void set_espi_fc_cap(struct mec_espi_io_regs *iobase, uint32_t cfg)
+static void set_espi_fc_cap(uintptr_t iobase, uint32_t cfg)
 {
-    uint32_t msk = (MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Msk | MEC_ESPI_IO_CAPFC_SHARING_SUPP_Msk
-                    | MEC_ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Msk);
-    uint32_t cap = 0;
+    uint32_t capfc = 0;
+    uint32_t v = (cfg & MEC_ESPI_CAP_FC_TAF_ERBSZ_MSK) >> MEC_ESPI_CAP_FC_TAF_ERBSZ_POS;
 
-    iobase->TAFEBS =
-        (uint8_t)((cfg & MEC_ESPI_CAP_FC_TAF_ERBSZ_MSK) >> MEC_ESPI_CAP_FC_TAF_ERBSZ_POS);
+    mmcr8_wr((uint8_t)(v & 0xffu), iobase + MEC_ESPI_TAF_EBSZ_OFS);
 
-    cap = ((cfg & MEC_ESPI_CAP_FC_MAX_PLD_SIZE_MSK) >> MEC_ESPI_CAP_FC_MAX_PLD_SIZE_POS);
-    cap <<= MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Pos;
-    cap |= (((cfg & MEC_ESPI_CAP_FC_TAF_MAX_RDREQ_SIZE_MSK)
-             >> MEC_ESPI_CAP_FC_TAF_MAX_RDREQ_SIZE_POS) << MEC_ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Pos);
+    v = (cfg & MEC_ESPI_CAP_FC_MAX_PLD_SIZE_MSK) >> MEC_ESPI_CAP_FC_MAX_PLD_SIZE_POS;
+    capfc = MEC_ESPI_CAP_FC_MPLD_SET(v);
+    capfc |= fc_sharing_hw(cfg);
 
-    cap |= fc_sharing_hw(cfg);
-
-    iobase->CAPFC = (uint8_t)((iobase->CAPFC & (uint8_t)~msk) | (cap & msk));
+    mmcr8_wr(capfc, iobase + MEC_ESPI_CAP_FC_OFS);
 }
 
-static uint32_t get_espi_fc_cap(struct mec_espi_io_regs *iobase)
+static uint32_t get_espi_fc_cap(uintptr_t iobase)
 {
-    uint32_t capfc = iobase->CAPFC;
+    uint32_t capfc = mmcr8_rd(iobase + MEC_ESPI_CAP_FC_OFS);
+    uint32_t tafersz = mmcr8_rd(iobase + MEC_ESPI_TAF_EBSZ_OFS);
     uint32_t cfg = fc_sharing_get(capfc);
-    uint32_t temp = ((capfc & MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Msk)
-                     >> MEC_ESPI_IO_CAPFC_MAX_PLD_SIZE_Pos);
-
-    cfg |= (temp << MEC_ESPI_CAP_FC_MAX_PLD_SIZE_POS);
-    temp = ((capfc & MEC_ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Msk)
-            >> MEC_ESPI_IO_CAPFC_TAF_MAX_READ_SIZE_Pos);
-
-    cfg |= (temp << MEC_ESPI_CAP_FC_TAF_MAX_RDREQ_SIZE_POS);
-    cfg |= (((uint32_t)iobase->TAFEBS & 0xffu) << MEC_ESPI_CAP_FC_TAF_ERBSZ_POS);
+    uint32_t v = MEC_ESPI_CAP_FC_MPLD_GET(capfc);
+    
+    cfg |= ((v << MEC_ESPI_CAP_FC_MAX_PLD_SIZE_POS) & MEC_ESPI_CAP_FC_MAX_PLD_SIZE_MSK);
+    v = MEC_ESPI_CAP_FC_TAF_MRRQ_GET(capfc);
+    cfg |= ((v << MEC_ESPI_CAP_FC_TAF_MAX_RDREQ_SIZE_POS) & MEC_ESPI_CAP_FC_TAF_MAX_RDREQ_SIZE_MSK);
+    cfg |= (tafersz << MEC_ESPI_CAP_FC_TAF_ERBSZ_POS);
 
     return cfg;
 }
 
-int mec_hal_espi_cap_set(struct mec_espi_io_regs *iobase, enum mec_espi_cap_id id, uint32_t cfg)
+int mec_hal_espi_cap_set(uintptr_t iobase, enum mec_espi_cap_id id, uint32_t cfg)
 {
-    if (!iobase) {
+    if (iobase == 0) {
         return MEC_RET_ERR_INVAL;
     }
 
@@ -723,7 +740,7 @@ int mec_hal_espi_cap_set(struct mec_espi_io_regs *iobase, enum mec_espi_cap_id i
     return MEC_RET_OK;
 }
 
-uint32_t mec_hal_espi_cap_get(struct mec_espi_io_regs *iobase, enum mec_espi_cap_id id)
+uint32_t mec_hal_espi_cap_get(uintptr_t iobase, enum mec_espi_cap_id id)
 {
     uint32_t cap = 0u;
 

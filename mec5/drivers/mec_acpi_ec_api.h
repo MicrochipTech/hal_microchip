@@ -11,7 +11,6 @@
 #include <stdint.h>
 
 #include "mec_defs.h"
-#include "mec_retval.h"
 
 /* Interfaces to any C modules */
 #ifdef __cplusplus
@@ -23,8 +22,6 @@ extern "C"
 
 /* MEC5_ACPI_EC_INSTANCES from mec5_defs.h */
 #define MEC_ACPI_EC_NUM_IRQS 2 /* number of IRQ sources per instance */
-
-struct mec_acpi_ec_regs;
 
 enum mec_acpi_ec_flags {
     MEC_ACPI_EC_IBF_IRQ    = MEC_BIT(0),
@@ -49,32 +46,31 @@ enum mec_acpi_ec_status {
     MEC_ACPI_EC_STS_UD0A  = MEC_BIT(7),
 };
 
-int mec_hal_acpi_ec_init(struct mec_acpi_ec_regs *regs, uint32_t flags);
-int mec_hal_acpi_ec_is_enabled(struct mec_acpi_ec_regs *regs);
-int mec_hal_acpi_ec_is_4byte_mode(struct mec_acpi_ec_regs *regs);
+int mec_hal_acpi_ec_init(uintptr_t regbase, uint32_t flags);
+int mec_hal_acpi_ec_is_enabled(uintptr_t regbase);
+int mec_hal_acpi_ec_is_4byte_mode(uintptr_t regbase);
 
-uint8_t mec_hal_acpi_ec_status(struct mec_acpi_ec_regs *regs);
-void mec_hal_acpi_ec_status_wr(struct mec_acpi_ec_regs *regs, uint8_t val);
-void mec_hal_acpi_ec_status_set(struct mec_acpi_ec_regs *regs, uint8_t val);
-void mec_hal_acpi_ec_status_mask(struct mec_acpi_ec_regs *regs, uint8_t val, uint8_t msk);
-uint8_t mec_hal_acpi_ec_status_obf(struct mec_acpi_ec_regs *regs);
-uint8_t mec_hal_acpi_ec_status_ibf(struct mec_acpi_ec_regs *regs);
+uint8_t mec_hal_acpi_ec_status(uintptr_t regbase);
+void mec_hal_acpi_ec_status_wr(uintptr_t regbase, uint8_t val);
+void mec_hal_acpi_ec_status_set(uintptr_t regbase, uint8_t val);
+void mec_hal_acpi_ec_status_mask(uintptr_t regbase, uint8_t val, uint8_t msk);
+int mec_hal_acpi_ec_status_obf(uintptr_t regbase);
+int mec_hal_acpi_ec_status_ibf(uintptr_t regbase);
 
-uint32_t mec_hal_acpi_ec_host_to_ec_data_rd32(struct mec_acpi_ec_regs *regs);
-void mec_hal_acpi_ec_host_to_ec_data_wr32(struct mec_acpi_ec_regs *regs, uint32_t data);
-uint8_t mec_hal_acpi_ec_host_to_ec_data_rd8(struct mec_acpi_ec_regs *regs, uint8_t offset);
-void mec_hal_acpi_ec_host_to_ec_data_wr8(struct mec_acpi_ec_regs *regs, uint8_t offset,
-                                         uint8_t data);
+uint32_t mec_hal_acpi_ec_host_to_ec_data_rd32(uintptr_t regbase);
+void mec_hal_acpi_ec_host_to_ec_data_wr32(uintptr_t regbase, uint32_t data);
+uint8_t mec_hal_acpi_ec_host_to_ec_data_rd8(uintptr_t regbase, uint8_t offset);
+void mec_hal_acpi_ec_host_to_ec_data_wr8(uintptr_t regbase, uint8_t offset, uint8_t data);
 
-uint32_t mec_hal_acpi_ec_e2h_data_rd32(struct mec_acpi_ec_regs *regs);
-void mec_hal_acpi_ec_e2h_to_ec_data_wr32(struct mec_acpi_ec_regs *regs, uint32_t data);
-uint8_t mec_hal_acpi_ec_e2h_data_rd8(struct mec_acpi_ec_regs *regs, uint8_t offset);
-void mec_hal_acpi_ec_e2h_data_wr8(struct mec_acpi_ec_regs *regs, uint8_t offset, uint8_t data);
+uint32_t mec_hal_acpi_ec_e2h_data_rd32(uintptr_t regbase);
+void mec_hal_acpi_ec_e2h_to_ec_data_wr32(uintptr_t regbase, uint32_t data);
+uint8_t mec_hal_acpi_ec_e2h_data_rd8(uintptr_t regbase, uint8_t offset);
+void mec_hal_acpi_ec_e2h_data_wr8(uintptr_t regbase, uint8_t offset, uint8_t data);
 
-int mec_hal_acpi_ec_girq_en(struct mec_acpi_ec_regs *regs, uint32_t flags);
-int mec_hal_acpi_ec_girq_dis(struct mec_acpi_ec_regs *regs, uint32_t flags);
-int mec_hal_acpi_ec_girq_clr(struct mec_acpi_ec_regs *regs, uint32_t flags);
-uint32_t mec_hal_acpi_ec_girq_result(struct mec_acpi_ec_regs *regs);
+int mec_hal_acpi_ec_girq_en(uintptr_t regbase, uint32_t flags);
+int mec_hal_acpi_ec_girq_dis(uintptr_t regbase, uint32_t flags);
+int mec_hal_acpi_ec_girq_clr(uintptr_t regbase, uint32_t flags);
+uint32_t mec_hal_acpi_ec_girq_result(uintptr_t regbase);
 
 #ifdef __cplusplus
 }

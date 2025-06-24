@@ -13,15 +13,17 @@
 #include "mec_emi_api.h"
 #include "mec_retval.h"
 
+#define MEC_EMI_INSTANCE_OFFSET 0x400u
+
 #define MEC_EMI_GIRQ 15
 
 #define MEC_EMI0_GIRQ_POS 2
 #define MEC_EMI1_GIRQ_POS 3
 #define MEC_EMI2_GIRQ_POS 4
 
-#define MEC_EMI0_ECIA_INFO MEC5_ECIA_INFO(15, 2, 7, 42)
-#define MEC_EMI1_ECIA_INFO MEC5_ECIA_INFO(15, 3, 7, 43)
-#define MEC_EMI2_ECIA_INFO MEC5_ECIA_INFO(15, 4, 7, 44)
+#define MEC_EMI0_ECIA_INFO MEC_ECIA_INFO(15, 2, 7, 42)
+#define MEC_EMI1_ECIA_INFO MEC_ECIA_INFO(15, 3, 7, 43)
+#define MEC_EMI2_ECIA_INFO MEC_ECIA_INFO(15, 4, 7, 44)
 
 
 struct mec_emi_info {
@@ -62,9 +64,9 @@ static struct mec_emi_info const *find_emi_info(uintptr_t base_addr)
 
 /* ---- Public API ---- */
 
-int mec_hal_emi_girq_ctrl(struct mec_emi_regs *base, uint8_t enable)
+int mec_hal_emi_girq_ctrl(uintptr_t regbase, uint8_t enable)
 {
-    const struct mec_emi_info *info = find_emi_info((uintptr_t)base);
+    const struct mec_emi_info *info = find_emi_info((uintptr_t)regbase);
 
     if (!info) {
         return MEC_RET_ERR_INVAL;
@@ -75,9 +77,9 @@ int mec_hal_emi_girq_ctrl(struct mec_emi_regs *base, uint8_t enable)
     return MEC_RET_OK;
 }
 
-int mec_hal_emi_girq_clr(struct mec_emi_regs *base)
+int mec_hal_emi_girq_clr(uintptr_t regbase)
 {
-    const struct mec_emi_info *info = find_emi_info((uintptr_t)base);
+    const struct mec_emi_info *info = find_emi_info((uintptr_t)regbase);
 
     if (!info) {
         return MEC_RET_ERR_INVAL;
@@ -88,9 +90,9 @@ int mec_hal_emi_girq_clr(struct mec_emi_regs *base)
     return MEC_RET_OK;
 }
 
-uint32_t mec_hal_emi_girq_result(struct mec_emi_regs *base)
+uint32_t mec_hal_emi_girq_result(uintptr_t regbase)
 {
-    const struct mec_emi_info *info = find_emi_info((uintptr_t)base);
+    const struct mec_emi_info *info = find_emi_info((uintptr_t)regbase);
 
     if (!info) {
         return 0;
@@ -99,14 +101,23 @@ uint32_t mec_hal_emi_girq_result(struct mec_emi_regs *base)
     return mec_hal_girq_result(info->devi);
 }
 
+uintptr_t mec_hal_emi_get_base(uint8_t emi_instance)
+{
+    if (emi_instance >= MEC5_EMI_INSTANCES) {
+        return 0;
+    }
+
+    return (uintptr_t)((MEC_EMI0_BASE) + ((MEC_EMI_INSTANCE_OFFSET) * emi_instance));
+}
+
 /* Initialize an EMI controller.
  * This peripheral is reset by chip reset (RESET_SYS).
  * The Host I/O and Memory BAR's in the eSPI I/O component are reset by
  * RESET_VCC and RESET_HOST (PCI_RESET# or PLTRST#).
  */
-int mec_hal_emi_init(struct mec_emi_regs *regs, uint32_t flags)
+int mec_hal_emi_init(uintptr_t regbase, uint32_t flags)
 {
-    const struct mec_emi_info *info = find_emi_info((uintptr_t)regs);
+    const struct mec_emi_info *info = find_emi_info((uintptr_t)regbase);
 
     if (!info) {
         return MEC_RET_ERR_INVAL;
@@ -150,10 +161,10 @@ int mec_hal_emi_init(struct mec_emi_regs *regs, uint32_t flags)
  *      read/write: 0 <= offset < read_size
  *      write-only: read_size <= offset < write_size
  */
-int mec_hal_emi_mem_region_config(struct mec_emi_regs *regs, uint8_t region,
+int mec_hal_emi_mem_region_config(uintptr_t regbase, uint8_t region,
                                   uint32_t mbase, uint32_t rwszs)
 {
-    const struct mec_emi_info *info = find_emi_info((uintptr_t)regs);
+    const struct mec_emi_info *info = find_emi_info((uintptr_t)regbase);
     uint32_t mend, rlim, wlim;
 
     if (!info || (region >= MEC_EMI_MEM_REGION_NUM) || (mbase < MEC5_CODE_SRAM_BASE)
@@ -168,6 +179,8 @@ int mec_hal_emi_mem_region_config(struct mec_emi_regs *regs, uint8_t region,
     if ((mbase + mend) > (MEC5_DATA_SRAM_BASE + MEC5_DATA_SRAM_SIZE)) {
         return MEC_RET_ERR_INVAL;
     }
+
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
 
     if (region == MEC_EMI_MEM_REGION_0) {
         regs->MR0L = 0u;
@@ -187,11 +200,13 @@ int mec_hal_emi_mem_region_config(struct mec_emi_regs *regs, uint8_t region,
  * A write to EC-to-Host generates an event to the system Host if configured.
  * Events are Serial IRQ or SMI.
  */
-int mec_hal_emi_mbox_wr(struct mec_emi_regs *regs, uint8_t host_to_ec, uint8_t val)
+int mec_hal_emi_mbox_wr(uintptr_t regbase, uint8_t host_to_ec, uint8_t val)
 {
-    if (!regs) {
+    if (regbase == 0) {
         return MEC_RET_ERR_INVAL;
     }
+
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
 
     if (host_to_ec) {
         regs->H2EMB = val;
@@ -202,10 +217,11 @@ int mec_hal_emi_mbox_wr(struct mec_emi_regs *regs, uint8_t host_to_ec, uint8_t v
     return MEC_RET_OK;
 }
 
-uint8_t mec_hal_emi_mbox_rd(struct mec_emi_regs *regs, uint8_t host_to_ec)
+uint8_t mec_hal_emi_mbox_rd(uintptr_t regbase, uint8_t host_to_ec)
 {
-    uint8_t mbox_val;
-
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
+    uint8_t mbox_val = 0;
+    
     if (host_to_ec) {
         mbox_val = regs->H2EMB;
     } else {
@@ -218,11 +234,13 @@ uint8_t mec_hal_emi_mbox_rd(struct mec_emi_regs *regs, uint8_t host_to_ec)
 /* Set one software interrupt bit [1:15] which is reflected in the
  * Host visible Interrupt Source LSB and MSB registers.
  */
-int mec_hal_emi_swi_set_one(struct mec_emi_regs *regs, uint8_t swi_pos)
+int mec_hal_emi_swi_set_one(uintptr_t regbase, uint8_t swi_pos)
 {
-    if ((!regs) || (swi_pos == 0) || (swi_pos > 15)) {
+    if ((regbase == 0) || (swi_pos == 0) || (swi_pos > 15)) {
         return MEC_RET_ERR_INVAL;
     }
+
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
 
     /* read/write-one-to-set register. 0 bits have no effect */
     regs->ISEN = MEC_BIT(swi_pos);
@@ -230,11 +248,13 @@ int mec_hal_emi_swi_set_one(struct mec_emi_regs *regs, uint8_t swi_pos)
     return MEC_RET_OK;
 }
 
-int mec_hal_emi_swi_set(struct mec_emi_regs *regs, uint16_t swi_bit_map)
+int mec_hal_emi_swi_set(uintptr_t regbase, uint16_t swi_bit_map)
 {
-    if (!regs) {
+    if (regbase == 0) {
         return MEC_RET_ERR_INVAL;
     }
+
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
 
     /* read/write-one-to-set register. 0 bits have no effect */
     regs->ISEN = swi_bit_map;
@@ -247,11 +267,13 @@ int mec_hal_emi_swi_set(struct mec_emi_regs *regs, uint16_t swi_bit_map)
  * Allowing the Host to clear SWI interrupt status makes the SWI status bits
  * behave as "edge" status.
  */
-int mec_hal_emi_swi_host_clear_enable(struct mec_emi_regs *regs, uint16_t mask, uint16_t enable)
+int mec_hal_emi_swi_host_clear_enable(uintptr_t regbase, uint16_t mask, uint16_t enable)
 {
-    if (!regs) {
+    if (regbase == 0) {
         return MEC_RET_ERR_INVAL;
     }
+
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
 
     regs->IHCEN = (regs->IHCEN & ~mask) | (enable & mask);
 
@@ -290,12 +312,13 @@ int mec_hal_emi_swi_host_clear_enable(struct mec_emi_regs *regs, uint16_t mask, 
  *
  */
 
-int mec_hal_emi_is_appid(struct mec_emi_regs *regs, uint8_t appid)
+int mec_hal_emi_is_appid(uintptr_t regbase, uint8_t appid)
 {
-    if (!regs) {
+    if (regbase == 0) {
         return 0;
     }
 
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
     uint8_t idx = (appid >> 5);
     uint8_t pos = (appid & 0x1fu);
 
@@ -307,12 +330,13 @@ int mec_hal_emi_is_appid(struct mec_emi_regs *regs, uint8_t appid)
 }
 
 /* Clear specified ApplicationID */
-int mec_hal_emi_clear_appid(struct mec_emi_regs *regs, uint8_t appid)
+int mec_hal_emi_clear_appid(uintptr_t regbase, uint8_t appid)
 {
-    if (!regs) {
+    if (regbase == 0) {
         return MEC_RET_ERR_INVAL;
     }
 
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
     uint8_t idx = (appid >> 5);
     uint8_t pos = (appid & 0x1fu);
 
@@ -321,11 +345,13 @@ int mec_hal_emi_clear_appid(struct mec_emi_regs *regs, uint8_t appid)
     return MEC_RET_OK;
 }
 
-int mec_hal_emi_clear_all_appid(struct mec_emi_regs *regs)
+int mec_hal_emi_clear_all_appid(uintptr_t regbase)
 {
-    if (!regs) {
+    if (regbase) {
         return MEC_RET_ERR_INVAL;
     }
+
+    struct mec_emi_regs *regs = (struct mec_emi_regs *)regbase;
 
     for (int i = 0; i < 8; i++) {
         regs->AIDS[i] = 0u;

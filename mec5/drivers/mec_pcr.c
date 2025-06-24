@@ -351,7 +351,7 @@ void mec_hal_pcr_release_reset_vcc(uint8_t release)
 
 void mec_hal_pcr_host_reset_select(uint8_t use_espi_platform_reset)
 {
-    if (use_espi_platform_reset) {
+    if (use_espi_platform_reset != 0) {
         MEC_PCR->PRC &= ~MEC_BIT(MEC_PCR_PRC_HOST_RSEL_Pos);
     } else {
         MEC_PCR->PRC |= MEC_BIT(MEC_PCR_PRC_HOST_RSEL_Pos);

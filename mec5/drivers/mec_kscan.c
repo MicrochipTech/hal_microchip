@@ -17,13 +17,13 @@
 #include "mec_kscan_api.h"
 #include "mec_retval.h"
 
-#define MEC_KSCAN_GIRQ      21
-#define MEC_KSCAN_GIRQ_POS  25
-#define MEC_KSCAN_GIRQ_NVIC 13
+#define MEC_KSCAN_GIRQ             21
+#define MEC_KSCAN_GIRQ_POS         25
+#define MEC_KSCAN_GIRQ_NVIC        13
 #define MEC_KSCAN_GIRQ_NVIC_DIRECT 135
 
-#define MEC_KSCAN_ECIA_INFO MEC5_ECIA_INFO(MEC_KSCAN_GIRQ, MEC_KSCAN_GIRQ_POS, \
-                                           MEC_KSCAN_GIRQ_NVIC, MEC_KSCAN_GIRQ_NVIC_DIRECT)
+#define MEC_KSCAN_ECIA_INFO MEC_ECIA_INFO(MEC_KSCAN_GIRQ, MEC_KSCAN_GIRQ_POS, \
+                                          MEC_KSCAN_GIRQ_NVIC, MEC_KSCAN_GIRQ_NVIC_DIRECT)
 
 #define MEC_KSCAN_KSO_SEL_DLFT 0x40u
 

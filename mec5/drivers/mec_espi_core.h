@@ -250,9 +250,9 @@ enum mec_espi_global_cap {
 #define MEC_ESPI_CFG_FLAG_VW_CHEN_GIRQ_EN_POS 9
 
 struct mec_espi_config {
-    struct mec_espi_io_regs *iobase;
-    struct mec_espi_mem_regs *mbase;
-    struct mec_espi_vw_regs *vwbase;
+    uintptr_t iobase;
+    uintptr_t mbase;
+    uintptr_t vwbase;
     uint32_t capabilities;
     uint32_t cfg_flags;
 };
@@ -266,30 +266,28 @@ struct mec_espi_config {
  */
 int mec_hal_espi_init(struct mec_espi_config *cfg);
 
-int mec_hal_espi_capability_set(struct mec_espi_io_regs *iobase,
-                                enum mec_espi_global_cap cap, uint32_t cfg);
+int mec_hal_espi_capability_set(uintptr_t ioreg_base, enum mec_espi_global_cap cap, uint32_t cfg);
 
-int mec_hal_espi_capability_get(struct mec_espi_io_regs *iobase,
-                                enum mec_espi_global_cap cap, uint32_t *cfg);
+int mec_hal_espi_capability_get(uintptr_t ioreg_base, enum mec_espi_global_cap cap, uint32_t *cfg);
 
-int mec_hal_espi_cap_set(struct mec_espi_io_regs *iobase, enum mec_espi_cap_id id, uint32_t cfg);
-uint32_t mec_hal_espi_cap_get(struct mec_espi_io_regs *iobase, enum mec_espi_cap_id id);
+int mec_hal_espi_cap_set(uintptr_t ioreg_base, enum mec_espi_cap_id id, uint32_t cfg);
+uint32_t mec_hal_espi_cap_get(uintptr_t ioreg_base, enum mec_espi_cap_id id);
 
-void mec_hal_espi_reset_change_clr(struct mec_espi_io_regs *iobase);
-void mec_hal_espi_reset_change_intr_en(struct mec_espi_io_regs *iobase, uint8_t enable);
+void mec_hal_espi_reset_change_clr(uintptr_t ioreg_base);
+void mec_hal_espi_reset_change_intr_en(uintptr_t ioreg_base, uint8_t enable);
 void mec_hal_espi_reset_girq_ctrl(uint8_t enable);
 void mec_hal_espi_reset_girq_status_clr(void);
 uint32_t mec_hal_espi_reset_girq_status(void);
 uint32_t mec_hal_espi_reset_girq_result(void);
 
 /* Return bits indicating ESPI_RESET# has changed and its current state */
-uint32_t mec_hal_espi_reset_state(struct mec_espi_io_regs *iobase);
+uint32_t mec_hal_espi_reset_state(uintptr_t ioreg_base);
 
 /* Enable eSPI controller after all static configuration has been performed.
  * MEC eSPI activate must be set before the Host de-asserts ESPI_RESET#.
  */
-void mec_hal_espi_activate(struct mec_espi_io_regs *iobase, uint8_t enable);
-int mec_hal_espi_is_activated(struct mec_espi_io_regs *iobase);
+void mec_hal_espi_activate(uintptr_t ioreg_base, uint8_t enable);
+int mec_hal_espi_is_activated(uintptr_t ioreg_base);
 
 #ifdef __cplusplus
 }

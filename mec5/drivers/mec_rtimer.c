@@ -13,10 +13,10 @@
 #include "mec_rtimer_api.h"
 #include "mec_retval.h"
 
-#define MEC_RTMR_GIRQ 23
-#define MEC_RTMR_GIRQ_POS 10
-#define MEC_RTMR_NVIC_NUM 111
-#define MEC_RTMR_ECIA_INFO MEC5_ECIA_INFO(MEC_RTMR_GIRQ, MEC_RTMR_GIRQ_POS, 14, 111)
+#define MEC_RTMR_GIRQ      23
+#define MEC_RTMR_GIRQ_POS  10
+#define MEC_RTMR_NVIC_NUM  111
+#define MEC_RTMR_ECIA_INFO MEC_ECIA_INFO(MEC_RTMR_GIRQ, MEC_RTMR_GIRQ_POS, 14, 111)
 
 int mec_hal_rtimer_init(struct mec_rtmr_regs *regs, uint32_t rtmr_config, uint32_t preload)
 {

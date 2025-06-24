@@ -24,7 +24,7 @@
 #define MEC5_WDT0_GIRQ_Z    13u
 #define MEC5_WDT0_GIRQ_POS  2u
 #define MEC5_WDT0_NVIC_NUM  171
-#define MEC5_WDT0_ECIA_INFO MEC5_ECIA_INFO(21, 2, 13, 171)
+#define MEC5_WDT0_ECIA_INFO MEC_ECIA_INFO(21, 2, 13, 171)
 
 /* -------- WDT API -------- */
 

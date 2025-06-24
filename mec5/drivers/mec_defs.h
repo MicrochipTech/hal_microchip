@@ -74,6 +74,18 @@
 #define MEC_FIELD_VAL(val, pos) ((uint32_t)(val) << (pos))
 #endif
 
+#ifndef MEC_LSB_GET
+#define MEC_LSB_GET(value) ((value) & -(value))
+#endif
+
+#ifndef MEC_FIELD_GET
+#define MEC_FIELD_GET(mask, value)  (((value) & (mask)) / MEC_LSB_GET(mask))
+#endif
+
+#ifndef MEC_FIELD_PREP
+#define MEC_FIELD_PREP(mask, value) (((value) * MEC_LSB_GET(mask)) & (mask))
+#endif
+
 #ifndef MEC_IS_PTR_ALIGNED
 /* Check if a pointer is aligned for against a specific byte boundary  */
 #define MEC_IS_PTR_ALIGNED_BYTES(ptr, bytes) ((((uintptr_t)ptr) % bytes) == 0)
@@ -119,6 +131,16 @@
 
 #ifndef MEC_PTR_ALIGN4K
 #define MEC_PTR_ALIGN4K(ptr)    (((uintptr_t)(ptr) + 0x1000U) & ~0xFFFu)
+#endif
+
+#ifndef ALWAYS_INLINE
+#if !defined(_ASMLANGUAGE)
+/* inline keyword respects GCC command line -fno-inline
+ * If you want inlining to ignore -fno-inline then define ALWAYS_INLINE as:
+ * inline __attribute__((always_inline))
+ */
+#define ALWAYS_INLINE inline
+#endif
 #endif
 
 #define MEC_MMCR8(a)  *(volatile uint8_t *)(a)
@@ -169,6 +191,39 @@
     ((size_t) (MEC_IS_ARRAY(array) + (sizeof(array) / sizeof((array)[0]))))
 #endif
 #endif
+
+/* Encoded information of a MEC5 peripheral interrupt source.
+ * g = GIRQ number in data sheet: 8 <= g <= 26
+ * gb = bit position in 32-bit GIRQ source register.
+ * na = NVIC external input the aggregated GIRQ output is connected to.
+ * nd = NVIC external input this individual source is connected to. If
+ *      the source does not have a direct NVIC connection use 0xff.
+ * Examples:
+ * GPIO 0101 is bit 1 of Aggregated GIRQ9 connected to NVIC external
+ * input 1. GIRQ9 has no direct NVIC connections.
+ * MEC_ECIA_INFO(9, 1, 1, 255)
+ *
+ * Basic timer 5 is bit 5 of GIRQ23 connected to NVIC external input 14
+ * and has direct NVIC input 141
+ * MEC_ECIA_INFO(23, 5, 14, 141)
+ */
+#define MEC_ECIA_GIRQ_FIRST 8u
+#define MEC_ECIA_GIRQ_LAST 26u
+
+#define MEC_ECIA_INFO(g, gb, na, nd) \
+        ((((uint32_t)(g) - MEC_ECIA_GIRQ_FIRST) & 0x1fu) | (((uint32_t)(gb) & 0x1fu) << 8) \
+         | (((uint32_t)(na) & 0xffu) << 16) | (((uint32_t)(nd) & 0xffu) << 24))
+
+/* Extract the zero-based GIRQ number */
+#define MEC_ECIA_INFO_GIRQZ(info) ((uint32_t)(info) & 0x1fu)
+/* Get GIRQ number */
+#define MEC_ECIA_INFO_GIRQ(info) (MEC_ECIA_INFO_GIRQZ(info) + MEC_ECIA_GIRQ_FIRST)
+/* extract GIRQ bit position */
+#define MEC_ECIA_INFO_GIRQ_POS(info) (((uint32_t)(info) >> 8) & 0x1fu)
+/* extract the Aggregated GIRQ NVIC external input number */
+#define MEC_ECIA_INFO_NVIC_AGGR(info) (((uint32_t)(info) >> 16) & 0xffu)
+/* extract the Direct GIRQ NVIC external input number */
+#define MEC_ECIA_INFO_NVIC_DIRECT(info) (((uint32_t)(info) >> 24) & 0xffu)
 
 struct mec_buf {
     void *data;
