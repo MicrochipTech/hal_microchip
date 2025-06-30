@@ -38,12 +38,12 @@ static uint32_t xlat_intr_to_hw(uint32_t bitmap)
 
 /* ---- Public API ---- */
 
-void mec_hal_espi_pc_ready_set(uintptr_t iobase)
+void mec_hal_espi_pc_ready_set(const uintptr_t iobase)
 {
     mmcr8_set_bit(iobase + MEC_ESPI_PC_RDY_OFS, MEC_ESPI_CHAN_RDY_POS);
 }
 
-int mec_hal_espi_pc_is_ready(uintptr_t iobase)
+int mec_hal_espi_pc_is_ready(const uintptr_t iobase)
 {
     return mmcr8_test_bit(iobase + MEC_ESPI_PC_RDY_OFS, MEC_ESPI_CHAN_RDY_POS);
 }
@@ -51,7 +51,7 @@ int mec_hal_espi_pc_is_ready(uintptr_t iobase)
 /* Peripheral channel enable state is status register bit[24]; move to bit[0].
  * Enable change is status register bit[25]; move to bit[1].
  */
-uint32_t mec_hal_espi_pc_en_status(uintptr_t iobase)
+uint32_t mec_hal_espi_pc_en_status(const uintptr_t iobase)
 {
     uint32_t v = mmcr32_rd(iobase + MEC_ESPI_PC_SR_OFS);
 
@@ -64,7 +64,7 @@ uint32_t mec_hal_espi_pc_en_status(uintptr_t iobase)
  * BM enable change is bit[28]; move to bit[1].
  * the enable's current state.
  */
-uint32_t mec_hal_espi_pc_bm_status(uintptr_t iobase)
+uint32_t mec_hal_espi_pc_bm_status(const uintptr_t iobase)
 {
     uint32_t v = mmcr32_rd(iobase + MEC_ESPI_PC_SR_OFS);
 
@@ -73,7 +73,7 @@ uint32_t mec_hal_espi_pc_bm_status(uintptr_t iobase)
     return v;
 }
 
-uint32_t mec_hal_espi_pc_status(uintptr_t iobase)
+uint32_t mec_hal_espi_pc_status(const uintptr_t iobase)
 {
     uint32_t v = mmcr32_rd(iobase + MEC_ESPI_PC_SR_OFS);
     uint32_t sts = 0;
@@ -97,33 +97,33 @@ uint32_t mec_hal_espi_pc_status(uintptr_t iobase)
     return sts;
 }
 
-void mec_hal_espi_pc_status_clr(uintptr_t iobase, uint32_t bitmap)
+void mec_hal_espi_pc_status_clr(const uintptr_t iobase, uint32_t bitmap)
 {
     uint32_t regval = xlat_intr_to_hw(bitmap);
 
     mmcr32_wr(regval, iobase + MEC_ESPI_PC_SR_OFS);
 }
 
-void mec_hal_espi_pc_intr_en(uintptr_t iobase, uint32_t bitmap)
+void mec_hal_espi_pc_intr_en(const uintptr_t iobase, uint32_t bitmap)
 {
     uint32_t regval = xlat_intr_to_hw(bitmap);
 
     mmcr32_wr(regval, iobase + MEC_ESPI_PC_IER_OFS);
 }
 
-void mec_hal_espi_pc_intr_dis(uintptr_t iobase, uint32_t bitmap)
+void mec_hal_espi_pc_intr_dis(const uintptr_t iobase, uint32_t bitmap)
 {
     uint32_t mask = xlat_intr_to_hw(bitmap);
 
     mmcr32_clr_bits(iobase + MEC_ESPI_PC_IER_OFS, mask);
 }
 
-void mec_hal_espi_pc_status_clr_all(uintptr_t iobase)
+void mec_hal_espi_pc_status_clr_all(const uintptr_t iobase)
 {
     mmcr32_clr_bits(iobase + MEC_ESPI_PC_IER_OFS, MEC_ESPI_PC_IER_ALL_MSK);
 }
 
-uint64_t mec_hal_espi_pc_error_addr(uintptr_t iobase)
+uint64_t mec_hal_espi_pc_error_addr(const uintptr_t iobase)
 {
     union {
         uint64_t lw;
@@ -136,7 +136,7 @@ uint64_t mec_hal_espi_pc_error_addr(uintptr_t iobase)
     return err_addr.lw;
 }
 
-void mec_hal_espi_pc_last_cycle(uintptr_t iobase, struct mec_espi_pc_last_cycle *lc)
+void mec_hal_espi_pc_last_cycle(const uintptr_t iobase, struct mec_espi_pc_last_cycle *lc)
 {
     uint32_t v = 0;
 
@@ -175,17 +175,17 @@ uint32_t mec_hal_espi_pc_girq_result(void)
 
 /* Peripheral Channel LTR */
 
-uint32_t mec_hal_espi_pc_ltr_status(uintptr_t regbase)
+uint32_t mec_hal_espi_pc_ltr_status(const uintptr_t regbase)
 {
     return mmcr32_rd(regbase + MEC_ESPI_PC_LTR_SR_OFS);
 }
 
-void mec_hal_espi_pc_ltr_intr_en(uintptr_t regbase, uint32_t enmask)
+void mec_hal_espi_pc_ltr_intr_en(const uintptr_t regbase, uint32_t enmask)
 {
     mmcr32_wr(enmask, regbase + MEC_ESPI_PC_LTR_IER_OFS);
 }
 
-void mec_hal_espi_pc_ltr_ctrl(uintptr_t regbase, uint8_t tag, uint8_t start)
+void mec_hal_espi_pc_ltr_ctrl(const uintptr_t regbase, uint8_t tag, uint8_t start)
 {
     uint32_t rb = regbase + MEC_ESPI_PC_LTR_CR;
     uint32_t ctrl = MEC_ESPI_PC_LTR_CR_TAG_OUT_SET((uint32_t)tag);
@@ -197,7 +197,7 @@ void mec_hal_espi_pc_ltr_ctrl(uintptr_t regbase, uint8_t tag, uint8_t start)
     }
 }
 
-void mec_hal_espi_pc_ltr_msg(uintptr_t regbase, uint16_t nunits, uint8_t time_unit,
+void mec_hal_espi_pc_ltr_msg(const uintptr_t regbase, uint16_t nunits, uint8_t time_unit,
                              uint8_t rsvd_bits, uint8_t max_lat)
 {
     uint32_t rb = regbase + MEC_ESPI_PC_LTR_MSG_OFS;

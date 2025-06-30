@@ -133,7 +133,7 @@ static inline int ldn_has_memb(uint8_t ldn)
 #endif /* 0 UNUSED */
 
 #if 0 /* UNUSED */
-static uint8_t mec_espi_sirq_get(uintptr_t regbase, uint8_t sirq_idx)
+static uint8_t mec_espi_sirq_get(const uintptr_t regbase, uint8_t sirq_idx)
 {
     if (sirq_idx >= MEC_SIRQ_IDX_MAX) {
         return MEC_ESPI_SIRQ_SLOT_DIS;
@@ -143,7 +143,7 @@ static uint8_t mec_espi_sirq_get(uintptr_t regbase, uint8_t sirq_idx)
 }
 
 /* Set SERIRQ slot number for specified SERIRQ index */
-static void espi_sirq_set(uintptr_t regbase, uint8_t sirq_idx, uint8_t slot)
+static void espi_sirq_set(const uintptr_t regbase, uint8_t sirq_idx, uint8_t slot)
 {
     if (sirq_idx >= MEC_SIRQ_IDX_MAX) {
         return;
@@ -154,7 +154,7 @@ static void espi_sirq_set(uintptr_t regbase, uint8_t sirq_idx, uint8_t slot)
 #endif /* UNUSED */
 /*-----------------------------------------------------------------------*/
 
-int mec_hal_espi_iobar_cfg(uintptr_t regbase, uint8_t ldn, uint16_t io_base, uint8_t enable)
+int mec_hal_espi_iobar_cfg(const uintptr_t regbase, uint8_t ldn, uint16_t io_base, uint8_t enable)
 {
     uintptr_t rb = regbase;
     uint32_t bar_val = MEC_ESPI_HBV_BASE_SET((uint32_t)io_base);
@@ -188,7 +188,7 @@ int mec_hal_espi_iobar_cfg(uintptr_t regbase, uint8_t ldn, uint16_t io_base, uin
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_iobar_enable(uintptr_t regbase, uint8_t ldn, uint8_t enable)
+int mec_hal_espi_iobar_enable(const uintptr_t regbase, uint8_t ldn, uint8_t enable)
 {
     uintptr_t rb = regbase;
     uint8_t idx = 0, tbl_idx = 0;
@@ -217,7 +217,7 @@ int mec_hal_espi_iobar_enable(uintptr_t regbase, uint8_t ldn, uint8_t enable)
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_iobar_is_enabled(uintptr_t regbase, uint8_t ldn)
+int mec_hal_espi_iobar_is_enabled(const uintptr_t regbase, uint8_t ldn)
 {
     uintptr_t rb = regbase;
     uint8_t idx = 0, tbl_idx = 0;
@@ -240,7 +240,7 @@ int mec_hal_espi_iobar_is_enabled(uintptr_t regbase, uint8_t ldn)
     return mmcr32_test_bit(rb, MEC_ESPI_HBV_VALID_EN_POS);
 }
 
-uint32_t mec_hal_espi_iobar_mask(uintptr_t regbase, uint8_t ldn)
+uint32_t mec_hal_espi_iobar_mask(const uintptr_t regbase, uint8_t ldn)
 {
     uintptr_t rb = regbase;
     uint32_t msk = 0;
@@ -272,7 +272,7 @@ uint32_t mec_hal_espi_iobar_mask(uintptr_t regbase, uint8_t ldn)
  * NOTE2: The mask field is only writable when the I/O BAR is not in reset
  * and the valid bit in the corresponding LDN's Host I/O BAR is not set.
  */
-int mec_hal_espi_iobar_mask_set(uintptr_t regbase, uint8_t ldn, uint8_t mask)
+int mec_hal_espi_iobar_mask_set(const uintptr_t regbase, uint8_t ldn, uint8_t mask)
 {
     uintptr_t rb = regbase;
     uint32_t v = 0;
@@ -307,7 +307,7 @@ int mec_hal_espi_iobar_mask_set(uintptr_t regbase, uint8_t ldn, uint8_t mask)
  * BAR's must be located in the same 4GB region and the upper address bits are
  * specified in the MBAR Host Extended Address register.
  */
-int mec_hal_espi_mbar_cfg(uintptr_t mrbase, uint8_t ldn, uint32_t mem_base, uint8_t enable)
+int mec_hal_espi_mbar_cfg(const uintptr_t mrbase, uint8_t ldn, uint32_t mem_base, uint8_t enable)
 {
     uintptr_t mrb = mrbase;
     uint32_t reg_ofs = 0;
@@ -345,7 +345,7 @@ int mec_hal_espi_mbar_cfg(uintptr_t mrbase, uint8_t ldn, uint32_t mem_base, uint
 /* MEC eSPI SRAM BARs have a configurable size implemented as powers of 2 from 0 to 15.
  * Hardware design requires EC SRAM memory region to be aligned to the size!
  */
-int mec_hal_espi_sram_bar_ec_mem_cfg(uintptr_t mrbase, uint8_t sram_bar_id,
+int mec_hal_espi_sram_bar_ec_mem_cfg(const uintptr_t mrbase, uint8_t sram_bar_id,
                                      uint32_t maddr, uint16_t size, uint8_t access,
                                      uint8_t enable)
 {
@@ -389,7 +389,7 @@ int mec_hal_espi_sram_bar_ec_mem_cfg(uintptr_t mrbase, uint8_t sram_bar_id,
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_sram_bar_cfg(uintptr_t mrbase,
+int mec_hal_espi_sram_bar_cfg(const uintptr_t mrbase,
                               const struct espi_mec5_sram_bar_cfg *barcfg,
                               uint8_t sram_bar_id, uint8_t enable)
 {
@@ -433,7 +433,7 @@ int mec_hal_espi_sram_bar_cfg(uintptr_t mrbase,
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_sram_bar_host_addr_set(uintptr_t mrbase, uint8_t sram_bar_id, uint32_t host_addr_lsw)
+int mec_hal_espi_sram_bar_host_addr_set(const uintptr_t mrbase, uint8_t sram_bar_id, uint32_t host_addr_lsw)
 {
     uintptr_t mrb = mrbase;
     uint32_t cfg_reg_ofs = 0;
@@ -453,7 +453,7 @@ int mec_hal_espi_sram_bar_host_addr_set(uintptr_t mrbase, uint8_t sram_bar_id, u
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_sram_bar_enable(uintptr_t mrbase, uint8_t sram_bar_id, uint8_t enable)
+int mec_hal_espi_sram_bar_enable(const uintptr_t mrbase, uint8_t sram_bar_id, uint8_t enable)
 {
     uintptr_t mrb = mrbase;
     uint32_t reg_ofs = 0;
@@ -473,7 +473,7 @@ int mec_hal_espi_sram_bar_enable(uintptr_t mrbase, uint8_t sram_bar_id, uint8_t 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_sram_bar_size_get(uintptr_t mrbase, uint8_t sram_bar_id, size_t *size)
+int mec_hal_espi_sram_bar_size_get(const uintptr_t mrbase, uint8_t sram_bar_id, size_t *size)
 {
     uintptr_t mrb = mrbase;
     uint32_t reg_ofs = 0;
@@ -493,7 +493,7 @@ int mec_hal_espi_sram_bar_size_get(uintptr_t mrbase, uint8_t sram_bar_id, size_t
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_sram_bar_access_get(uintptr_t mrbase, uint8_t sram_bar_id, int *access)
+int mec_hal_espi_sram_bar_access_get(const uintptr_t mrbase, uint8_t sram_bar_id, int *access)
 {
     uintptr_t mrb = mrbase;
     uint32_t reg_ofs = 0;
@@ -518,7 +518,7 @@ int mec_hal_espi_sram_bar_access_get(uintptr_t mrbase, uint8_t sram_bar_id, int 
  * BAR's must be located in the same 4GB host address space range.
  * NOTE: this register is held in reset by chip reset, ESPI_nRESET, and nPLTRST.
  */
-int mec_hal_espi_mbar_extended_addr_set(uintptr_t mrbase, uint32_t extended_addr)
+int mec_hal_espi_mbar_extended_addr_set(const uintptr_t mrbase, uint32_t extended_addr)
 {
     uintptr_t mrb = mrbase;
 
@@ -536,7 +536,7 @@ int mec_hal_espi_mbar_extended_addr_set(uintptr_t mrbase, uint32_t extended_addr
  * to both SRAM BARs.
  * NOTE: this register is held in reset by by chip reset, ESPI_nRESET, and nPLTRST.
  */
-int mec_hal_espi_sram_bar_extended_addr_set(uintptr_t mrbase, uint32_t extended_addr)
+int mec_hal_espi_sram_bar_extended_addr_set(const uintptr_t mrbase, uint32_t extended_addr)
 {
     uintptr_t mrb = mrbase;
 
@@ -549,7 +549,7 @@ int mec_hal_espi_sram_bar_extended_addr_set(uintptr_t mrbase, uint32_t extended_
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_mbar_enable(uintptr_t mrbase, uint8_t ldn, uint8_t enable)
+int mec_hal_espi_mbar_enable(const uintptr_t mrbase, uint8_t ldn, uint8_t enable)
 {
     uintptr_t mrb = mrbase;
     uint32_t reg_ofs = 0;
@@ -579,7 +579,7 @@ int mec_hal_espi_mbar_enable(uintptr_t mrbase, uint8_t ldn, uint8_t enable)
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_mbar_is_enabled(uintptr_t mrbase, uint8_t ldn)
+int mec_hal_espi_mbar_is_enabled(const uintptr_t mrbase, uint8_t ldn)
 {
     uintptr_t mrb = mrbase;
     uint32_t reg_ofs = 0;
@@ -604,7 +604,7 @@ int mec_hal_espi_mbar_is_enabled(uintptr_t mrbase, uint8_t ldn)
 }
 
 /* Disable I/O and Memory BARs for a logical device */
-int mec_hal_espi_bar_inhibit(uintptr_t regbase, uint8_t ldn, uint8_t inhibit)
+int mec_hal_espi_bar_inhibit(const uintptr_t regbase, uint8_t ldn, uint8_t inhibit)
 {
     uintptr_t rb = regbase;
     uint8_t tbl_idx = 0;
@@ -639,7 +639,7 @@ int mec_hal_espi_bar_inhibit(uintptr_t regbase, uint8_t ldn, uint8_t inhibit)
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_bar_inhibit_msk(uintptr_t regbase, uint8_t inhibit, uint32_t msklo, uint32_t mskhi)
+int mec_hal_espi_bar_inhibit_msk(const uintptr_t regbase, uint8_t inhibit, uint32_t msklo, uint32_t mskhi)
 {
     uintptr_t rb = regbase;
 
@@ -661,7 +661,7 @@ int mec_hal_espi_bar_inhibit_msk(uintptr_t regbase, uint8_t inhibit, uint32_t ms
 /* ---- Logical Device Serial IRQ ---- */
 
 /* Return the number of Serial IRQs a logical device implements */
-uint8_t mec_hal_espi_ld_sirq_num(uintptr_t regbase, uint8_t ldn)
+uint8_t mec_hal_espi_ld_sirq_num(const uintptr_t regbase, uint8_t ldn)
 {
     uintptr_t rb = regbase;
     uint8_t tbl_idx = 0;
@@ -680,7 +680,7 @@ uint8_t mec_hal_espi_ld_sirq_num(uintptr_t regbase, uint8_t ldn)
 /* get current slot number the specified logical device SIRQ instance is programmed to.
  * NOTE: a value of 255 (0xff) indicates this SIRQ is disabled.
  */
-uint8_t mec_hal_espi_ld_sirq_get(uintptr_t regbase, uint8_t ldn, uint8_t ldn_sirq_id)
+uint8_t mec_hal_espi_ld_sirq_get(const uintptr_t regbase, uint8_t ldn, uint8_t ldn_sirq_id)
 {
     uintptr_t rb = regbase;
     uint8_t tbl_idx = 0;
@@ -702,7 +702,7 @@ uint8_t mec_hal_espi_ld_sirq_get(uintptr_t regbase, uint8_t ldn, uint8_t ldn_sir
     return mmcr8_rd(rb);
 }
 
-void mec_hal_espi_ld_sirq_set(uintptr_t regbase, uint8_t ldn, uint8_t ldn_sirq_id, uint8_t slot)
+void mec_hal_espi_ld_sirq_set(const uintptr_t regbase, uint8_t ldn, uint8_t ldn_sirq_id, uint8_t slot)
 {
     uintptr_t rb = regbase;
     uint8_t tbl_idx = 0;
@@ -724,10 +724,32 @@ void mec_hal_espi_ld_sirq_set(uintptr_t regbase, uint8_t ldn, uint8_t ldn_sirq_i
     mmcr8_wr(slot, rb);
 }
 
+int mec_hal_espi_sirq_get(const uintptr_t regbase, enum mec_espi_sirq_slot_id id, uint8_t *val)
+{
+    if ((regbase != MEC_ESPI_IOC_BASE) || (id >= MEC_ESPI_SIRQ_MAX) || (val == NULL)) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    *val = mmcr8_rd(regbase + MEC_ESPI_SIRQ_OFS((uint32_t)id));
+
+    return MEC_RET_OK;
+}
+
+int mec_hal_espi_sirq_set(const uintptr_t regbase, enum mec_espi_sirq_slot_id id, uint8_t val)
+{
+    if ((regbase != MEC_ESPI_IOC_BASE) || (id >= MEC_ESPI_SIRQ_MAX)) {
+        return MEC_RET_ERR_INVAL;
+    }
+
+    mmcr8_wr(regbase + MEC_ESPI_SIRQ_OFS((uint32_t)id), val);
+
+    return MEC_RET_OK;
+}
+
 /* Generate EC_IRQ Serial IRQ to the Host using the Serial IRQ slot
  * number previously programmed by mec_espi_ld_sirq_set().
  */
-int mec_hal_espi_gen_ec_sirq(uintptr_t regbase, uint8_t val)
+int mec_hal_espi_gen_ec_sirq(const uintptr_t regbase, uint8_t val)
 {
     uintptr_t rb = regbase;
 

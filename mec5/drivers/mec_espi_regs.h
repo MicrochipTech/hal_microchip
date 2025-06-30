@@ -8,6 +8,10 @@
 
 #include "mec_defs.h"
 
+#define MEC_ESPI_IOC_BASE          0x40003400u
+#define MEC_ESPI_MC_BASE           0x40003800u
+#define MEC_ESPI_VW_BASE           0x40009c00u
+
 #define MEC_ESPI_GIRQ              19
 #define MEC_ESPI_GIRQ_IDX          11
 /* bit positions in GIRQ status, set enable, clear enable, and result registers */
