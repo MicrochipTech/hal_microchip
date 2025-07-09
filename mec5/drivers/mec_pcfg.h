@@ -10,7 +10,7 @@
 #define MEC_DMA_CHAN_VALID_CHECK
 
 /* GPIO module checks ID */
-#define MEC_GPIO_PIN_VALIDATION
+/* #define MEC_GPIO_PIN_VALIDATION */
 /* #define MEC_GPIO_PAROUT_BITBAND */
 
 /* GPIO module anomalies */
