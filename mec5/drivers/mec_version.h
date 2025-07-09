@@ -10,7 +10,7 @@
 #include <stddef.h>
 
 #define MEC5_VER_MAJOR    0
-#define MEC5_VER_MINOR    4
+#define MEC5_VER_MINOR    7
 #define MEC5_VER_REVISION 0
 
 size_t mec5_hal_version_size(void);
