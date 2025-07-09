@@ -270,10 +270,6 @@ int mec_hal_eeprom_buffer_wr(struct mec_eeprom_ctrl_regs *regs, const uint8_t *s
  * Timing: read transfer 7 us / byte plus 50 us if full 32-bytes.
  *         write transfer ~5ms
  */
-/* TODO BUG
- * if op is MEC_HAL_EEPROM_OP_READ_STATUS then offset and nbytes are don't cares
- * if op is MEC_HAL_EEPROM_OP_WRITE_STATUS then offset is don't care and nbytes should be 1
- */
 int mec_hal_eeprom_xfr_start(struct mec_eeprom_ctrl_regs *regs, uint8_t op,
                              uint32_t offset, uint32_t nbytes)
 {
@@ -316,9 +312,11 @@ int mec_hal_eeprom_xfr_start(struct mec_eeprom_ctrl_regs *regs, uint8_t op,
     } else if (op == MEC_HAL_EEPROM_OP_READ_STATUS) {
         /* offset and nbytes are don't cares */
         cmd = MEC_EEPROM_CTRL0_EXE_CMD_RDSTS;
+        xfrsz = 1u;
     } else if (op == MEC_HAL_EEPROM_OP_WRITE_STATUS) {
-        /* offset is don't care. Data sheet is not clear if nbytes is don't care */
+        /* offset is don't care. Recommended xfr size is 1 */
         cmd = MEC_EEPROM_CTRL0_EXE_CMD_WRSTS;
+        xfrsz = 1u;
     } else {
         return MEC_RET_ERR_INVAL;
     }
