@@ -54,7 +54,7 @@ uint32_t mec_hal_pcr_vcc_power_good_state(void)
 
 int mec_hal_pcr_is_turbo_clock(void)
 {
-#ifdef MEC5_FAM2_ID
+#if MEC_SERIES_ID == 2
     if (MEC_PCR->TURBO_CLK & MEC_BIT(MEC_PCR_TURBO_CLK_FAST_CLK_Pos)) {
         return 1;
     }
@@ -72,7 +72,7 @@ int mec_hal_pcr_is_turbo_clock(void)
 /* Get maximum input clock frequency in Hz supplied by the PCR module to the ARM Cortex-M4 core */
 uint32_t mec_hal_pcr_cpu_max_freq(void)
 {
-#ifdef MEC5_FAM2_ID
+#if MEC_SERIES_ID == 2
     uint32_t fhz = MEC_PCR_PLL_FREQ_HZ;
 
     if (MEC_PCR->TURBO_CLK & MEC_BIT(MEC_PCR_TURBO_CLK_FAST_CLK_Pos)) {

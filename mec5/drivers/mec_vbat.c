@@ -56,7 +56,7 @@ uint32_t mec_hal_bbram_size(void)
 {
     uint32_t bbram_size = MEC_VBAT_MEM_SIZE;
 
-#ifndef MEC5_FAM2_ID
+#if MEC_SERIES_ID >= 4
     if (MEC_ECS->FEAT_LOCK & MEC_BIT(MEC_ECS_FEAT_LOCK_BBRAM_SIZE_Pos)) {
         bbram_size >>= 1u;
     }
