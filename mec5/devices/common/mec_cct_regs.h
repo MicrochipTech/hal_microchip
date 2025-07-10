@@ -1,0 +1,161 @@
+/*
+ * Copyright (c) 2025 Microchip Technology Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#ifndef _MEC_CCT_REGS_H
+#define _MEC_CCT_REGS_H
+
+/* MEC Input Capture Compare Timer */
+
+#define MEC_CCT_CR_OFS              0 /* CCT control register */
+#define MEC_CCT_CR_MSK              0x03030377u
+#define MEC_CCT_CR_RW1C_MSK         0x03000000u
+#define MEC_CCT_CR_RW1S_MSK         0x00030000u
+#define MEC_CCT_CR_ACTV_POS         0
+#define MEC_CCT_CR_FR_EN_POS        1
+#define MEC_CCT_CR_FR_RST_POS       2 /* self-clearing */
+#define MEC_CCT_CR_TCLK_POS         4
+#define MEC_CCT_CR_TCLK_MSK         MEC_GENMASK(6, 4)
+#define MEC_CCT_CR_TCLK_48M_VAL     0
+#define MEC_CCT_CR_TCLK_24M_VAL     1u
+#define MEC_CCT_CR_TCLK_12M_VAL     2u
+#define MEC_CCT_CR_TCLK_6M_VAL      3u
+#define MEC_CCT_CR_TCLK_3M_VAL      4u
+#define MEC_CCT_CR_TCLK_1500K_VAL   5u
+#define MEC_CCT_CR_TCLK_750K_VAL    6u
+#define MEC_CCT_CR_TCLK_375K_VAL    7u
+#define MEC_CCT_CR_TCLK_SET(n)      MEC_FIELD_PREP(MEC_CCT_CR_TCLK_MSK, (n))
+#define MEC_CCT_CR_TCLK_GET(n)      MEC_FIELD_GET(MEC_CCT_CR_TCLK_MSK, (n))
+#define MEC_CCT_CR_CMP0_EN_POS      8
+#define MEC_CCT_CR_CMP1_EN_POS      9
+#define MEC_CCT_CR_CMP1_SET_POS     16 /* R/W1S */
+#define MEC_CCT_CR_CMP0_SET_POS     17 /* R/W1S */
+#define MEC_CCT_CR_CMP1_CLR_POS     24 /* R/W1C */
+#define MEC_CCT_CR_CMP0_CLR_POS     25 /* R/W1C */
+
+#define MEC_CCT_CAP_EDGE_MSK0       0x3u
+#define MEC_CCT_CAP_EDGE_FALL_VAL   0u
+#define MEC_CCT_CAP_EDGE_RIS_VAL    1u
+#define MEC_CCT_CAP_EDGE_BOTH_VAL   2u
+#define MEC_CCT_CAP_EDGE_DIS_VAL    3u
+
+#define MEC_CCT_CAP_FCLK_48M_VAL    0u
+#define MEC_CCT_CAP_FCLK_24M_VAL    1u
+#define MEC_CCT_CAP_FCLK_12M_VAL    2u
+#define MEC_CCT_CAP_FCLK_6M_VAL     3u
+#define MEC_CCT_CAP_FCLK_3M_VAL     4u
+#define MEC_CCT_CAP_FCLK_1500K_VAL  5u
+#define MEC_CCT_CAP_FCLK_750K_VAL   6u
+#define MEC_CCT_CAP_FCLK_375K_VAL   7u
+
+#define MEC_CCT_CCR0_OFS            4u /* Capture control 0 register */
+#define MEC_CCT_CCR0_EDG0_OFS       0
+#define MEC_CCT_CCR0_EDG0_MSK       MEC_GENMASK(1, 0)
+#define MEC_CCT_CCR0_EDG0_SET(n)    MEC_FIELD_PREP(MEC_CCT_CCR0_EDG0_MSK, (n))
+#define MEC_CCT_CCR0_EDG0_GET(n)    MEC_FIELD_GET(MEC_CCT_CCR0_EDG0_MSK, (n))
+#define MEC_CCT_CCR0_FBYP0_POS      2
+#define MEC_CCT_CCR0_FCLK0_POS      5
+#define MEC_CCT_CCR0_FCLK0_MSK      MEC_GENMASK(7, 5)
+#define MEC_CCT_CCR0_FCLK0_SET(n)   MEC_FIELD_PREP(MEC_CCT_CCR0_FCLK0_MSK, (n))
+#define MEC_CCT_CCR0_FCLK0_GET(n)   MEC_FIELD_GET(MEC_CCT_CCR0_FCLK0_MSK, (n))
+
+#define MEC_CCT_CCR0_EDG1_OFS       8
+#define MEC_CCT_CCR0_EDG1_MSK       MEC_GENMASK(9, 8)
+#define MEC_CCT_CCR0_EDG1_SET(n)    MEC_FIELD_PREP(MEC_CCT_CCR0_EDG1_MSK, (n))
+#define MEC_CCT_CCR0_EDG1_GET(n)    MEC_FIELD_GET(MEC_CCT_CCR0_EDG1_MSK, (n))
+#define MEC_CCT_CCR0_FBYP1_POS      9
+#define MEC_CCT_CCR0_FCLK1_POS      13
+#define MEC_CCT_CCR0_FCLK1_MSK      MEC_GENMASK(15, 13)
+#define MEC_CCT_CCR0_FCLK1_SET(n)   MEC_FIELD_PREP(MEC_CCT_CCR0_FCLK1_MSK, (n))
+#define MEC_CCT_CCR0_FCLK1_GET(n)   MEC_FIELD_GET(MEC_CCT_CCR0_FCLK1_MSK, (n))
+
+#define MEC_CCT_CCR0_EDG2_OFS       16
+#define MEC_CCT_CCR0_EDG2_MSK       MEC_GENMASK(17, 16)
+#define MEC_CCT_CCR0_EDG2_SET(n)    MEC_FIELD_PREP(MEC_CCT_CCR0_EDG2_MSK, (n))
+#define MEC_CCT_CCR0_EDG2_GET(n)    MEC_FIELD_GET(MEC_CCT_CCR0_EDG2_MSK, (n))
+#define MEC_CCT_CCR0_FBYP2_POS      18
+#define MEC_CCT_CCR0_FCLK2_POS      21
+#define MEC_CCT_CCR0_FCLK2_MSK      MEC_GENMASK(23, 21)
+#define MEC_CCT_CCR0_FCLK2_SET(n)   MEC_FIELD_PREP(MEC_CCT_CCR0_FCLK2_MSK, (n))
+#define MEC_CCT_CCR0_FCLK2_GET(n)   MEC_FIELD_GET(MEC_CCT_CCR0_FCLK2_MSK, (n))
+
+#define MEC_CCT_CCR0_EDG3_OFS       24
+#define MEC_CCT_CCR0_EDG3_MSK       MEC_GENMASK(25, 24)
+#define MEC_CCT_CCR0_EDG3_SET(n)    MEC_FIELD_PREP(MEC_CCT_CCR0_EDG3_MSK, (n))
+#define MEC_CCT_CCR0_EDG3_GET(n)    MEC_FIELD_GET(MEC_CCT_CCR0_EDG3_MSK, (n))
+#define MEC_CCT_CCR0_FBYP3_POS      26
+#define MEC_CCT_CCR0_FCLK3_POS      29
+#define MEC_CCT_CCR0_FCLK3_MSK      MEC_GENMASK(31, 29)
+#define MEC_CCT_CCR0_FCLK3_SET(n)   MEC_FIELD_PREP(MEC_CCT_CCR0_FCLK3_MSK, (n))
+#define MEC_CCT_CCR0_FCLK3_GET(n)   MEC_FIELD_GET(MEC_CCT_CCR0_FCLK3_MSK, (n))
+
+#define MEC_CCT_CCR1_OFS            8u /* Capture control 1 register */
+#define MEC_CCT_CCR1_EDG4_OFS       0
+#define MEC_CCT_CCR1_EDG4_MSK       MEC_GENMASK(1, 0)
+#define MEC_CCT_CCR1_EDG4_SET(n)    MEC_FIELD_PREP(MEC_CCT_CCR1_EDG4_MSK, (n))
+#define MEC_CCT_CCR1_EDG4_GET(n)    MEC_FIELD_GET(MEC_CCT_CCR1_EDG4_MSK, (n))
+#define MEC_CCT_CCR1_FBYP4_POS      2
+#define MEC_CCT_CCR1_FCLK4_POS      5
+#define MEC_CCT_CCR1_FCLK4_MSK      MEC_GENMASK(7, 5)
+#define MEC_CCT_CCR1_FCLK4_SET(n)   MEC_FIELD_PREP(MEC_CCT_CCR1_FCLK4_MSK, (n))
+#define MEC_CCT_CCR1_FCLK4_GET(n)   MEC_FIELD_GET(MEC_CCT_CCR1_FCLK4_MSK, (n))
+
+#define MEC_CCT_CCR1_EDG5_OFS       8
+#define MEC_CCT_CCR1_EDG5_MSK       MEC_GENMASK(9, 8)
+#define MEC_CCT_CCR1_EDG5_SET(n)    MEC_FIELD_PREP(MEC_CCT_CCR1_EDG5_MSK, (n))
+#define MEC_CCT_CCR1_EDG5_GET(n)    MEC_FIELD_GET(MEC_CCT_CCR1_EDG5_MSK, (n))
+#define MEC_CCT_CCR1_FBYP5_POS      10
+#define MEC_CCT_CCR1_FCLK5_POS      13
+#define MEC_CCT_CCR1_FCLK5_MSK      MEC_GENMASK(15, 13)
+#define MEC_CCT_CCR1_FCLK5_SET(n)   MEC_FIELD_PREP(MEC_CCT_CCR1_FCLK5_MSK, (n))
+#define MEC_CCT_CCR1_FCLK5_GET(n)   MEC_FIELD_GET(MEC_CCT_CCR1_FCLK5_MSK, (n))
+
+#define MEC_CCT_FRCNT_OFS           0xCu /* Free run 32-bit counter register (R/O) */
+
+/* Capture count value 32-bit (R/O) */
+#define MEC_CCT_CAP0_CNT_OFS        0x10u
+#define MEC_CCT_CAP1_CNT_OFS        0x14u
+#define MEC_CCT_CAP2_CNT_OFS        0x18u
+#define MEC_CCT_CAP3_CNT_OFS        0x1Cu
+#define MEC_CCT_CAP4_CNT_OFS        0x20u
+#define MEC_CCT_CAP5_CNT_OFS        0x24u
+
+/* Compare match value 32-bit (R/W) */
+#define MEC_CCT_CMP0_OFS            0x28u
+#define MEC_CCT_CMP1_OFS            0x2Cu
+
+/* Capture trigger input MUX register (R/W) */
+#define MEC_CCT_MUX_OFS             0x30u
+#define MEC_CCT_MUX_DFLT_VAL        0x00543210u
+#define MEC_CCT_MUX_CAP0_POS        0
+#define MEC_CCT_MUX_CAP0_MSK        MEC_GENMASK(3, 0)
+#define MEC_CCT_MUX_CAP0_SET(n)     MEC_FIELD_PREP(MEC_CCT_MUX_CAP0_MSK, (n))
+#define MEC_CCT_MUX_CAP0_GET(n)     MEC_FIELD_GET(MEC_CCT_MUX_CAP0_MSK, (n))
+
+#define MEC_CCT_MUX_CAP1_POS        4
+#define MEC_CCT_MUX_CAP1_MSK        MEC_GENMASK(7, 4)
+#define MEC_CCT_MUX_CAP1_SET(n)     MEC_FIELD_PREP(MEC_CCT_MUX_CAP1_MSK, (n))
+#define MEC_CCT_MUX_CAP1_GET(n)     MEC_FIELD_GET(MEC_CCT_MUX_CAP1_MSK, (n))
+
+#define MEC_CCT_MUX_CAP2_POS        8
+#define MEC_CCT_MUX_CAP2_MSK        MEC_GENMASK(11, 8)
+#define MEC_CCT_MUX_CAP2_SET(n)     MEC_FIELD_PREP(MEC_CCT_MUX_CAP2_MSK, (n))
+#define MEC_CCT_MUX_CAP2_GET(n)     MEC_FIELD_GET(MEC_CCT_MUX_CAP2_MSK, (n))
+
+#define MEC_CCT_MUX_CAP3_POS        12
+#define MEC_CCT_MUX_CAP3_MSK        MEC_GENMASK(15, 12)
+#define MEC_CCT_MUX_CAP3_SET(n)     MEC_FIELD_PREP(MEC_CCT_MUX_CAP3_MSK, (n))
+#define MEC_CCT_MUX_CAP3_GET(n)     MEC_FIELD_GET(MEC_CCT_MUX_CAP3_MSK, (n))
+
+#define MEC_CCT_MUX_CAP4_POS        16
+#define MEC_CCT_MUX_CAP4_MSK        MEC_GENMASK(19, 16)
+#define MEC_CCT_MUX_CAP4_SET(n)     MEC_FIELD_PREP(MEC_CCT_MUX_CAP4_MSK, (n))
+#define MEC_CCT_MUX_CAP4_GET(n)     MEC_FIELD_GET(MEC_CCT_MUX_CAP4_MSK, (n))
+
+#define MEC_CCT_MUX_CAP5_POS        20
+#define MEC_CCT_MUX_CAP5_MSK        MEC_GENMASK(23, 20)
+#define MEC_CCT_MUX_CAP5_SET(n)     MEC_FIELD_PREP(MEC_CCT_MUX_CAP5_MSK, (n))
+#define MEC_CCT_MUX_CAP5_GET(n)     MEC_FIELD_GET(MEC_CCT_MUX_CAP5_MSK, (n))
+
+#endif /* _MEC_CCT_REGS_H */
