@@ -20,8 +20,8 @@
 static uint8_t tid = 0;
 static uint32_t targets_ibi_enable_sts = 0;
 
-#define MEC_I3C_HOST0_ECIA_INFO MEC5_ECIA_INFO(13, 8, 5, MEC_I3C_HOST0_IRQn)
-#define MEC_I3C_SEC_HOST0_ECIA_INFO MEC5_ECIA_INFO(13, 9, 5, MEC_I3C_SEC0_IRQn)
+#define MEC_I3C_HOST0_ECIA_INFO MEC_ECIA_INFO(13, 8, 5, MEC_I3C_HOST0_IRQn)
+#define MEC_I3C_SEC_HOST0_ECIA_INFO MEC_ECIA_INFO(13, 9, 5, MEC_I3C_SEC0_IRQn)
 
 struct mec_i3c_info {
     uintptr_t base_addr;

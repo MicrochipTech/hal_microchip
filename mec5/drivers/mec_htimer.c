@@ -18,9 +18,9 @@
 #define MEC_HTMR0_GIRQ_POS  16
 #define MEC_HTMR1_GIRQ_POS  17
 #define MEC_HTMR0_NVIC_NUM  112
-#define MEC_HTMR0_ECIA_INFO MEC5_ECIA_INFO(MEC_HTMR_GIRQ, MEC_HTMR0_GIRQ_POS, 14, 112)
+#define MEC_HTMR0_ECIA_INFO MEC_ECIA_INFO(MEC_HTMR_GIRQ, MEC_HTMR0_GIRQ_POS, 14, 112)
 #define MEC_HTMR1_NVIC_NUM  113
-#define MEC_HTMR1_ECIA_INFO MEC5_ECIA_INFO(MEC_HTMR_GIRQ, MEC_HTMR0_GIRQ_POS, 14, 113)
+#define MEC_HTMR1_ECIA_INFO MEC_ECIA_INFO(MEC_HTMR_GIRQ, MEC_HTMR0_GIRQ_POS, 14, 113)
 
 int mec_hal_htimer_init(struct mec_htmr_regs *regs, struct mec_htimer_context *ctx,
                         uint8_t cfg_flags)
