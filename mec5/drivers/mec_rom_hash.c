@@ -21,7 +21,7 @@
 #define MEC_HASH_GIRQ_AGGR_NVIC 8
 #define MEC_HASH_DIRECT_NVIC    68
 
-#define MEC_HASH_ECIA_INFO MEC5_ECIA_INFO(MEC_HASH_GIRQ, MEC_HASH_GIRQ_POS, \
+#define MEC_HASH_ECIA_INFO MEC_ECIA_INFO(MEC_HASH_GIRQ, MEC_HASH_GIRQ_POS, \
                                            MEC_HASH_GIRQ_AGGR_NVIC, MEC_HASH_DIRECT_NVIC)
 
 #define MEC_ROM_API_HASH_CREATE_SHA1_ADDR    0x1f179u
@@ -90,7 +90,7 @@ struct mec_rom_hash_api {
 #endif
 };
 
-static const struct mec_rom_api mec_rom_hash_api_tbl = {
+static const struct mec_rom_hash_api mec_rom_hash_api_tbl = {
     .rom_hash_create_sha1 =   (rom_hash_create_sha1_td)MEC_ROM_API_HASH_CREATE_SHA1_ADDR,
     .rom_hash_create_sha224 = (rom_hash_create_sha224_td)MEC_ROM_API_HASH_CREATE_SHA224_ADDR,
     .rom_hash_create_sha256 = (rom_hash_create_sha256_td)MEC_ROM_API_HASH_CREATE_SHA256_ADDR,
@@ -107,7 +107,7 @@ static const struct mec_rom_api mec_rom_hash_api_tbl = {
     .rom_hash_status =        (rom_hash_status_td)MEC_ROM_API_HASH_GET_STATUS_ADDR,
 #if defined(MEC5_ROM_API_HMAC_ENABLED)
     .rom_hmac2_init =         (rom_hmac2_init_td)MEC_ROM_API_HMAC2_INIT_ADDR,
-    .rom_hhmac2_add_datablk = (rom_hmac2_add_datablk_td)MEC_ROM_API_HMAC2_ADD_DATA_BLK_ADDR,
+    .rom_hmac2_add_datablk =  (rom_hmac2_add_datablk_td)MEC_ROM_API_HMAC2_ADD_DATA_BLK_ADDR,
     .rom_hmac2_final =        (rom_hmac2_final_td)MEC_ROM_API_HMAC2_FINAL_ADDR,
 #endif
 };
@@ -221,7 +221,7 @@ int mec_hal_rom_hash_init_state(struct mchphash *c, struct mchphashstate *h, uin
         return MEC_RET_ERR_INVAL;
     }
 
-    mec_rom_api_tbl.rom_hash_init_state(c, h, dmamem);
+    mec_rom_hash_api_tbl.rom_hash_init_state(c, h, dmamem);
 
     return MEC_RET_OK;
 }
@@ -232,7 +232,7 @@ int mec_hal_rom_hash_resume_state(struct mchphash *c, struct mchphashstate *h)
         return MEC_RET_ERR_INVAL;
     }
 
-    mec_rom_api_tbl.rom_hash_resume_state(c, h);
+    mec_rom_hash_api_tbl.rom_hash_resume_state(c, h);
 
     return MEC_RET_OK;
 }
