@@ -22,7 +22,6 @@ extern "C"
 #define MEC_DMAC_CHAN_REG_ADDR(base, chan) \
     ((uintptr_t)(base) + (((uintptr_t)(chan) + 1u) * MEC_DMAC_CHAN_REG_SPACE))
 
-#define MEC_DMAC_ALL_CHAN_MASK 0xffffu
 
 enum mec_dmac_channel {
     MEC_DMAC_CHAN_0 = 0,
@@ -41,6 +40,21 @@ enum mec_dmac_channel {
     MEC_DMAC_CHAN_13,
     MEC_DMAC_CHAN_14,
     MEC_DMAC_CHAN_15,
+    MEC_DMAC_CHAN_16,
+    MEC_DMAC_CHAN_17,
+    MEC_DMAC_CHAN_18,
+    MEC_DMAC_CHAN_19,
+    MEC_DMAC_CHAN_20,
+    MEC_DMAC_CHAN_21,
+    MEC_DMAC_CHAN_22,
+    MEC_DMAC_CHAN_23,
+    MEC_DMAC_CHAN_24,
+    MEC_DMAC_CHAN_25,
+    MEC_DMAC_CHAN_26,
+    MEC_DMAC_CHAN_27,
+    MEC_DMAC_CHAN_28,
+    MEC_DMAC_CHAN_29,
+    MEC_DMAC_CHAN_30,
     MEC_DMAC_CHAN_MAX,
 };
 
@@ -166,8 +180,10 @@ int mec_hal_dma_chan_ia_disable(enum mec_dmac_channel channel);
 
 bool mec_hal_dma_chan_is_busy(enum mec_dmac_channel chan);
 
-int mec_hal_dma_chan_go(struct mec_dma_chan_regs *regs);
+int mec_hal_dma_chan_go(enum mec_dmac_channel chan);
 int mec_hal_dma_chan_start(enum mec_dmac_channel chan);
+
+/* flags use bits from enum mec_dma_chan_status_pos to enable interrupts */
 int mec_hal_dma_chan_start2(enum mec_dmac_channel chan, uint32_t flags);
 
 int mec_hal_dma_chan_halt(enum mec_dmac_channel chan);
