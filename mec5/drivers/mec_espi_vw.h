@@ -17,11 +17,6 @@ extern "C"
 {
 #endif
 
-/* forward declarations */
-struct mec_espi_io_regs;
-struct mec_espi_mem_regs;
-struct mec_espi_vw_regs;
-
 /* ---- Virtual Wire channel (VW) ---- */
 
 /* Configuration for a Controller-to-Target(EC) eSPI Virtual Wire group
@@ -172,65 +167,56 @@ int mec_hal_espi_vw_ct_group_girq_ctrl(uint8_t ct_idx, uint8_t src_msk, uint8_t 
 uint32_t mec_hal_espi_vw_ct_girq_bank_result(uint8_t bank);
 void mec_hal_espi_vw_ct_girq_bank_clr(uint8_t bank, uint32_t clrmsk);
 
-void mec_hal_espi_vw_ct_from_girq_pos(uint8_t bank, uint8_t girq_pos,
-                                      uint8_t *ctidx, uint8_t *ctsrc);
+void mec_hal_espi_vw_ct_from_girq_pos(uint8_t bank, uint8_t girq_pos, uint8_t *ctidx,
+                                      uint8_t *ctsrc);
 
-int mec_hal_espi_vw_ct_irq_sel_set(struct mec_espi_vw_regs * const vwbase, uint8_t vw_idx,
-                                   uint8_t src_idx, uint8_t irq_sel);
-int mec_hal_espi_vw_ct_irq_sel_set_all(struct mec_espi_vw_regs * const vwbase, uint8_t vw_idx,
-                                       uint32_t irq_sels);
+/* returns b[7:0] = VW group register index, b[15:8] = VW source position [0, 3] */
+uint32_t mec_hal_espi_girq_pos_to_ct_vw(uint8_t bank, uint8_t girq_pos);
 
-int mec_hal_espi_vw_ct_wire_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                uint8_t widx, uint8_t val);
-int mec_hal_espi_vw_ct_wire_get(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                uint8_t widx, uint8_t *val);
-int mec_hal_espi_vw_ct_group_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                 uint8_t val, uint8_t msk);
-int mec_hal_espi_vw_ct_group_get(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                 uint8_t *val);
+int mec_hal_espi_vw_ct_irq_sel_set(uintptr_t vwrb, uint8_t vw_idx, uint8_t src_idx,
+                                   uint8_t irq_sel);
+int mec_hal_espi_vw_ct_irq_sel_set_all(uintptr_t vwrb, uint8_t vw_idx, uint32_t irq_sels);
 
-int mec_hal_espi_vw_tc_wire_set(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                uint8_t widx, uint8_t val, uint32_t flags);
-int mec_hal_espi_vw_tc_wire_get(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                uint8_t widx, uint8_t *val);
+int mec_hal_espi_vw_ct_wire_set(uintptr_t vwrb, uint8_t ctidx, uint8_t widx, uint8_t val);
+int mec_hal_espi_vw_ct_wire_get(uintptr_t vwrb, uint8_t ctidx, uint8_t widx, uint8_t *val);
+int mec_hal_espi_vw_ct_group_set(uintptr_t vwrb, uint8_t ctidx, uint8_t val, uint8_t msk);
+int mec_hal_espi_vw_ct_group_get(uintptr_t vwrb, uint8_t ctidx, uint8_t *val);
+
+int mec_hal_espi_vw_tc_wire_set(uintptr_t vwrb, uint8_t tcidx, uint8_t widx, uint8_t val,
+                                uint32_t flags);
+int mec_hal_espi_vw_tc_wire_get(uintptr_t vwrb, uint8_t tcidx, uint8_t widx, uint8_t *val);
 /* Sets *val bit[0]=C2T VWire state and bit[7]=C2T VWire change status */
-int mec_hal_espi_vw_tc_wire_cs_get(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                   uint8_t widx, uint8_t *val);
-int mec_hal_espi_vw_tc_group_set(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                 uint8_t val, uint8_t msk, uint32_t flags);
-int mec_hal_espi_vw_tc_group_get(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                 uint8_t *val);
+int mec_hal_espi_vw_tc_wire_cs_get(uintptr_t vwrb, uint8_t tcidx, uint8_t widx, uint8_t *val);
+int mec_hal_espi_vw_tc_group_set(uintptr_t vwrb, uint8_t tcidx, uint8_t val, uint8_t msk,
+                                 uint32_t flags);
+int mec_hal_espi_vw_tc_group_get(uintptr_t vwrb, uint8_t tcidx, uint8_t *val);
 
 /* Unlike the other channels where channel enable change (edge)
  * detected, the virtual channel enable state is connected
  * directly to the GIRQ status. This creates level detection
  * and is always active when VWire channel is enabled.
  */
-int mec_hal_espi_vw_is_enabled(struct mec_espi_io_regs * const iobase);
-uint32_t mec_hal_espi_vw_en_status(struct mec_espi_io_regs * const iobase);
+int mec_hal_espi_vw_is_enabled(uintptr_t iorb);
+uint32_t mec_hal_espi_vw_en_status(uintptr_t iorb);
 void mec_hal_espi_vw_en_status_clr(void);
 void mec_hal_espi_vw_en_ien(uint8_t enable);
 uint32_t mec_hal_espi_vw_en_result(void);
 
-void mec_hal_espi_vw_ready_set(struct mec_espi_io_regs * const iobase);
-int mec_hal_espi_vw_is_ready(struct mec_espi_io_regs * const iobase);
+void mec_hal_espi_vw_ready_set(uintptr_t iorb);
+int mec_hal_espi_vw_is_ready(uintptr_t iorb);
 
-int mec_hal_espi_vwire_config(struct mec_espi_vw_regs *const vwbase, uint8_t vwidx,
-                              uint8_t src_idx, uint8_t host_index, uint32_t config);
+int mec_hal_espi_vwire_config(uintptr_t vwrb, uint8_t vwidx, uint8_t src_idx,
+                              uint8_t host_index, uint32_t config);
 
-int mec_hal_espi_vwg_config(struct mec_espi_vw_regs * const vwbase, uint8_t vwidx,
-                            struct mec_espi_vw_config *cfg, uint32_t flags);
+int mec_hal_espi_vwg_config(uintptr_t vwrb, uint8_t vwidx, struct mec_espi_vw_config *cfg,
+                            uint32_t flags);
 
-int mec_hal_espi_vw_ct_host_index_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                      uint8_t host_index);
-int mec_hal_espi_vw_ct_reset_source_get(struct mec_espi_vw_regs * const vwbase,
-                                        uint8_t ctidx, uint8_t *reset_source);
-int mec_hal_espi_vw_ct_reset_source_set(struct mec_espi_vw_regs * const vwbase,
-                                        uint8_t ctidx, uint8_t reset_source);
-int mec_hal_espi_vw_ct_reset_state_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                       uint8_t src_idx, uint8_t reset_state);
-int mec_hal_espi_vw_ct_irqsel_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                  uint8_t src_idx, uint8_t irq_sel);
+int mec_hal_espi_vw_ct_host_index_set(uintptr_t vwrb, uint8_t ctidx, uint8_t host_index);
+int mec_hal_espi_vw_ct_reset_source_get(uintptr_t vwrb, uint8_t ctidx, uint8_t *reset_source);
+int mec_hal_espi_vw_ct_reset_source_set(uintptr_t vwrb, uint8_t ctidx, uint8_t reset_source);
+int mec_hal_espi_vw_ct_reset_state_set(uintptr_t vwrb, uint8_t ctidx, uint8_t src_idx,
+                                       uint8_t reset_state);
+int mec_hal_espi_vw_ct_irqsel_set(uintptr_t vwrb, uint8_t ctidx, uint8_t src_idx, uint8_t irq_sel);
 
 /* Access VWires using MEC5 VW register index and vwire source position
  * idx_src:
@@ -255,36 +241,30 @@ struct mec_espi_vw_poll {
     uint32_t nloops;
 };
 
-int mec_hal_espi_vw_get_src(struct mec_espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
-                            uint32_t flags);
-int mec_hal_espi_vw_set_src(struct mec_espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
-                            uint32_t flags);
-int mec_hal_espi_vw_set_src_cs(struct mec_espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
+int mec_hal_espi_vw_get_src(uintptr_t vwrb, struct mec_espi_vw *vw, uint32_t flags);
+int mec_hal_espi_vw_set_src(uintptr_t vwrb, struct mec_espi_vw *vw, uint32_t flags);
+int mec_hal_espi_vw_set_src_cs(uintptr_t vwrb, struct mec_espi_vw *vw,
                                const struct mec_espi_vw_poll *vwp);
 
-int mec_hal_espi_vw_get_src_group(struct mec_espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
-                                  uint32_t flags);
-int mec_hal_espi_vw_set_src_group(struct mec_espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
-                                  uint32_t flags);
+int mec_hal_espi_vw_get_src_group(uintptr_t vwrb, struct mec_espi_vw *vw, uint32_t flags);
+int mec_hal_espi_vw_set_src_group(uintptr_t vwrb, struct mec_espi_vw *vw, uint32_t flags);
 
 /* Get/Set value of a eSPI Virtual Wire given
  * the VW's Host Index and source position (0-3)
  */
-int mec_hal_espi_vw_set(struct mec_espi_vw_regs *const vwbase, uint8_t host_index,
-                        uint8_t src_id, uint8_t val, uint32_t flags);
+int mec_hal_espi_vw_set(uintptr_t vwrb, uint8_t host_index, uint8_t src_id, uint8_t val,
+                        uint32_t flags);
 
-int mec_hal_espi_vw_set_cs(struct mec_espi_vw_regs * const vwbase, uint8_t host_index,
+int mec_hal_espi_vw_set_cs(uintptr_t vwrb, uint8_t host_index,
                            uint8_t src_id, uint8_t val, const struct mec_espi_vw_poll *vwp);
 
-int mec_hal_espi_vw_get(struct mec_espi_vw_regs *const vwbase, uint8_t host_index,
-                        uint8_t src_id, uint8_t *val);
+int mec_hal_espi_vw_get(uintptr_t vwrb, uint8_t host_index, uint8_t src_id, uint8_t *val);
 
 /* Get/Set the group of 4 eSPI Virtual Wires for the given Host Index */
-int mec_hal_espi_vw_get_group(struct mec_espi_vw_regs *const vwbase, uint8_t host_index,
-                              uint8_t *groupval);
+int mec_hal_espi_vw_get_group(uintptr_t vwrb, uint8_t host_index, uint8_t *groupval);
 
-int mec_hal_espi_vw_set_group(struct mec_espi_vw_regs *const vwbase, uint8_t host_index,
-                              uint8_t groupval, uint8_t groupmsk, uint32_t flags);
+int mec_hal_espi_vw_set_group(uintptr_t vwrb, uint8_t host_index, uint8_t groupval,
+                              uint8_t groupmsk, uint32_t flags);
 
 #ifdef __cplusplus
 }

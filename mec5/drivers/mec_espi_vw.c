@@ -7,10 +7,12 @@
 #include <stdint.h>
 
 #include <device_mec5.h>
-#include "mec_pcfg.h"
+#include <mec_espi_regs.h>
 #include "mec_defs.h"
-#include "mec_espi_api.h"
+#include "mec_ecia_api.h"
+#include "mec_espi_vw.h"
 #include "mec_retval.h"
+#include "mec_mmcr.h"
 
 /* ---- eSPI Virtual Wire channel ----
  * The eSPI design implements virtual wires in two directions:
@@ -58,13 +60,13 @@ static uint32_t xlat_isel(uint32_t logical_isel)
 
 /* ---- Public API ---- */
 
-int mec_hal_espi_vw_is_enabled(struct mec_espi_io_regs *const iobase)
+int mec_hal_espi_vw_is_enabled(uintptr_t iorb)
 {
-    if (iobase->VWSTS & MEC_BIT(MEC_ESPI_IO_VWSTS_CHEN_Pos)) {
-        return 1;
+    if (iorb == 0) {
+        return 0;
     }
 
-    return 0;
+    return mmcr8_test_bit(iorb + MEC_ESPI_VW_SR_OFS, MEC_ESPI_VW_SR_CHEN_POS);
 }
 
 /* VWire channel enable current state is in the VW Status register located in
@@ -72,49 +74,41 @@ int mec_hal_espi_vw_is_enabled(struct mec_espi_io_regs *const iobase)
  * in the eSPI register spaces. Instead VW channel enable change signal is
  * connected to GIRQ19 bit[8].
  */
-uint32_t mec_hal_espi_vw_en_status(struct mec_espi_io_regs *const iobase)
+uint32_t mec_hal_espi_vw_en_status(uintptr_t iorb)
 {
-    uint32_t ensts = iobase->VWSTS & MEC_BIT(MEC_ESPI_IO_VWSTS_CHEN_Pos);
+    uint32_t ensts = mmcr8_rd(iorb + MEC_ESPI_VW_SR_OFS) & MEC_BIT(MEC_ESPI_VW_SR_CHEN_POS);
 
-    /* move bit[8] to bit[1] */
-    ensts |= ((MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ19].SOURCE >> 7) & 0x2u);
+    if (mmcr32_test_bit(MEC_ESPI_GIRQ_STS_ADDR, MEC_ESPI_GIRQ_VW_CHEN_POS) != 0) {
+        ensts |= MEC_BIT(1);
+    }
 
     return ensts;
 }
 
 void mec_hal_espi_vw_en_status_clr(void)
 {
-    MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ19].SOURCE = MEC_BIT(MEC_ESPI_VW_CHEN_CHG_GIRQ19_POS);
+    mec_hal_girq_bm_clr_src(MEC_ESPI_GIRQ, MEC_BIT(MEC_ESPI_GIRQ_VW_CHEN_POS));
 }
 
 /* Returns non-zero if VW Enable Change interrupt is enabled and asserted else 0 */
 uint32_t mec_hal_espi_vw_en_result(void)
 {
-    return (MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ19].RESULT
-            & MEC_BIT(MEC_ESPI_VW_CHEN_CHG_GIRQ19_POS));
+    return mec_hal_girq_result_test(MEC_ESPI_GIRQ, MEC_ESPI_GIRQ_VW_CHEN_POS);
 }
 
 void mec_hal_espi_vw_en_ien(uint8_t enable)
 {
-    if (enable) {
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ19].EN_SET = MEC_BIT(MEC_ESPI_VW_CHEN_CHG_GIRQ19_POS);
-    } else {
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ19].EN_CLR = MEC_BIT(MEC_ESPI_VW_CHEN_CHG_GIRQ19_POS);
-    }
+    mec_hal_girq_bm_en(MEC_ESPI_GIRQ, MEC_BIT(MEC_ESPI_GIRQ_VW_CHEN_POS), enable);
 }
 
-void mec_hal_espi_vw_ready_set(struct mec_espi_io_regs * const iobase)
+void mec_hal_espi_vw_ready_set(uintptr_t iorb)
 {
-    iobase->VWRDY = MEC_BIT(MEC_ESPI_IO_VWRDY_VW_READY_Pos);
+    mmcr8_set_bit(iorb + MEC_ESPI_VW_RDY_OFS, MEC_ESPI_CHAN_RDY_POS);
 }
 
-int mec_hal_espi_vw_is_ready(struct mec_espi_io_regs * const iobase)
+int mec_hal_espi_vw_is_ready(uintptr_t iorb)
 {
-    if (iobase->VWRDY & MEC_BIT(MEC_ESPI_IO_VWRDY_VW_READY_Pos)) {
-        return 1;
-    }
-
-    return 0;
+    return mmcr8_test_bit(iorb + MEC_ESPI_VW_RDY_OFS, MEC_ESPI_CHAN_RDY_POS);
 }
 
 /* Compute Controller-to-Target VWire register index given VW GIRQ bit
@@ -125,11 +119,11 @@ void mec_hal_espi_vw_ct_from_girq_pos(uint8_t bank, uint8_t girq_pos,
 {
     uint32_t d, m;
 
-    if (girq_pos > 31) {
+    if (girq_pos > 31u) {
         return;
     }
 
-    if (ctidx) {
+    if (ctidx != NULL) {
         d = girq_pos / 4u;
         if (bank) {
             d += 7u;
@@ -137,10 +131,35 @@ void mec_hal_espi_vw_ct_from_girq_pos(uint8_t bank, uint8_t girq_pos,
         *ctidx = (uint8_t)d;
     }
 
-    if (ctsrc) {
+    if (ctsrc != NULL) {
         m = girq_pos % 4u;
         *ctsrc = (uint8_t)m;
     }
+}
+
+/* GIRQ VW bank = 0
+ *  CT_VW groups 0 - 6 (28 VWires)
+ * bank = 1
+ *  CT_VW groups 7 - 10 (16 VWires)
+ */
+uint32_t mec_hal_espi_girq_pos_to_ct_vw(uint8_t bank, uint8_t girq_pos)
+{
+    uint32_t idx_src = 0;
+
+    if (girq_pos > 31u) {
+        return UINT16_MAX;
+    }
+
+    idx_src = girq_pos / 4u;
+    if (bank != 0) {
+        idx_src += 7u;
+    }
+
+    idx_src &= 0xffu;
+
+    idx_src |= ((uint32_t)girq_pos % 4u) << 8;
+
+    return idx_src;
 }
 
 /* Controller(Host) to Target(EC) VWires can be configured to generate
@@ -163,246 +182,255 @@ void mec_hal_espi_vw_ct_from_girq_pos(uint8_t bank, uint8_t girq_pos,
  * GIRQ.SOURCE bits.
  */
 
+static ALWAYS_INLINE uint32_t ct_vw_bitpos(uint8_t ct_idx, uint8_t src_idx)
+{
+    if (ct_idx >= MEC_CTVW_IDX07) {
+        ct_idx -= MEC_CTVW_IDX07;
+    }
+
+    return (((uint32_t)ct_idx * 4u) + src_idx);
+}
+
+static ALWAYS_INLINE uint32_t ct_vw_base_addr(uint8_t ct_idx)
+{
+    uint32_t base = MEC_ESPI_GIRQ_VWB0_BASE;
+
+    if (ct_idx >= MEC_CTVW_IDX07) {
+        base = MEC_ESPI_GIRQ_VWB1_BASE;
+    }
+
+    return base;
+}
+
 int mec_hal_espi_vw_ct_girq_ctrl(uint8_t ct_idx, uint8_t src_idx, uint8_t enable)
 {
-    uint32_t bitpos;
+    uint32_t raddr = 0, bitpos = 0;
 
     if ((ct_idx > MEC_CTVW_IDX10) || (src_idx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = (ct_idx * 4u) + src_idx;
-        if (enable) {
-            MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].EN_SET = MEC_BIT(bitpos);
-        } else {
-            MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].EN_CLR = MEC_BIT(bitpos);
-        }
-    } else { /* GIRQ25 */
-        bitpos = ((ct_idx - MEC_CTVW_IDX07) * 4u) + src_idx;
-        if (enable) {
-            MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].EN_SET = MEC_BIT(bitpos);
-        } else {
-            MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].EN_CLR = MEC_BIT(bitpos);
-        }
+    bitpos = ct_vw_bitpos(ct_idx, src_idx);
+    raddr = ct_vw_base_addr(ct_idx);
+
+    if (enable != 0) {
+        raddr += MEC_ESPI_GIRQ_ENSET_OFS;
+    } else {
+        raddr += MEC_ESPI_GIRQ_ENCLR_OFS;
     }
+
+    mmcr32_wr(raddr, MEC_BIT(bitpos));
 
     return MEC_RET_OK;
 }
 
 void mec_hal_espi_vw_ct_girq_ctrl_all(uint8_t enable)
 {
-    if (enable) {
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].EN_SET = UINT32_MAX;
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].EN_SET = UINT32_MAX;
+    uintptr_t raddr0 = MEC_ESPI_GIRQ_VWB0_BASE;
+    uintptr_t raddr1 = MEC_ESPI_GIRQ_VWB1_BASE;
+
+    if (enable != 0) {
+        raddr0 += MEC_ESPI_GIRQ_ENSET_OFS;
+        raddr1 += MEC_ESPI_GIRQ_ENSET_OFS;
     } else {
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].EN_CLR = UINT32_MAX;
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].EN_CLR = UINT32_MAX;
+        raddr0 += MEC_ESPI_GIRQ_ENCLR_OFS;
+        raddr1 += MEC_ESPI_GIRQ_ENCLR_OFS;
     }
+
+    mmcr32_wr(UINT32_MAX, raddr0);
+    mmcr32_wr(UINT32_MAX, raddr1);
 }
 
 int mec_hal_espi_vw_ct_girq_clr(uint8_t ct_idx, uint8_t src_idx)
 {
-    uint32_t bitpos;
+    uint32_t raddr = MEC_ESPI_GIRQ_STS_OFS;
+    uint32_t bitpos = 0;
 
     if ((ct_idx > MEC_CTVW_IDX10) || (src_idx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = (ct_idx * 4u) + src_idx;
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].SOURCE = MEC_BIT(bitpos);
-    } else { /* GIRQ25 */
-        bitpos = ((ct_idx - MEC_CTVW_IDX07) * 4u) + src_idx;
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].SOURCE = MEC_BIT(bitpos);
-    }
+    bitpos = ct_vw_bitpos(ct_idx, src_idx);
+    raddr += ct_vw_base_addr(ct_idx);
+
+    mmcr32_wr(MEC_BIT(bitpos), raddr);
 
     return MEC_RET_OK;
 }
 
 int mec_hal_espi_vw_ct_girq_clr_msk(uint8_t ct_idx, uint8_t clr_msk)
 {
-    uint32_t bitpos, idx;
+    uint32_t raddr = MEC_ESPI_GIRQ_STS_OFS;
+    uint32_t bitpos = 0;
 
     if (ct_idx > MEC_CTVW_IDX10) {
         return MEC_RET_ERR_INVAL;
     }
 
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = (ct_idx * 4u);
-        idx = MEC_GIRQ_IDX_GIRQ24;
-    } else { /* GIRQ25 */
-        bitpos = ((ct_idx - MEC_CTVW_IDX07) * 4u);
-        idx = MEC_GIRQ_IDX_GIRQ25;
-    }
+    bitpos = ct_vw_bitpos(ct_idx, 0);
+    raddr += ct_vw_base_addr(ct_idx);
 
-    MEC_ECIA0->GIRQ[idx].SOURCE = ((uint32_t)clr_msk << bitpos);
+    mmcr32_wr(((uint32_t)clr_msk << bitpos), raddr);
 
     return MEC_RET_OK;
 }
 
 void mec_hal_espi_vw_ct_girq_clr_all(void)
 {
-    MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].SOURCE = UINT32_MAX;
-    MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].SOURCE = UINT32_MAX;
+    mmcr32_wr(UINT32_MAX, MEC_ESPI_GIRQ_VWB0_BASE + MEC_ESPI_GIRQ_STS_OFS);
+    mmcr32_wr(UINT32_MAX, MEC_ESPI_GIRQ_VWB1_BASE + MEC_ESPI_GIRQ_STS_OFS);
 }
 
 uint32_t mec_hal_espi_vw_ct_girq_sts(uint8_t ct_idx, uint8_t src_idx)
 {
-    uint32_t bitpos, status;
+    uint32_t raddr = MEC_ESPI_GIRQ_STS_OFS;
+    uint32_t bitpos = 0, status = 0;
 
     if ((ct_idx > MEC_CTVW_IDX10) || (src_idx > 3)) {
         return 0;
     }
 
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = (ct_idx * 4u) + src_idx;
-        status = MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].SOURCE;
-    } else { /* GIRQ25 */
-        bitpos = ((ct_idx - MEC_CTVW_IDX07) * 4u) + src_idx;
-        status = MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].SOURCE;
-    }
+    bitpos = ct_vw_bitpos(ct_idx, src_idx);
+    raddr += ct_vw_base_addr(ct_idx);
 
+    status = mmcr32_rd(raddr);
     return ((status >> bitpos) & 0x1u);
 }
 
 uint32_t mec_hal_espi_vw_ct_girq_bank_result(uint8_t bank)
 {
+    uint32_t raddr = MEC_ESPI_GIRQ_RESULT_OFS;
+
     if (bank == MEC_ESPI_CTVW_IRQ_BANK_0) {
-        return MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].RESULT;
+        raddr += MEC_ESPI_GIRQ_VWB0_BASE;
     } else {
-        return MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].RESULT;
+        raddr += MEC_ESPI_GIRQ_VWB1_BASE;
     }
+
+    return mmcr32_rd(raddr);
 }
 
 void mec_hal_espi_vw_ct_girq_bank_clr(uint8_t bank, uint32_t clrmsk)
 {
+    uint32_t raddr = MEC_ESPI_GIRQ_STS_OFS;
+
     if (bank == MEC_ESPI_CTVW_IRQ_BANK_0) {
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].SOURCE = clrmsk;
+        raddr += MEC_ESPI_GIRQ_VWB0_BASE;
     } else {
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].SOURCE = clrmsk;
+        raddr += MEC_ESPI_GIRQ_VWB1_BASE;
     }
+
+    mmcr32_wr(clrmsk, raddr);
 }
 
 uint32_t mec_hal_espi_vw_ct_girq_res(uint8_t ct_idx, uint8_t src_idx)
 {
-    uint32_t bitpos, result;
+    uint32_t raddr = MEC_ESPI_GIRQ_RESULT_OFS;
+    uint32_t bitpos = 0, result = 0;
 
     if ((ct_idx > MEC_CTVW_IDX10) || (src_idx > 3)) {
         return 0;
     }
 
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = (ct_idx * 4u) + src_idx;
-        result = MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].RESULT;
-    } else { /* GIRQ25 */
-        bitpos = ((ct_idx - MEC_CTVW_IDX07) * 4u) + src_idx;
-        result = MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].RESULT;
-    }
+    bitpos = ct_vw_bitpos(ct_idx, src_idx);
+    raddr += ct_vw_base_addr(ct_idx);
+
+    result = mmcr32_rd(raddr);
 
     return ((result >> bitpos) & 0x1u);
 }
 
 uint32_t mec_hal_espi_vw_ct_group_girq_sts(uint8_t ct_idx)
 {
-    uint32_t bitpos, status;
+    uint32_t raddr = MEC_ESPI_GIRQ_STS_OFS;
+    uint32_t bitpos = 0, status = 0;
 
     if (ct_idx > MEC_CTVW_IDX10) {
         return 0;
     }
 
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = ct_idx * 4u;
-        status = MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].SOURCE;
-    } else { /* GIRQ25 */
-        bitpos = (ct_idx - MEC_CTVW_IDX07) * 4u;
-        status = MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].SOURCE;
-    }
+    bitpos = ct_vw_bitpos(ct_idx, 0);
+    raddr += ct_vw_base_addr(ct_idx);
+
+    status = mmcr32_rd(raddr);
 
     return ((status >> bitpos) & 0xfu);
 }
 
 void mec_hal_espi_vw_ct_group_girq_sts_clr(uint8_t ct_idx)
 {
-    uint32_t bitpos;
+    uintptr_t raddr = MEC_ESPI_GIRQ_STS_OFS;
+    uint32_t bitpos = 0;
 
     if (ct_idx >MEC_CTVW_IDX10) {
         return;
     }
 
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = ct_idx * 4u;
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].SOURCE = (0xfu << bitpos);
-    } else { /* GIRQ25 */
-        bitpos = (ct_idx - MEC_CTVW_IDX07) * 4u;
-        MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].SOURCE = (0xfu << bitpos);
-    }
+    bitpos = ct_vw_bitpos(ct_idx, 0);
+    raddr += ct_vw_base_addr(ct_idx); 
+
+    mmcr32_wr((0xfu << bitpos), raddr);
 }
 
 uint32_t mec_hal_espi_vw_ct_group_girq_res(uint8_t ct_idx)
 {
-    uint32_t bitpos, result;
+    uintptr_t raddr = MEC_ESPI_GIRQ_RESULT_OFS;
+    uint32_t bitpos = 0, result = 0;
 
     if (ct_idx > MEC_CTVW_IDX10) {
         return 0;
     }
 
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = ct_idx * 4u;
-        result = MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].SOURCE;
-    } else { /* GIRQ25 */
-        bitpos = (ct_idx - MEC_CTVW_IDX07) * 4u;
-        result = MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].SOURCE;
-    }
+    bitpos = ct_vw_bitpos(ct_idx, 0);
+    raddr += ct_vw_base_addr(ct_idx); 
+
+    result = mmcr32_rd(raddr);
 
     return ((result >> bitpos) & 0xfu);
 }
 
 int mec_hal_espi_vw_ct_group_girq_ctrl(uint8_t ct_idx, uint8_t src_msk, uint8_t enable)
 {
-    uint32_t bitpos, regval;
+    uint32_t raddr = 0;
+    uint32_t bitpos = 0, regval = 0;
 
     if (ct_idx > MEC_CTVW_IDX10) {
         return MEC_RET_ERR_INVAL;
     }
 
-    regval = (uint32_t)(src_msk & 0xfu);
-    if (ct_idx < MEC_CTVW_IDX07) { /* GIRQ24 */
-        bitpos = ct_idx * 4u;
-        if (enable) {
-            MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].EN_SET = regval << bitpos;
-        } else {
-            MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ24].EN_CLR = regval << bitpos;
-        }
-    } else { /* GIRQ25 */
-        bitpos = (ct_idx - MEC_CTVW_IDX07) * 4u;
-        if (enable) {
-            MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].EN_SET = regval << bitpos;
-        } else {
-            MEC_ECIA0->GIRQ[MEC_GIRQ_IDX_GIRQ25].EN_CLR = regval << bitpos;
-        }
+    bitpos = ct_vw_bitpos(ct_idx, 0);
+    raddr = ct_vw_base_addr(ct_idx); 
+
+    if (enable != 0) {
+        raddr += MEC_ESPI_GIRQ_ENSET_OFS;
+    } else {
+        raddr += MEC_ESPI_GIRQ_ENCLR_OFS;
     }
+
+    regval = (uint32_t)(src_msk & 0xfu) << bitpos;
+
+    mmcr32_wr(regval, raddr);
 
     return MEC_RET_OK;
 }
-int mec_hal_espi_vw_ct_irq_sel_set(struct mec_espi_vw_regs * const vwbase, uint8_t vw_idx,
-                                   uint8_t src_idx, uint8_t irq_sel)
+
+int mec_hal_espi_vw_ct_irq_sel_set(uintptr_t vwrb, uint8_t vw_idx, uint8_t src_idx, uint8_t irq_sel)
 {
-    volatile struct mec_espi_vw_ctvw_regs *ctvw;
-    uint32_t isel = 0, msk = MEC_ESPI_VW_CTVW_SRC_ISELS_SRC0_IRQ_SEL_Msk;
+    uint32_t reg_ofs = 0, rval = 0;
+    uint32_t msk = 0, pos = 0;
 
     if ((vw_idx > MEC_ESPI_CTVW10_REG_IDX) || (src_idx > 3)
         || (irq_sel >= MEC_VW_CT_IXLAT_TBL_ENTRIES)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    ctvw = &vwbase->CTVW[vw_idx];
-
-    isel = vw_ct_ien_xlat_tbl[irq_sel] & msk;
-    isel <<= (src_idx * 8u);
-    msk <<= (src_idx * 8u);
-
-    ctvw->SRC_ISELS = (ctvw->SRC_ISELS & ~msk) | isel;
+    /* Word 1 contains interrupt select fields for each VWire in the group */
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(vw_idx, 1);
+    pos = MEC_ESPI_VW_H2T_W1_ISEL_POS(src_idx);
+    msk = MEC_ESPI_VW_H2T_W1_ISEL_MSK(src_idx);
+    rval = mmcr32_rd(vwrb + reg_ofs) & (uint32_t)~msk;
+    rval |= (((uint32_t)irq_sel << pos) & msk); 
+    mmcr32_wr(rval, vwrb + reg_ofs);
 
     return MEC_RET_OK;
 }
@@ -410,31 +438,30 @@ int mec_hal_espi_vw_ct_irq_sel_set(struct mec_espi_vw_regs * const vwbase, uint8
 /* Set all four VWires IRQ select fields in the CT VW group at vw_idx.
  * irq_sels b[7:0] = Source 0, ..., b[31:24] = Source 3 IRQ select.
  */
-int mec_hal_espi_vw_ct_irq_sel_set_all(struct mec_espi_vw_regs * const vwbase, uint8_t vw_idx,
-                                       uint32_t irq_sels)
+int mec_hal_espi_vw_ct_irq_sel_set_all(uintptr_t vwrb, uint8_t vw_idx, uint32_t irq_sels)
 {
-    volatile struct mec_espi_vw_ctvw_regs *ctvw;
-    uint32_t r = 0;
-    uint32_t temp = 0;
+    uint32_t reg_ofs = 0, rval = 0, temp = 0;
 
     if (vw_idx > MEC_ESPI_CTVW10_REG_IDX) {
         return MEC_RET_ERR_INVAL;
     }
 
-    ctvw = &vwbase->CTVW[vw_idx];
+    /* Word 1 contains interrupt select fields for each VWire in the group */
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(vw_idx, 1);
+    rval = mmcr32_rd(vwrb + reg_ofs) & 0xf0f0f0f0u;
 
     for (size_t n = 0; n < 4; n++) {
-        temp = irq_sels & 0x7u;
+        temp = irq_sels & MEC_ESPI_VW_H2T_V1_ISEL_MSK0;
 
         if (temp >= MEC_VW_CT_IXLAT_TBL_ENTRIES) {
             return MEC_RET_ERR_INVAL;
         }
 
-        temp = vw_ct_ien_xlat_tbl[temp] & MEC_ESPI_VW_CTVW_SRC_ISELS_SRC0_IRQ_SEL_Msk;
-        r |= (temp << (n * 8u));
+        temp = vw_ct_ien_xlat_tbl[temp];
+        rval |= (temp << (n * 8u));
     }
 
-    ctvw->SRC_ISELS = r;
+    mmcr32_wr(rval, vwrb + reg_ofs);
 
     return MEC_RET_OK;
 }
@@ -446,48 +473,54 @@ int mec_hal_espi_vw_ct_irq_sel_set_all(struct mec_espi_vw_regs * const vwbase, u
  * RESET_SYS, modify, then switch to requested reset source or restore the
  * original reset source.
  */
-static void mec_hal_espi_vwg_ct_config(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
+static void mec_hal_espi_vwg_ct_config(uintptr_t vwrb, uint8_t ctidx,
                                        struct mec_espi_vw_config *cfg, uint32_t flags)
 {
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
-    uint32_t r[3];
-    unsigned int i;
+    uint32_t r[3] = {0};
+    uint32_t reg_ofs = 0, v = 0;
+    unsigned int i = 0;
 
-    if (!flags) { /* do not modify anything */
+    if (flags == 0) { /* do not modify anything */
         return;
     }
 
-    r[0] = ctvw->HIRSS;
-    r[1] = ctvw->SRC_ISELS;
-    r[2] = ctvw->STATES;
-    if (flags & MEC_BIT(MEC_ESPI_VWG_CFG_HI_POS)) {
-        r[0] &= (uint32_t)~MEC_ESPI_VW_CTVW_HIRSS_HOST_IDX_Msk;
-        r[0] |= (((uint32_t)cfg->host_idx << MEC_ESPI_VW_CTVW_HIRSS_HOST_IDX_Pos)
-                 & MEC_ESPI_VW_CTVW_HIRSS_HOST_IDX_Msk);
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 0);
+
+    r[0] = mmcr32_rd(vwrb + reg_ofs);
+    r[1] = mmcr32_rd(vwrb + reg_ofs + 4u);
+    r[2] = mmcr32_rd(vwrb + reg_ofs + 8u);
+
+    if ((flags & MEC_BIT(MEC_ESPI_VWG_CFG_HI_POS)) != 0) {
+        v = MEC_ESPI_VW_W0_HI_SET((uint32_t)cfg->host_idx);
+        r[0] &= (uint32_t)~MEC_ESPI_VW_W0_HI_MSK;
+        r[0] |= v;
     }
 
-    if (flags & MEC_BIT(MEC_ESPI_VWG_CFG_RST_SRC_POS)) {
-        r[0] &= (uint32_t)~MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Msk;
-        r[0] |= (((uint32_t)cfg->reset_src << MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Pos)
-                 & MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Msk);
+    if ((flags & MEC_BIT(MEC_ESPI_VWG_CFG_RST_SRC_POS)) != 0) {
+        v = MEC_ESPI_VW_W0_RSRC_SET((uint32_t)cfg->reset_src);
+        r[0] &= (uint32_t)~MEC_ESPI_VW_W0_RSRC_MSK;
+        r[0] |= v;
     }
 
     for (i = 0; i < 4; i++) {
-        if (flags & MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_RST_VAL_POS + i)) {
-            if (cfg->reset_val_bm & MEC_BIT(i)) {
-                r[0] |= MEC_BIT(i + MEC_ESPI_VW_CTVW_HIRSS_RST_STATE_Pos);
+        if ((flags & MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_RST_VAL_POS + i)) != 0) {
+            if ((cfg->reset_val_bm & MEC_BIT(i)) != 0) {
+                r[0] |= MEC_BIT(i + MEC_ESPI_VW_W0_RSTATE_POS);
             } else {
-                r[0] &= ~MEC_BIT(i + MEC_ESPI_VW_CTVW_HIRSS_RST_STATE_Pos);
+                r[0] &= (uint32_t)~MEC_BIT(i + MEC_ESPI_VW_W0_RSTATE_POS);
             }
-            if (flags & MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_IRQ_POS + i)) {
+
+            if ((flags & MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_IRQ_POS + i)) != 0) {
                 uint32_t msk = 0xfu << i;
                 uint8_t j = cfg->src_irq_sel[i];
 
                 if (j >= MEC_VW_CT_IXLAT_TBL_ENTRIES) {
                     j = MEC_ESPI_VW_CT_IEN_DIS;
                 }
+
                 r[1] = ((r[1] & ~msk) | ((uint32_t)vw_ct_ien_xlat_tbl[j] << (i * 8)));
             }
+
             if (cfg->src_val_bm & MEC_BIT(i)) {
                 r[2] |= MEC_BIT(i * 8);
             } else {
@@ -496,94 +529,95 @@ static void mec_hal_espi_vwg_ct_config(struct mec_espi_vw_regs * const vwbase, u
         }
     }
 
-    ctvw->STATES = r[2];
-    ctvw->SRC_ISELS = r[1];
-    ctvw->HIRSS = r[0];
+    mmcr32_wr(r[2], vwrb + reg_ofs + 8u);
+    mmcr32_wr(r[1], vwrb + reg_ofs + 4u);
+    mmcr32_wr(r[0], vwrb + reg_ofs);
 }
 
-int mec_hal_espi_vw_ct_host_index_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                      uint8_t host_index)
+int mec_hal_espi_vw_ct_host_index_set(uintptr_t vwrb, uint8_t ctidx, uint8_t host_index)
 {
-    if (!vwbase || (ctidx > MEC_CTVW_IDX10)) {
+    uint32_t reg_ofs = 0, v = 0;
+
+    if ((vwrb == 0) || (ctidx > MEC_CTVW_IDX10)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
-    uint32_t temp = ctvw->HIRSS & (uint32_t)~MEC_ESPI_VW_CTVW_HIRSS_HOST_IDX_Msk;
-
-    temp |= host_index;
-    ctvw->HIRSS = temp;
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 0);
+    v = mmcr32_rd(vwrb + reg_ofs) & (uint32_t)~MEC_ESPI_VW_W0_HI_MSK;
+    v |= (host_index & MEC_ESPI_VW_W0_HI_MSK);
+    mmcr32_wr(v, vwrb + reg_ofs);
 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vw_ct_reset_source_get(struct mec_espi_vw_regs * const vwbase,
-                                        uint8_t ctidx, uint8_t *reset_source)
+int mec_hal_espi_vw_ct_reset_source_get(uintptr_t vwrb, uint8_t ctidx, uint8_t *reset_source)
 {
-    if (!vwbase || (ctidx > MEC_CTVW_IDX10) || !reset_source) {
+    uint32_t reg_ofs = 0, v = 0;
+
+    if ((vwrb == 0) || (reset_source == NULL) || (ctidx > MEC_CTVW_IDX10)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
-    uint32_t temp = ctvw->HIRSS;
-
-    temp = (temp & MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Msk) >> MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Pos;
-    *reset_source = (uint8_t)(temp & 0xffu);
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 0);
+    v = mmcr32_rd(vwrb + reg_ofs);
+    v = MEC_ESPI_VW_W0_RSRC_GET(v);
+    *reset_source = (uint8_t)(v & 0xffu);
 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vw_ct_reset_source_set(struct mec_espi_vw_regs * const vwbase,
-                                        uint8_t ctidx, uint8_t reset_source)
+int mec_hal_espi_vw_ct_reset_source_set(uintptr_t vwrb, uint8_t ctidx, uint8_t reset_source)
 {
-    if (!vwbase || (ctidx > MEC_CTVW_IDX10)) {
+    uint32_t reg_ofs = 0, v = 0;
+
+    if ((vwrb == 0) || (ctidx > MEC_CTVW_IDX10)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
-    uint32_t temp = ctvw->HIRSS;
-
-    temp &= (uint32_t)~MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Msk;
-    temp |= (((uint32_t)reset_source << MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Pos)
-             & MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Msk);
-    ctvw->HIRSS = temp;
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 0);
+    v = MEC_ESPI_VW_W0_RSRC_SET((uint32_t)reset_source);
+    mmcr32_update_field(vwrb + reg_ofs, v, MEC_ESPI_VW_W0_RSRC_MSK);
 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vw_ct_reset_state_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                       uint8_t src_idx, uint8_t reset_state)
+int mec_hal_espi_vw_ct_reset_state_set(uintptr_t vwrb, uint8_t ctidx, uint8_t src_idx,
+                                       uint8_t reset_state)
 {
-    if (!vwbase || (ctidx > MEC_CTVW_IDX10) || (src_idx > 3)) {
+    uint32_t reg_ofs = 0, v = 0;
+
+    if ((vwrb == 0) || (ctidx > MEC_CTVW_IDX10) || (src_idx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
-    uint32_t temp = ctvw->HIRSS;
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 0);
+    v = mmcr32_rd(vwrb + reg_ofs);
 
-    temp &= ~MEC_BIT(MEC_ESPI_VW_CTVW_HIRSS_RST_STATE_Pos + src_idx);
-    if (reset_state) {
-        temp |= MEC_BIT(MEC_ESPI_VW_CTVW_HIRSS_RST_STATE_Pos + src_idx);
+    if (reset_state != 0) {
+        v |= MEC_BIT(src_idx + MEC_ESPI_VW_W0_RSTATE_POS);
+    } else {
+        v &= (uint32_t)~MEC_BIT(src_idx + MEC_ESPI_VW_W0_RSTATE_POS);
     }
-    ctvw->HIRSS = temp;
+
+    mmcr32_wr(v, vwrb + reg_ofs);
 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vw_ct_irqsel_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
+int mec_hal_espi_vw_ct_irqsel_set(uintptr_t vwrb, uint8_t ctidx,
                                   uint8_t src_idx, uint8_t irq_sel)
 {
-    if (!vwbase || (ctidx > MEC_CTVW_IDX10) || (src_idx > 3)) {
+    uint32_t reg_ofs = 0, v = 0, msk = 0, isel = 0;
+
+    if ((vwrb == 0) || (ctidx > MEC_CTVW_IDX10) || (src_idx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
-    uint32_t pos = MEC_ESPI_VW_CTVW_SRC_ISELS_SRC0_IRQ_SEL_Pos * 8u;
-    uint32_t msk = MEC_ESPI_VW_CTVW_SRC_ISELS_SRC0_IRQ_SEL_Msk << (src_idx * 8u);
-    uint32_t temp = ctvw->SRC_ISELS & ~msk;
-
-    temp |= ((xlat_isel(irq_sel) << pos) & msk);
-    ctvw->SRC_ISELS = temp;
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 1u);
+    isel = xlat_isel(irq_sel);
+    msk = MEC_ESPI_VW_H2T_W1_ISEL_MSK((uint32_t)src_idx);
+    v = MEC_ESPI_VW_H2T_W1_ISEL_SET((uint32_t)src_idx, isel);
+    mmcr32_update_field(vwrb + reg_ofs, v, msk);
 
     return MEC_RET_OK;
 }
@@ -599,101 +633,107 @@ int mec_hal_espi_vw_ct_irqsel_set(struct mec_espi_vw_regs * const vwbase, uint8_
  * NOTE: Reset States are loaded into SRC bits on the de-asserting
  * edge of Reset Source.
  */
-static void mec_hal_espi_vw_ct_config(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                      uint8_t src_idx, uint8_t host_index, uint32_t config)
+static void mec_hal_espi_vw_ct_config(uintptr_t vwrb, uint8_t ctidx, uint8_t src_idx,
+                                      uint8_t host_index, uint32_t config)
 {
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
-    uint32_t regval = ctvw->HIRSS;
-    uint32_t temp;
+    uint32_t reg_ofs = 0, v = 0, temp = 0;
 
-    regval &= (uint32_t)~MEC_ESPI_VW_CTVW_HIRSS_HOST_IDX_Msk;
-    regval |= (((uint32_t)host_index << MEC_ESPI_VW_CTVW_HIRSS_HOST_IDX_Pos)
-             & MEC_ESPI_VW_CTVW_HIRSS_HOST_IDX_Msk);
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 0);
 
-    if (config & MEC_BIT(MEC_ESPI_VW_CFG_RSTSRC_DO_POS)) {
+    v = mmcr32_rd(vwrb + reg_ofs);
+
+    v &= (uint32_t)~MEC_ESPI_VW_W0_HI_MSK;
+    v |= MEC_ESPI_VW_W0_HI_SET((uint32_t)host_index);
+    
+    if ((config & MEC_BIT(MEC_ESPI_VW_CFG_RSTSRC_DO_POS)) != 0) {
         temp = (((uint32_t)config & MEC_ESPI_VW_CFG_RSTSRC_MSK) >> MEC_ESPI_VW_CFG_RSTSRC_POS);
-        regval &= (uint32_t)~MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Msk;
-        regval |= ((temp << MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Pos)
-                   & MEC_ESPI_VW_CTVW_HIRSS_RST_SRC_Msk);
+        v &= (uint32_t)~MEC_ESPI_VW_W0_RSRC_MSK;
+        v |= MEC_ESPI_VW_W0_RSRC_SET(temp);
     }
-    if (config & MEC_BIT(MEC_ESPI_VW_CFG_RSTVAL_DO_POS)) {
+    if ((config & MEC_BIT(MEC_ESPI_VW_CFG_RSTVAL_DO_POS)) != 0) {
         temp = (((uint32_t)config & MEC_ESPI_VW_CFG_RSTVAL_MSK) >> MEC_ESPI_VW_CFG_RSTVAL_POS);
-        regval &= ~MEC_BIT(MEC_ESPI_VW_CTVW_HIRSS_RST_STATE_Pos + src_idx);
-        regval |= temp << (MEC_ESPI_VW_CTVW_HIRSS_RST_STATE_Pos + src_idx);
+        v &= (uint32_t)~MEC_ESPI_VW_W0_RSTATE_MSK;
+        v |= MEC_ESPI_VW_W0_RSTATE_SET(temp);
     }
-    ctvw->HIRSS = regval;
 
-    if (config & MEC_BIT(MEC_ESPI_VW_CFG_IRQSEL_DO_POS)) {
-        uint32_t bpos = src_idx * 8u;
-        uint32_t msk = MEC_ESPI_VW_CTVW_SRC_ISELS_SRC0_IRQ_SEL_Msk << (src_idx * 8u);
-        uint32_t val = ((config >> MEC_ESPI_VW_CFG_IRQSEL_POS) & MEC_ESPI_VW_CFG_IRQSEL_MSK0);
+    mmcr32_wr(v, vwrb + reg_ofs);
 
-        val = xlat_isel(val);
-        regval = ctvw->SRC_ISELS & ~msk;
-        regval |= (val << bpos) & msk;
-        ctvw->SRC_ISELS = regval;
+    if ((config & MEC_BIT(MEC_ESPI_VW_CFG_IRQSEL_DO_POS)) != 0) {
+        v = ((config >> MEC_ESPI_VW_CFG_IRQSEL_POS) & MEC_ESPI_VW_CFG_IRQSEL_MSK0);
+        v = xlat_isel(v);
+        v = MEC_ESPI_VW_H2T_W1_ISEL_SET((uint32_t)src_idx, v);
+        temp = MEC_ESPI_VW_H2T_W1_ISEL_MSK((uint32_t)src_idx);
+
+        mmcr32_update_field(vwrb + reg_ofs + 4u, v, temp);
     }
 }
 
 
-int mec_hal_espi_vw_ct_wire_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                uint8_t widx, uint8_t val)
+int mec_hal_espi_vw_ct_wire_set(uintptr_t vwrb, uint8_t ctidx, uint8_t widx, uint8_t val)
 {
-    if (!vwbase || (ctidx > MEC_CTVW_IDX10) || (widx > 3)) {
+    uint32_t reg_ofs = 0, bit_pos = 0;
+
+    if ((vwrb == 0) || (ctidx > MEC_CTVW_IDX10) || (widx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 2);
+    bit_pos = MEC_ESPI_VW_STATE_POS(widx);
 
-    if (val) {
-        ctvw->STATES |= MEC_BIT(widx * 8u);
+    if (val != 0) {
+        mmcr32_set_bit(vwrb + reg_ofs, bit_pos);
     } else {
-        ctvw->STATES &= ~MEC_BIT(widx * 8u);
+        mmcr32_clr_bit(vwrb + reg_ofs, bit_pos);
     }
 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vw_ct_wire_get(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                uint8_t widx, uint8_t *val)
+int mec_hal_espi_vw_ct_wire_get(uintptr_t vwrb, uint8_t ctidx, uint8_t widx, uint8_t *val)
 {
-    if (!vwbase || !val || (ctidx > MEC_CTVW_IDX10) || (widx > 3)) {
+    uint32_t reg_ofs = 0, bit_pos = 0;
+
+    if ((vwrb == 0) || (val == NULL) || (ctidx > MEC_CTVW_IDX10) || (widx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 2);
+    bit_pos = MEC_ESPI_VW_STATE_POS(widx);
 
-    *val = (uint8_t)((ctvw->STATES >> (widx * 8u)) & 0x1u);
+    if (mmcr32_test_bit(vwrb + reg_ofs, bit_pos) != 0) {
+        *val = 1u;
+    } else {
+        *val = 0u;
+    }
 
     return MEC_RET_OK;
 }
 
 /* Set 4 VWires in group from b[3:0] of val if in mask */
-int mec_hal_espi_vw_ct_group_set(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                 uint8_t val, uint8_t msk)
+int mec_hal_espi_vw_ct_group_set(uintptr_t vwrb, uint8_t ctidx, uint8_t val, uint8_t msk)
 {
-    if (!vwbase || !val || (ctidx > MEC_CTVW_IDX10)) {
+    uint32_t reg_ofs = 0, chgmsk = 0, v = 0;
+
+    if ((vwrb == 0) || (ctidx > MEC_CTVW_IDX10)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    if (!msk) {
+    if (msk == 0) {
         return MEC_RET_OK;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
-    uint32_t chgmsk = 0u;
-    uint32_t rval = 0u;
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 2);
 
     for (unsigned int i = 0; i < 4u; i++) {
         if (msk & MEC_BIT(i)) {
             chgmsk |= MEC_BIT(i * 8);
             if (val & MEC_BIT(i)) {
-                rval |= MEC_BIT(i * 8);
+                v |= MEC_BIT(i * 8);
             }
         }
     }
 
-    ctvw->STATES = (ctvw->STATES & ~chgmsk) | rval;
+    mmcr32_update_field(vwrb + reg_ofs, v, chgmsk);
 
     return MEC_RET_OK;
 }
@@ -712,16 +752,17 @@ static uint8_t vw_group_get(uint32_t vw_states)
 }
 
 /* Copy 4 VWires in group to b[3:0] of byte pointed to by val */
-int mec_hal_espi_vw_ct_group_get(struct mec_espi_vw_regs * const vwbase, uint8_t ctidx,
-                                 uint8_t *val)
+int mec_hal_espi_vw_ct_group_get(uintptr_t vwrb, uint8_t ctidx, uint8_t *val)
 {
-    if (!vwbase || !val || (ctidx > MEC_CTVW_IDX10)) {
+    uint32_t reg_ofs = 0;
+
+    if ((reg_ofs == 0) || (val == NULL) || (ctidx > MEC_CTVW_IDX10)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_ctvw_regs *ctvw = &vwbase->CTVW[ctidx];
+    reg_ofs = MEC_ESPI_VW_HT_GRPW(ctidx, 2);
 
-    *val = vw_group_get(ctvw->STATES);
+    *val = vw_group_get(mmcr32_rd(vwrb + reg_ofs));
 
     return MEC_RET_OK;
 }
@@ -735,46 +776,48 @@ int mec_hal_espi_vw_ct_group_get(struct mec_espi_vw_regs * const vwbase, uint8_t
  * NOTE: Target-to-Controller VW groups have no EC interrupt capability.
  * The struct mec_espi_vw_config src_irq_sec[] member is ignored.
  */
-static void mec_hal_espi_vwg_tc_config(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
+static void mec_hal_espi_vwg_tc_config(uintptr_t vwrb, uint8_t tcidx,
                                        struct mec_espi_vw_config *cfg, uint32_t flags)
 {
-    volatile struct mec_espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
+    uint32_t reg_ofs = 0;
     uint32_t r[2];
     unsigned int i;
 
-    r[0] = tcvw->HIRCS;
-    r[1] = tcvw->STATES;
-    if (flags & MEC_BIT(MEC_ESPI_VWG_CFG_HI_POS)) {
-        r[0] &= (uint32_t)~MEC_ESPI_VW_TCVW_HIRCS_HOST_IDX_Msk;
-        r[0] |= (((uint32_t)cfg->host_idx << MEC_ESPI_VW_TCVW_HIRCS_HOST_IDX_Pos)
-                 & MEC_ESPI_VW_TCVW_HIRCS_HOST_IDX_Msk);
+    reg_ofs = MEC_ESPI_VW_TH_GRPW(tcidx, 0);
+
+    r[0] = mmcr32_rd(vwrb + reg_ofs);
+    r[1] = mmcr32_rd(vwrb + reg_ofs + 4u);
+
+    if ((flags & MEC_BIT(MEC_ESPI_VWG_CFG_HI_POS)) != 0) {
+        r[0] &= (uint32_t)~MEC_ESPI_VW_W0_HI_MSK;
+        r[0] |= MEC_ESPI_VW_W0_HI_SET((uint32_t)cfg->host_idx);
     }
 
-    if (flags & MEC_BIT(MEC_ESPI_VWG_CFG_RST_SRC_POS)) {
-        r[0] &= (uint32_t)~MEC_ESPI_VW_TCVW_HIRCS_RST_SRC_Msk;
-        r[0] |= (((uint32_t)cfg->reset_src << MEC_ESPI_VW_TCVW_HIRCS_RST_SRC_Pos)
-                 & MEC_ESPI_VW_TCVW_HIRCS_RST_SRC_Msk);
+    if ((flags & MEC_BIT(MEC_ESPI_VWG_CFG_RST_SRC_POS)) != 0) {
+        r[0] &= (uint32_t)~MEC_ESPI_VW_W0_RSRC_MSK;
+        r[0] |= MEC_ESPI_VW_W0_RSRC_SET((uint32_t)cfg->reset_src);
     }
 
     for (i = 0; i < 4; i++) {
-        if (flags & MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_RST_VAL_POS + i)) {
-            if (cfg->reset_val_bm & MEC_BIT(i)) {
-                r[0] |= MEC_BIT(i + MEC_ESPI_VW_TCVW_HIRCS_RST_STATE_Pos);
+        if ((flags & MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_RST_VAL_POS + i)) != 0) {
+            if ((cfg->reset_val_bm & MEC_BIT(i)) != 0) {
+                r[0] |= MEC_BIT(i + MEC_ESPI_VW_W0_RSTATE_POS);
             } else {
-                r[0] &= ~MEC_BIT(i + MEC_ESPI_VW_TCVW_HIRCS_RST_STATE_Pos);
+                r[0] &= (uint32_t)~MEC_BIT(i + MEC_ESPI_VW_W0_RSTATE_POS);
             }
         }
-        if (flags & MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_VAL_POS + i)) {
-            if (cfg->src_val_bm & MEC_BIT(i)) {
+
+        if ((flags & MEC_BIT(MEC_ESPI_VWG_CFG_SRC0_VAL_POS + i)) != 0) {
+            if ((cfg->src_val_bm & MEC_BIT(i)) != 0) {
                 r[1] |= MEC_BIT(i * 8);
             } else {
-                r[1] &= ~MEC_BIT(i * 8);
+                r[1] &= (uint32_t)~MEC_BIT(i * 8);
             }
         }
     }
 
-    tcvw->HIRCS = r[0];
-    tcvw->STATES = r[1];
+    mmcr32_wr(r[0], vwrb + reg_ofs);
+    mmcr32_wr(r[1], vwrb + reg_ofs + 4u);
 }
 
 /* Configure specified fields of a Target-to-Controller VWire in a group.
@@ -789,48 +832,52 @@ static void mec_hal_espi_vwg_tc_config(struct mec_espi_vw_regs * const vwbase, u
  * edge of Reset Source.
  * NOTE2: Target-to-Controller VWires do not generate interrupts to the EC.
  */
-static void mec_hal_espi_vw_tc_config(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                      uint8_t src_idx, uint8_t host_index, uint32_t config)
+static void mec_hal_espi_vw_tc_config(uintptr_t vwrb, uint8_t tcidx, uint8_t src_idx,
+                                      uint8_t host_index, uint32_t config)
 {
-    volatile struct mec_espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
-    uint32_t regval = tcvw->HIRCS; /* b[63:32] name is STATES */
-    uint32_t temp;
+    uint32_t reg_ofs = 0, rv = 0, cv = 0;
 
-    regval &= (uint32_t)~MEC_ESPI_VW_TCVW_HIRCS_HOST_IDX_Msk;
-    regval |= (((uint32_t)host_index << MEC_ESPI_VW_TCVW_HIRCS_HOST_IDX_Pos)
-             & MEC_ESPI_VW_TCVW_HIRCS_HOST_IDX_Msk);
+    reg_ofs = MEC_ESPI_VW_TH_GRPW(tcidx, 0);
+    rv = mmcr32_rd(vwrb + reg_ofs);
 
-    if (config & MEC_BIT(MEC_ESPI_VW_CFG_RSTSRC_DO_POS)) {
-        temp = (((uint32_t)config & MEC_ESPI_VW_CFG_RSTSRC_MSK) >> MEC_ESPI_VW_CFG_RSTSRC_POS);
-        regval &= (uint32_t)~MEC_ESPI_VW_TCVW_HIRCS_RST_SRC_Msk;
-        regval |= ((temp << MEC_ESPI_VW_TCVW_HIRCS_RST_SRC_Pos)
-                   & MEC_ESPI_VW_TCVW_HIRCS_RST_SRC_Msk);
+    rv &= (uint32_t)~MEC_ESPI_VW_W0_HI_MSK;
+    rv |= MEC_ESPI_VW_W0_HI_SET((uint32_t)host_index);
+
+    if ((config & MEC_BIT(MEC_ESPI_VW_CFG_RSTSRC_DO_POS)) != 0) {
+        cv = (((uint32_t)config & MEC_ESPI_VW_CFG_RSTSRC_MSK) >> MEC_ESPI_VW_CFG_RSTSRC_POS);
+        rv &= (uint32_t)~MEC_ESPI_VW_W0_RSRC_MSK;
+        rv |= MEC_ESPI_VW_W0_RSRC_SET(cv);
     }
-    if (config & MEC_BIT(MEC_ESPI_VW_CFG_RSTVAL_DO_POS)) {
-        temp = (((uint32_t)config & MEC_ESPI_VW_CFG_RSTVAL_MSK) >> MEC_ESPI_VW_CFG_RSTVAL_POS);
-        regval &= ~MEC_BIT(MEC_ESPI_VW_TCVW_HIRCS_RST_STATE_Pos + src_idx);
-        regval |= temp << (MEC_ESPI_VW_TCVW_HIRCS_RST_STATE_Pos + src_idx);
+
+    if ((config & MEC_BIT(MEC_ESPI_VW_CFG_RSTVAL_DO_POS)) != 0) {
+        cv = (((uint32_t)config & MEC_ESPI_VW_CFG_RSTVAL_MSK) >> MEC_ESPI_VW_CFG_RSTVAL_POS);
+        rv &= (uint32_t)~MEC_ESPI_VW_W0_RSTATE_MSK;
+        rv |= (cv << (MEC_ESPI_VW_W0_RSTATE_POS + src_idx));
     }
-    tcvw->HIRCS = regval;
+
+    mmcr32_wr(rv, vwrb + reg_ofs);
 }
 
-int mec_hal_espi_vw_tc_wire_set(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                uint8_t widx, uint8_t val, uint32_t flags)
+int mec_hal_espi_vw_tc_wire_set(uintptr_t vwrb, uint8_t tcidx, uint8_t widx, uint8_t val,
+                                uint32_t flags)
 {
-    if (!vwbase || (tcidx > MEC_TCVW_IDX10) || (widx > 3)) {
+    uint32_t reg_ofs = 0, bitpos = 0;
+
+    if ((vwrb == 0) || (tcidx > MEC_TCVW_IDX10) || (widx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
+    reg_ofs = MEC_ESPI_VW_TH_GRPW(tcidx, 0);
+    bitpos = widx * 8u;
 
-    if (val) {
-        tcvw->STATES |= MEC_BIT(widx * 8u);
+    if (val != 0) {
+        mmcr32_set_bit(vwrb + reg_ofs + 4u, bitpos);
     } else {
-        tcvw->STATES &= ~MEC_BIT(widx * 8u);
+        mmcr32_clr_bit(vwrb + reg_ofs + 4u, bitpos);
     }
 
-    if (flags & MEC_BIT(MEC_ESPI_VW_FLAG_WAIT_TC_TX_POS)) {
-        while (vwbase->TCVW[tcidx].HIRCS & (0xfu << MEC_ESPI_VW_TCVW_HIRCS_CHANGE0_Pos)) {
+    if ((flags & MEC_BIT(MEC_ESPI_VW_FLAG_WAIT_TC_TX_POS)) != 0) {
+        while (mmcr32_rd(vwrb + reg_ofs) & (0xfu << MEC_ESPI_VW_T2H_W0_CHG0_POS)) {
                 ;
         }
     }
@@ -838,46 +885,49 @@ int mec_hal_espi_vw_tc_wire_set(struct mec_espi_vw_regs * const vwbase, uint8_t 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vw_tc_wire_set_cs(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                   uint8_t widx, uint8_t val, const struct mec_espi_vw_poll *vwp)
+int mec_hal_espi_vw_tc_wire_set_cs(uintptr_t vwrb, uint8_t tcidx, uint8_t widx, uint8_t val,
+                                   const struct mec_espi_vw_poll *vwp)
 {
-    uint32_t delay_loops = 0;
+    uint32_t reg_ofs = 0, bitpos = 0, delay_loops = 0;
 
-    if (!vwbase || (tcidx > MEC_TCVW_IDX10) || (widx > 3)) {
+    if ((vwrb == 0) || (tcidx > MEC_TCVW_IDX10) || (widx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
+    reg_ofs = MEC_ESPI_VW_TH_GRPW(tcidx, 0);
+    bitpos = widx * 8u;
 
-    if (val) {
-        tcvw->STATES |= MEC_BIT(widx * 8u);
+    if (val != 0) {
+        mmcr32_set_bit(vwrb + reg_ofs + 4u, bitpos);
     } else {
-        tcvw->STATES &= ~MEC_BIT(widx * 8u);
+        mmcr32_clr_bit(vwrb + reg_ofs + 4u, bitpos);
     }
 
     if (vwp && vwp->delayfp) {
-        while (vwbase->TCVW[tcidx].HIRCS & (0xfu << MEC_ESPI_VW_TCVW_HIRCS_CHANGE0_Pos)) {
-            if (!delay_loops) {
+        delay_loops = vwp->nloops;
+        while (mmcr32_rd(vwrb + reg_ofs) & (0xfu << MEC_ESPI_VW_T2H_W0_CHG0_POS)) {
+            if (delay_loops == 0) {
                 return MEC_RET_ERR_TIMEOUT;
             }
+
             vwp->delayfp(vwp->delay_param);
-            --delay_loops;
+            delay_loops--;
         }
     }
 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vw_tc_wire_get(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                uint8_t widx, uint8_t *val)
+int mec_hal_espi_vw_tc_wire_get(uintptr_t vwrb, uint8_t tcidx, uint8_t widx, uint8_t *val)
 {
-    if (!vwbase || !val || (tcidx > MEC_TCVW_IDX10) || (widx > 3)) {
+    uint32_t reg_ofs = 0;
+
+    if ((vwrb == 0) || (val == NULL) || (tcidx > MEC_TCVW_IDX10) || (widx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
-
-    *val = (uint8_t)((tcvw->STATES >> (widx * 8u)) & 0x1u);
+    reg_ofs = MEC_ESPI_VW_TH_GRPW(tcidx, 1);
+    *val =(uint8_t)((mmcr32_rd(vwrb + reg_ofs) >> (widx * 8u)) & MEC_BIT(0));
 
     return MEC_RET_OK;
 }
@@ -893,41 +943,45 @@ int mec_hal_espi_vw_tc_wire_get(struct mec_espi_vw_regs * const vwbase, uint8_t 
  * val bit[7] = Change bit. 1 = VWire state was changed by FW and the Host has not
  * read it. 0 = VWire has not changed or Host has read the current value.
  */
-int mec_hal_espi_vw_tc_wire_cs_get(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                   uint8_t widx, uint8_t *val)
+int mec_hal_espi_vw_tc_wire_cs_get(uintptr_t vwrb, uint8_t tcidx, uint8_t widx, uint8_t *val)
 {
-    if (!vwbase || !val || (tcidx > MEC_TCVW_IDX10) || (widx > 3)) {
+    uint32_t reg_ofs = 0, bitpos = 0, v = 0;
+    uint8_t vw_sts = 0;
+
+    if ((vwrb == 0) || (val == NULL) || (tcidx > MEC_TCVW_IDX10) || (widx > 3)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
-    uint8_t change_bitpos = widx + MEC_ESPI_VW_TCVW_HIRCS_CHANGE0_Pos;
-    uint8_t vw = (uint8_t)((tcvw->STATES >> (widx * 8u)) & 0x1u);
+    bitpos = MEC_ESPI_VW_STATE_POS(widx);
+    reg_ofs = MEC_ESPI_VW_TH_GRPW(tcidx, 0);
+    v = mmcr32_rd(vwrb + reg_ofs + 4u);
+    vw_sts = (uint8_t)((v >> bitpos) & MEC_BIT(0));
 
-
-    if (vwbase->TCVW[tcidx].HIRCS & MEC_BIT(change_bitpos)) {
-        vw |= MEC_BIT(7);
+    bitpos = MEC_ESPI_VW_T2H_W0_CHG_POS(widx);
+    if (mmcr32_test_bit(vwrb + reg_ofs, bitpos) != 0) {
+        vw_sts |= MEC_BIT(7);
     }
-    *val = vw;
+    
+    *val = vw_sts;
 
     return MEC_RET_OK;
 }
 
 /* Set 4 VWires in group from b[3:0] of val if in mask */
-int mec_hal_espi_vw_tc_group_set(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                 uint8_t val, uint8_t msk, uint32_t flags)
+int mec_hal_espi_vw_tc_group_set(uintptr_t vwrb, uint8_t tcidx, uint8_t val, uint8_t msk,
+                                 uint32_t flags)
 {
-    if (!vwbase || !val || (tcidx > MEC_TCVW_IDX10)) {
+    uint32_t reg_ofs = 0, chgmsk = 0, rval = 0;
+
+    if ((vwrb == 0) || (tcidx > MEC_TCVW_IDX10)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    if (!msk) {
+    if (msk == 0) {
         return MEC_RET_OK;
     }
 
-    volatile struct mec_espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
-    uint32_t chgmsk = 0u;
-    uint32_t rval = 0u;
+    reg_ofs = MEC_ESPI_VW_TH_GRPW(tcidx, 0);
 
     for (unsigned int i = 0; i < 4u; i++) {
         if (msk & MEC_BIT(i)) {
@@ -938,59 +992,63 @@ int mec_hal_espi_vw_tc_group_set(struct mec_espi_vw_regs * const vwbase, uint8_t
         }
     }
 
-    tcvw->STATES = (tcvw->STATES & ~chgmsk) | rval;
-    if (flags & MEC_BIT(MEC_ESPI_VW_FLAG_WAIT_TC_TX_POS)) {
-        while (vwbase->TCVW[tcidx].HIRCS & (0xfu << MEC_ESPI_VW_TCVW_HIRCS_CHANGE0_Pos)) {
+    mmcr32_update_field(vwrb + reg_ofs + 4u, rval, chgmsk);
+
+    chgmsk = 0xfu << MEC_ESPI_VW_T2H_W0_CHG0_POS;
+    if ((flags & MEC_BIT(MEC_ESPI_VW_FLAG_WAIT_TC_TX_POS)) != 0) {
+        while ((mmcr32_rd(vwrb + reg_ofs) & chgmsk) != 0) {
                 ;
         }
     }
+
     return MEC_RET_OK;
 }
 
 /* Copy 4 VWires in TC group to b[3:0] of byte pointed to by val */
-int mec_hal_espi_vw_tc_group_get(struct mec_espi_vw_regs * const vwbase, uint8_t tcidx,
-                                 uint8_t *val)
+int mec_hal_espi_vw_tc_group_get(uintptr_t vwrb, uint8_t tcidx, uint8_t *val)
 {
-    if (!vwbase || !val || (tcidx > MEC_TCVW_IDX10)) {
+    uint32_t reg_ofs = 0;
+
+    if ((vwrb == 0) || (val == NULL) || (tcidx > MEC_TCVW_IDX10)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    volatile struct mec_espi_vw_tcvw_regs *tcvw = &vwbase->TCVW[tcidx];
+    reg_ofs = MEC_ESPI_VW_TH_GRPW(tcidx, 1);
 
-    *val = vw_group_get(tcvw->STATES);
+    *val = vw_group_get(mmcr32_rd(vwrb + reg_ofs));
 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vwg_config(struct mec_espi_vw_regs * const vwbase, uint8_t vwidx,
-                            struct mec_espi_vw_config *cfg, uint32_t flags)
+int mec_hal_espi_vwg_config(uintptr_t vwrb, uint8_t vwidx, struct mec_espi_vw_config *cfg,
+                            uint32_t flags)
 {
-    if (!vwbase || !cfg || (vwidx >= MEC_ESPI_VW_MAX_REG_IDX)) {
+    if ((vwrb == 0) || (cfg == NULL) || (vwidx >= MEC_ESPI_VW_MAX_REG_IDX)) {
         return MEC_RET_ERR_INVAL;
     }
 
     if (vwidx < MEC_ESPI_TCVW00_REG_IDX) {
-        mec_hal_espi_vwg_ct_config(vwbase, vwidx, cfg, flags);
+        mec_hal_espi_vwg_ct_config(vwrb, vwidx, cfg, flags);
     } else {
         vwidx -= MEC_ESPI_TCVW00_REG_IDX;
-        mec_hal_espi_vwg_tc_config(vwbase, vwidx, cfg, flags);
+        mec_hal_espi_vwg_tc_config(vwrb, vwidx, cfg, flags);
     }
 
     return MEC_RET_OK;
 }
 
-int mec_hal_espi_vwire_config(struct mec_espi_vw_regs *const vwbase, uint8_t vwidx,
-                              uint8_t src_idx, uint8_t host_index, uint32_t config)
+int mec_hal_espi_vwire_config(uintptr_t vwrb, uint8_t vwidx, uint8_t src_idx,
+                              uint8_t host_index, uint32_t config)
 {
-    if (!vwbase || (vwidx >= MEC_ESPI_VW_MAX_REG_IDX) || (src_idx > 3u)) {
+    if ((vwrb == 0) || (vwidx >= MEC_ESPI_VW_MAX_REG_IDX) || (src_idx > 3u)) {
         return MEC_RET_ERR_INVAL;
     }
 
     if (vwidx < MEC_ESPI_TCVW00_REG_IDX) {
-        mec_hal_espi_vw_ct_config(vwbase, vwidx, src_idx, host_index, config);
+        mec_hal_espi_vw_ct_config(vwrb, vwidx, src_idx, host_index, config);
     } else {
         vwidx -= MEC_ESPI_TCVW00_REG_IDX;
-        mec_hal_espi_vw_tc_config(vwbase, vwidx, src_idx, host_index, config);
+        mec_hal_espi_vw_tc_config(vwrb, vwidx, src_idx, host_index, config);
     }
 
     return MEC_RET_OK;
@@ -999,22 +1057,22 @@ int mec_hal_espi_vwire_config(struct mec_espi_vw_regs *const vwbase, uint8_t vwi
 /* Get value of a VWire specified by MEC5 logical register index and source position in
  * the HW register.
  */
-int mec_hal_espi_vw_get_src(struct mec_espi_vw_regs * const vwbase, struct mec_espi_vw *vw,
+int mec_hal_espi_vw_get_src(uintptr_t vwrb, struct mec_espi_vw *vw,
                             uint32_t flags __attribute__((__unused__)))
 {
-    int ret;
-    uint8_t regidx;
+    int ret = 0;
+    uint8_t regidx = 0;
 
-    if (!vw) {
+    if (vw == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
     regidx = vw->vwidx;
     if (regidx < MEC_ESPI_TCVW00_REG_IDX) {
-        ret = mec_hal_espi_vw_ct_wire_get(vwbase, regidx, vw->srcidx, &vw->val);
+        ret = mec_hal_espi_vw_ct_wire_get(vwrb, regidx, vw->srcidx, &vw->val);
     } else {
         regidx -= MEC_ESPI_TCVW00_REG_IDX;
-        ret = mec_hal_espi_vw_tc_wire_get(vwbase, regidx, vw->srcidx, &vw->val);
+        ret = mec_hal_espi_vw_tc_wire_get(vwrb, regidx, vw->srcidx, &vw->val);
     }
 
     return ret;
@@ -1029,43 +1087,42 @@ int mec_hal_espi_vw_get_src(struct mec_espi_vw_regs * const vwbase, struct mec_e
  * Controller (upstream) VWire value to be transmitted. NOTE: a packet is only
  * transmitted if the VWire value was changed.
  */
-int mec_hal_espi_vw_set_src(struct mec_espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
-                            uint32_t flags)
+int mec_hal_espi_vw_set_src(uintptr_t vwrb, struct mec_espi_vw *vw, uint32_t flags)
 {
-    int ret;
-    uint8_t regidx;
+    int ret = 0;
+    uint8_t regidx = 0;
 
-    if (!vw) {
+    if (vw == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
     regidx = vw->vwidx;
     if (regidx < MEC_ESPI_TCVW00_REG_IDX) {
-        ret = mec_hal_espi_vw_ct_wire_set(vwbase, regidx, vw->srcidx, vw->val);
+        ret = mec_hal_espi_vw_ct_wire_set(vwrb, regidx, vw->srcidx, vw->val);
     } else {
         regidx -= MEC_ESPI_TCVW00_REG_IDX;
-        ret = mec_hal_espi_vw_tc_wire_set(vwbase, regidx, vw->srcidx, vw->val, flags);
+        ret = mec_hal_espi_vw_tc_wire_set(vwrb, regidx, vw->srcidx, vw->val, flags);
     }
 
     return ret;
 }
 
-int mec_hal_espi_vw_set_src_cs(struct mec_espi_vw_regs *const vwbase, struct mec_espi_vw *vw,
+int mec_hal_espi_vw_set_src_cs(uintptr_t vwrb, struct mec_espi_vw *vw,
                                const struct mec_espi_vw_poll *vwp)
 {
-    int ret;
-    uint8_t regidx;
+    int ret = 0;
+    uint8_t regidx = 0;
 
-    if (!vw) {
+    if (vw == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
     regidx = vw->vwidx;
     if (regidx < MEC_ESPI_TCVW00_REG_IDX) {
-        ret = mec_hal_espi_vw_ct_wire_set(vwbase, regidx, vw->srcidx, vw->val);
+        ret = mec_hal_espi_vw_ct_wire_set(vwrb, regidx, vw->srcidx, vw->val);
     } else {
         regidx -= MEC_ESPI_TCVW00_REG_IDX;
-        ret = mec_hal_espi_vw_tc_wire_set_cs(vwbase, regidx, vw->srcidx, vw->val, vwp);
+        ret = mec_hal_espi_vw_tc_wire_set_cs(vwrb, regidx, vw->srcidx, vw->val, vwp);
     }
 
     return ret;
@@ -1074,59 +1131,62 @@ int mec_hal_espi_vw_set_src_cs(struct mec_espi_vw_regs *const vwbase, struct mec
 /* Get VWire group source bits specified by struct mec_espi_vw.vwidx and
  * store in struct mec_espi_vw.val
  */
-int mec_hal_espi_vw_get_src_group(struct mec_espi_vw_regs * const vwbase, struct mec_espi_vw *vw,
+int mec_hal_espi_vw_get_src_group(uintptr_t vwrb, struct mec_espi_vw *vw,
                                   uint32_t flags __attribute__((__unused__)))
 {
-    int ret;
-    uint8_t regidx;
+    int ret = 0;
+    uint8_t regidx = 0;
 
-    if (!vw) {
+    if (vw == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
     regidx = vw->vwidx;
     if (regidx < MEC_ESPI_TCVW00_REG_IDX) {
-        ret = mec_hal_espi_vw_tc_group_get(vwbase, regidx, &vw->val);
+        ret = mec_hal_espi_vw_tc_group_get(vwrb, regidx, &vw->val);
     } else {
         regidx -= MEC_ESPI_TCVW00_REG_IDX;
-        ret = mec_hal_espi_vw_tc_group_get(vwbase, regidx, &vw->val);
+        ret = mec_hal_espi_vw_tc_group_get(vwrb, regidx, &vw->val);
     }
 
     return ret;
 }
 
-int mec_hal_espi_vw_set_src_group(struct mec_espi_vw_regs * const vwbase, struct mec_espi_vw *vw,
-                                  uint32_t flags)
+int mec_hal_espi_vw_set_src_group(uintptr_t vwrb, struct mec_espi_vw *vw, uint32_t flags)
 {
-    int ret;
-    uint8_t regidx;
+    int ret = 0;
+    uint8_t regidx = 0;
 
-    if (!vw || (vw->vwidx >= MEC_ESPI_VW_MAX_REG_IDX)) {
+    if ((vw == NULL) || (vw->vwidx >= MEC_ESPI_VW_MAX_REG_IDX)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    if (!vw->msk) {
+    if (vw->msk == 0) {
         return MEC_RET_OK;
     }
 
     regidx = vw->vwidx;
     if (regidx < MEC_ESPI_TCVW00_REG_IDX) {
-        ret = mec_hal_espi_vw_ct_group_set(vwbase, regidx, vw->val, vw->msk);
+        ret = mec_hal_espi_vw_ct_group_set(vwrb, regidx, vw->val, vw->msk);
     } else {
         regidx -= (uint8_t)MEC_ESPI_TCVW00_REG_IDX;
-        ret = mec_hal_espi_vw_tc_group_set(vwbase, regidx, vw->val, vw->msk, flags);
+        ret = mec_hal_espi_vw_tc_group_set(vwrb, regidx, vw->val, vw->msk, flags);
     }
 
     return ret;
 }
 
 /* ---- API using eSPI Host Index and VWire src [0:3] for access ---- */
-static int lookup_ct_vw_by_host_index(struct mec_espi_vw_regs *const vwbase, uint8_t host_index)
+static int lookup_ct_vw_by_host_index(uintptr_t vwrb, uint8_t host_index)
 {
-    if (vwbase) {
-        for (int i = 0; i < MEC_CTVW_IDX10; i++) {
-            uint8_t hidx = vwbase->CTVW[i].HIRSS & 0xffu;
-            if (hidx == host_index) {
+    uint32_t reg_ofs = 0, v = 0;
+
+    if (vwrb != 0) {
+        for (uint32_t i = 0; i < MEC_CTVW_IDX10; i++) {
+            reg_ofs = MEC_ESPI_VW_HT_GRPW(i, 0);
+            v = mmcr32_rd(vwrb + reg_ofs);
+
+            if ((uint8_t)(v & 0xffu) == host_index) {
                 return i;
             }
         }
@@ -1135,12 +1195,16 @@ static int lookup_ct_vw_by_host_index(struct mec_espi_vw_regs *const vwbase, uin
     return -1;
 }
 
-static int lookup_tc_vw_by_host_index(struct mec_espi_vw_regs *const vwbase, uint8_t host_index)
+static int lookup_tc_vw_by_host_index(uintptr_t vwrb, uint8_t host_index)
 {
-    if (vwbase) {
-        for (int i = 0; i < MEC_TCVW_IDX10; i++) {
-            uint8_t hidx = vwbase->TCVW[i].HIRCS & 0xffu;
-            if (hidx == host_index) {
+    uint32_t reg_ofs = 0, v = 0;
+
+    if (vwrb != 0) {
+        for (uint32_t i = 0; i < MEC_TCVW_IDX10; i++) {
+            reg_ofs = MEC_ESPI_VW_TH_GRPW(i, 0);
+            v = mmcr32_rd(vwrb + reg_ofs);
+            
+            if ((uint8_t)(v & 0xffu) == host_index) {
                 return i;
             }
         }
@@ -1152,55 +1216,54 @@ static int lookup_tc_vw_by_host_index(struct mec_espi_vw_regs *const vwbase, uin
 /* Read the state of the VWire given by its Host Index and source (bit)
  * position in the 4 wire group.
  */
-int mec_hal_espi_vw_get(struct mec_espi_vw_regs *const vwbase, uint8_t host_index,
-                        uint8_t src_id, uint8_t *val)
+int mec_hal_espi_vw_get(uintptr_t vwrb, uint8_t host_index, uint8_t src_id, uint8_t *val)
 {
     int ret = MEC_RET_ERR_INVAL;
-    int idx = lookup_ct_vw_by_host_index(vwbase, host_index);
+    int idx = lookup_ct_vw_by_host_index(vwrb, host_index);
 
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_ct_wire_get(vwbase, (uint8_t)idx & 0x7fu, src_id, val);
+        ret = mec_hal_espi_vw_ct_wire_get(vwrb, (uint8_t)idx & 0x7fu, src_id, val);
     }
 
-    idx = lookup_tc_vw_by_host_index(vwbase, host_index);
+    idx = lookup_tc_vw_by_host_index(vwrb, host_index);
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_tc_wire_get(vwbase, (uint8_t)idx & 0x7fu, src_id, val);
+        ret = mec_hal_espi_vw_tc_wire_get(vwrb, (uint8_t)idx & 0x7fu, src_id, val);
     }
 
     return ret;
 }
 
-int mec_hal_espi_vw_set(struct mec_espi_vw_regs *const vwbase, uint8_t host_index,
-                        uint8_t src_id, uint8_t val, uint32_t flags)
+int mec_hal_espi_vw_set(uintptr_t vwrb, uint8_t host_index, uint8_t src_id, uint8_t val,
+                        uint32_t flags)
 {
     int ret = MEC_RET_ERR_INVAL;
-    int idx = lookup_ct_vw_by_host_index(vwbase, host_index);
+    int idx = lookup_ct_vw_by_host_index(vwrb, host_index);
 
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_ct_wire_set(vwbase, (uint8_t)idx & 0x7fu, src_id, val);
+        ret = mec_hal_espi_vw_ct_wire_set(vwrb, (uint8_t)idx & 0x7fu, src_id, val);
     }
 
-    idx = lookup_tc_vw_by_host_index(vwbase, host_index);
+    idx = lookup_tc_vw_by_host_index(vwrb, host_index);
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_tc_wire_set(vwbase, (uint8_t)idx & 0x7fu, src_id, val, flags);
+        ret = mec_hal_espi_vw_tc_wire_set(vwrb, (uint8_t)idx & 0x7fu, src_id, val, flags);
     }
 
     return ret;
 }
 
-int mec_hal_espi_vw_set_cs(struct mec_espi_vw_regs *const vwbase, uint8_t host_index,
-                           uint8_t src_id, uint8_t val, const struct mec_espi_vw_poll *vwp)
+int mec_hal_espi_vw_set_cs(uintptr_t vwrb, uint8_t host_index, uint8_t src_id, uint8_t val,
+                           const struct mec_espi_vw_poll *vwp)
 {
     int ret = MEC_RET_ERR_INVAL;
-    int idx = lookup_ct_vw_by_host_index(vwbase, host_index);
+    int idx = lookup_ct_vw_by_host_index(vwrb, host_index);
 
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_ct_wire_set(vwbase, (uint8_t)idx & 0x7fu, src_id, val);
+        ret = mec_hal_espi_vw_ct_wire_set(vwrb, (uint8_t)idx & 0x7fu, src_id, val);
     }
 
-    idx = lookup_tc_vw_by_host_index(vwbase, host_index);
+    idx = lookup_tc_vw_by_host_index(vwrb, host_index);
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_tc_wire_set_cs(vwbase, (uint8_t)idx & 0x7fu, src_id, val, vwp);
+        ret = mec_hal_espi_vw_tc_wire_set_cs(vwrb, (uint8_t)idx & 0x7fu, src_id, val, vwp);
     }
 
     return ret;
@@ -1209,19 +1272,18 @@ int mec_hal_espi_vw_set_cs(struct mec_espi_vw_regs *const vwbase, uint8_t host_i
 /* VWire's are grouped into 4 VWires per host index. Read the states of the VWires
  * and pack them into bits[3:0] of the byte pointed to by groupval.
  */
-int mec_hal_espi_vw_get_group(struct mec_espi_vw_regs *const vwbase,
-                              uint8_t host_index, uint8_t *groupval)
+int mec_hal_espi_vw_get_group(uintptr_t vwrb, uint8_t host_index, uint8_t *groupval)
 {
     int ret = MEC_RET_ERR_INVAL;
-    int idx = lookup_ct_vw_by_host_index(vwbase, host_index);
+    int idx = lookup_ct_vw_by_host_index(vwrb, host_index);
 
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_ct_group_get(vwbase, (uint8_t)idx & 0x7fu, groupval);
+        ret = mec_hal_espi_vw_ct_group_get(vwrb, (uint8_t)idx & 0x7fu, groupval);
     }
 
-    idx = lookup_tc_vw_by_host_index(vwbase, host_index);
+    idx = lookup_tc_vw_by_host_index(vwrb, host_index);
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_tc_group_get(vwbase, (uint8_t)idx & 0x7fu, groupval);
+        ret = mec_hal_espi_vw_tc_group_get(vwrb, (uint8_t)idx & 0x7fu, groupval);
     }
 
     return ret;
@@ -1232,20 +1294,19 @@ int mec_hal_espi_vw_get_group(struct mec_espi_vw_regs *const vwbase,
  * b[3:0] is set then set that VWire's state to the corresponding bit in
  * groupval.
  */
-int mec_hal_espi_vw_set_group(struct mec_espi_vw_regs *const vwbase, uint8_t host_index,
-                              uint8_t groupval, uint8_t groupmsk, uint32_t flags)
+int mec_hal_espi_vw_set_group(uintptr_t vwrb, uint8_t host_index, uint8_t groupval,
+                              uint8_t groupmsk, uint32_t flags)
 {
     int ret = MEC_RET_ERR_INVAL;
-    int idx = lookup_ct_vw_by_host_index(vwbase, host_index);
+    int idx = lookup_ct_vw_by_host_index(vwrb, host_index);
 
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_ct_group_set(vwbase, (uint8_t)idx & 0x7fu, groupval, groupmsk);
+        ret = mec_hal_espi_vw_ct_group_set(vwrb, (uint8_t)idx & 0x7fu, groupval, groupmsk);
     }
 
-    idx = lookup_tc_vw_by_host_index(vwbase, host_index);
+    idx = lookup_tc_vw_by_host_index(vwrb, host_index);
     if (idx >= 0) {
-        ret = mec_hal_espi_vw_tc_group_set(vwbase, (uint8_t)idx & 0x7fu,
-                                           groupval, groupmsk, flags);
+        ret = mec_hal_espi_vw_tc_group_set(vwrb, (uint8_t)idx & 0x7fu, groupval, groupmsk, flags);
     }
 
     return ret;

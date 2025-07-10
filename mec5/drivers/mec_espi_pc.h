@@ -16,11 +16,6 @@ extern "C"
 {
 #endif
 
-/* forward declarations */
-struct mec_espi_io_regs;
-struct mec_espi_mem_regs;
-struct mec_espi_vw_regs;
-
 /* ---- eSPI Peripheral Channel ---- */
 
 /* eSPI Host Logical Device numbers */
@@ -49,8 +44,7 @@ enum mec_espi_ldn {
     MEC_ESPI_LDN_BDBG0 = 32,
     MEC_ESPI_LDN_BDBG0_ALIAS,
     MEC_ESPI_LDN_TB32 = 47,
-    MEC_ESPI_LDN_EC = 66,
-    MEC_ESPI_LDN_MAX,
+    MEC_ESPI_LDN_MAX = 64,
 };
 
 /* Logical devices using Serial IRQ implement one SIRQ except:
@@ -103,29 +97,28 @@ struct mec_espi_pc_last_cycle {
     uint8_t tag;
 };
 
-void mec_hal_espi_pc_ready_set(struct mec_espi_io_regs *iobase);
+void mec_hal_espi_pc_ready_set(uintptr_t iobase);
 /* return 1 is ready else 0 */
-int mec_hal_espi_pc_is_ready(struct mec_espi_io_regs *iobase);
+int mec_hal_espi_pc_is_ready(uintptr_t iobase);
 
 /* return bits indicating eSPI peripheral channel enable has changed and the
  * channel enable's current state.
  */
-uint32_t mec_hal_espi_pc_en_status(struct mec_espi_io_regs *iobase);
-uint32_t mec_hal_espi_pc_bm_status(struct mec_espi_io_regs *iobase);
+uint32_t mec_hal_espi_pc_en_status(uintptr_t iobase);
+uint32_t mec_hal_espi_pc_bm_status(uintptr_t iobase);
 
 /* return status bit map interpreted using mec_espi_pc_status_pos bit positions */
-uint32_t mec_hal_espi_pc_status(struct mec_espi_io_regs *iobase);
-void mec_hal_espi_pc_status_clr(struct mec_espi_io_regs *iobase, uint32_t bitmap);
-void mec_hal_espi_pc_status_clr_all(struct mec_espi_io_regs *iobase);
+uint32_t mec_hal_espi_pc_status(uintptr_t iobase);
+void mec_hal_espi_pc_status_clr(uintptr_t iobase, uint32_t bitmap);
+void mec_hal_espi_pc_status_clr_all(uintptr_t iobase);
 
-void mec_hal_espi_pc_intr_en(struct mec_espi_io_regs *iobase, uint32_t bitmap);
-void mec_hal_espi_pc_intr_dis(struct mec_espi_io_regs *iobase, uint32_t bitmap);
+void mec_hal_espi_pc_intr_en(uintptr_t iobase, uint32_t bitmap);
+void mec_hal_espi_pc_intr_dis(uintptr_t iobase, uint32_t bitmap);
 
 /* Get 64-bit address sent by Host which caused an error */
-uint64_t mec_hal_espi_pc_error_addr(struct mec_espi_io_regs *iobase);
+uint64_t mec_hal_espi_pc_error_addr(uintptr_t iobase);
 
-void mec_hal_espi_pc_last_cycle(struct mec_espi_io_regs *iobase,
-                            struct mec_espi_pc_last_cycle *lc);
+void mec_hal_espi_pc_last_cycle(uintptr_t iobase, struct mec_espi_pc_last_cycle *lc);
 
 void mec_hal_espi_pc_girq_ctrl(uint8_t enable);
 void mec_hal_espi_pc_girq_status_clr(void);
@@ -140,10 +133,10 @@ enum mec_espi_pc_ltr_intr_pos {
     MEC_ESPI_PC_LTR_INTR_TX_BUSY_POS = 8
 };
 
-uint32_t mec_hal_espi_pc_ltr_status(struct mec_espi_io_regs *iobase);
-void mec_hal_espi_pc_ltr_intr_en(struct mec_espi_io_regs *iobase, uint32_t enmask);
-void mec_hal_espi_pc_ltr_ctrl(struct mec_espi_io_regs *iobase, uint8_t tag, uint8_t start);
-void mec_hal_espi_pc_ltr_msg(struct mec_espi_io_regs *iobase, uint16_t nunits, uint8_t time_unit,
+uint32_t mec_hal_espi_pc_ltr_status(uintptr_t iobase);
+void mec_hal_espi_pc_ltr_intr_en(uintptr_t iobase, uint32_t enmask);
+void mec_hal_espi_pc_ltr_ctrl(uintptr_t iobase, uint8_t tag, uint8_t start);
+void mec_hal_espi_pc_ltr_msg(uintptr_t iobase, uint16_t nunits, uint8_t time_unit,
                              uint8_t rsvd_bits, uint8_t max_lat);
 void mec_hal_espi_pc_ltr_girq_ctrl(uint8_t enable);
 void mec_hal_espi_pc_ltr_girq_status_clr(void);
@@ -156,23 +149,25 @@ uint32_t mec_hal_espi_pc_ltr_girq_result(void);
  * in reset by the SoC's VCC Power Good signal and the state of the nPLTRST signal.
  * nPLTRST can be a virtual wire or an external signal (legacy systems).
  */
-int mec_hal_espi_iobar_cfg(struct mec_espi_io_regs *base, uint8_t ldn, uint16_t io_base,
-                           uint8_t enable);
-int mec_hal_espi_iobar_enable(struct mec_espi_io_regs *base, uint8_t ldn, uint8_t enable);
-int mec_hal_espi_iobar_is_enabled(struct mec_espi_io_regs *base, uint8_t ldn);
-uint32_t mec_hal_espi_iobar_mask(struct mec_espi_io_regs *base, uint8_t ldn);
-int mec_hal_espi_iobar_mask_set(struct mec_espi_io_regs *base, uint8_t ldn, uint8_t mask);
+int mec_hal_espi_iobar_cfg(uintptr_t regbase, uint8_t ldn, uint16_t io_base, uint8_t enable);
+int mec_hal_espi_iobar_enable(uintptr_t regbase, uint8_t ldn, uint8_t enable);
+int mec_hal_espi_iobar_is_enabled(uintptr_t regbase, uint8_t ldn);
+uint32_t mec_hal_espi_iobar_mask(uintptr_t regbase, uint8_t ldn);
+int mec_hal_espi_iobar_mask_set(uintptr_t regbase, uint8_t ldn, uint8_t mask);
 
 /* Inhibit both I/O and Memory BAR for a logical device or a bit map of LDNs */
-int mec_hal_espi_bar_inhibit(struct mec_espi_io_regs *base, uint8_t ldn, uint8_t inhibit);
-int mec_hal_espi_bar_inhibit_msk(struct mec_espi_io_regs *base, uint8_t inhibit,
+int mec_hal_espi_bar_inhibit(uintptr_t regbase, uint8_t ldn, uint8_t inhibit);
+int mec_hal_espi_bar_inhibit_msk(uintptr_t regbase, uint8_t inhibit,
                                  uint32_t msklo, uint32_t mskhi);
 
-int mec_hal_espi_mbar_enable(struct mec_espi_mem_regs *base, uint8_t ldn, uint8_t enable);
-int mec_hal_espi_mbar_is_enabled(struct mec_espi_mem_regs *base, uint8_t ldn);
-int mec_hal_espi_mbar_cfg(struct mec_espi_mem_regs *base, uint8_t ldn, uint32_t mem_base,
-                          uint8_t enable);
-int mec_hal_espi_mbar_extended_addr_set(struct mec_espi_mem_regs *base, uint32_t extended_addr);
+/* No base address API */
+int mec_hal_espi_io_bar_is_enabled(uint8_t ldn);
+int mec_hal_espi_mem_bar_is_enabled(uint8_t ldn);
+
+int mec_hal_espi_mbar_enable(uintptr_t mrbase, uint8_t ldn, uint8_t enable);
+int mec_hal_espi_mbar_is_enabled(uintptr_t mrbase, uint8_t ldn);
+int mec_hal_espi_mbar_cfg(uintptr_t mrbase, uint8_t ldn, uint32_t mem_base, uint8_t enable);
+int mec_hal_espi_mbar_extended_addr_set(uintptr_t mrbase, uint32_t extended_addr);
 
 enum espi_mec5_sram_bar_id {
     MEC_ESPI_SRAM_BAR_0 = 0,
@@ -214,48 +209,44 @@ struct espi_mec5_sram_bar_cfg {
     uint8_t access;
 };
 
-int mec_hal_espi_sram_bar_cfg(struct mec_espi_mem_regs *base,
+int mec_hal_espi_sram_bar_cfg(uintptr_t mrbase,
                               const struct espi_mec5_sram_bar_cfg *barcfg,
                               uint8_t sram_bar_id, uint8_t enable);
-int mec_hal_espi_sram_bar_extended_addr_set(struct mec_espi_mem_regs *base,
-                                            uint32_t extended_addr);
+
+int mec_hal_espi_sram_bar_extended_addr_set(uintptr_t mrbase, uint32_t extended_addr);
 
 /* eSPI SRAM BARs EC memory location, size, access, and enable can be programmed
  * while ESPI_nRESET or nPLTRST are active. Host address cannot.
  */
-int mec_hal_espi_sram_bar_ec_mem_cfg(struct mec_espi_mem_regs *regs, uint8_t sram_bar_id,
+int mec_hal_espi_sram_bar_ec_mem_cfg(uintptr_t mrbase, uint8_t sram_bar_id,
                                      uint32_t maddr, uint16_t size, uint8_t access,
                                      uint8_t enable);
 
-int mec_hal_espi_sram_bar_enable(struct mec_espi_mem_regs *base, uint8_t sram_bar_id,
-                                 uint8_t enable);
+int mec_hal_espi_sram_bar_enable(uintptr_t mrbase, uint8_t sram_bar_id, uint8_t enable);
 
-int mec_hal_espi_sram_bar_host_addr_set(struct mec_espi_mem_regs *base, uint8_t sram_bar_id,
-                                        uint32_t host_addr_lsw, uint32_t host_addr_msw);
+int mec_hal_espi_sram_bar_host_addr_set(uintptr_t mrbase, uint8_t sram_bar_id,
+                                        uint32_t host_addr_lsw);
 
 /* get specified SRAM BAR size in bytes */
-int mec_hal_espi_sram_bar_size_get(struct mec_espi_mem_regs *base, uint8_t sram_bar_id,
-                                   size_t *size);
+int mec_hal_espi_sram_bar_size_get(uintptr_t mrbase, uint8_t sram_bar_id, size_t *size);
 
 /* get access mode */
-int mec_hal_espi_sram_bar_access_get(struct mec_espi_mem_regs *base, uint8_t sram_bar_id,
-                                     int *access);
+int mec_hal_espi_sram_bar_access_get(uintptr_t mrbase, uint8_t sram_bar_id, int *access);
 
 /* Return the number of Serial IRQ's a logical device implements */
-uint8_t mec_hal_espi_ld_sirq_num(struct mec_espi_io_regs *iobase, uint8_t ldn);
+uint8_t mec_hal_espi_ld_sirq_num(uintptr_t regbase, uint8_t ldn);
 
 /* Get/set Serial IRQ slot(interrupt) number for a logical device.
  * Some logical devices implement more than one SIRQ selected by ldn_sirq_id (zero based)
  */
-uint8_t mec_hal_espi_ld_sirq_get(struct mec_espi_io_regs *iobase, uint8_t ldn,
-                                 uint8_t ldn_sirq_id);
-void mec_hal_espi_ld_sirq_set(struct mec_espi_io_regs *iobase, uint8_t ldn,
-                              uint8_t ldn_sirq_id, uint8_t slot);
+uint8_t mec_hal_espi_ld_sirq_get(uintptr_t regbase, uint8_t ldn, uint8_t ldn_sirq_id);
+
+void mec_hal_espi_ld_sirq_set(uintptr_t regbase, uint8_t ldn, uint8_t ldn_sirq_id, uint8_t slot);
 
 /* Generate EC_IRQ Serial IRQ to the Host using the Serial IRQ slot
  * number previously programmed by mec_espi_ld_sirq_set().
  */
-int mec_hal_espi_gen_ec_sirq(struct mec_espi_io_regs *iobase, uint8_t val);
+int mec_hal_espi_gen_ec_sirq(uintptr_t regbase, uint8_t val);
 
 #ifdef __cplusplus
 }
