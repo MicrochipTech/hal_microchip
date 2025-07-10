@@ -18,46 +18,15 @@ extern "C"
 {
 #endif
 
-/* Encoded information of a MEC5 peripheral interrupt source.
- * g = GIRQ number in data sheet: 8 <= g <= 26
- * gb = bit position in 32-bit GIRQ source register.
- * na = NVIC external input the aggregated GIRQ output is connected to.
- * nd = NVIC external input this individual source is connected to. If
- *      the source does not have a direct NVIC connection use 0xff.
- * Examples:
- * GPIO 0101 is bit 1 of Aggregated GIRQ9 connected to NVIC external
- * input 1. GIRQ9 has no direct NVIC connections.
- * MEC5_ECIA_INFO(9, 1, 1, 255)
- *
- * Basic timer 5 is bit 5 of GIRQ23 connected to NVIC external input 14
- * and has direct NVIC input 141
- * MEC5_ECIA_INFO(23, 5, 14, 141)
- */
-#define MEC5_ECIA_INFO(g, gb, na, nd) \
-        ((((uint32_t)(g) - 8u) & 0x1fu) | (((uint32_t)(gb) & 0x1fu) << 8) \
-         | (((uint32_t)(na) & 0xffu) << 16) | (((uint32_t)(nd) & 0xffu) << 24))
-
-/* Extract the zero-based GIRQ number */
-#define MEC5_ECIA_INFO_GIRQZ(info) ((uint32_t)(info) & 0x1fu)
-/* Get GIRQ number */
-#define MEC_ECIA_INFO_GIRQ(info) (MEC5_ECIA_INFO_GIRQZ(info) + MEC5_ECIA_FIRST_GIRQ_NOS)
-/* extract GIRQ bit position */
-#define MEC5_ECIA_INFO_GIRQ_POS(info) (((uint32_t)(info) >> 8) & 0x1fu)
-/* extract the Aggregated GIRQ NVIC external input number */
-#define MEC5_ECIA_INFO_NVIC_AGGR(info) (((uint32_t)(info) >> 16) & 0xffu)
-/* extract the Direct GIRQ NVIC external input number */
-#define MEC5_ECIA_INFO_NVIC_DIRECT(info) (((uint32_t)(info) >> 24) & 0xffu)
-
 /*
  * Globally disables maskable interrupts in CPU.
  * Configure MEC5 ECIA.
  * Disables and clears all external NVIC enables.
  * Sets all external NVIC priorities to dflt_priority.
  * Leaves interrupts globally masked off.
+ * No flags defined at this time
  */
-#define MEC_ECIA_INIT_FLAG_ALL_DIRECT_GIRQ 1
-#define MEC_ECIA_INIT_FLAG_ALL_DIRECT_NVIC 2
-#define MEC_ECIA_INIT_FLAG_ALL_AGGR_GIRQ 4
+#define MEC_ECIA_INIT_FLAG_NO_CLEAR 0x01 /* do not clear GIRQ status or NVIC pending */
 
 void mec_hal_ecia_init(uint32_t direct_bitmap, uint8_t dflt_priority, uint32_t flags);
 
