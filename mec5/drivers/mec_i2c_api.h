@@ -12,14 +12,14 @@
 
 #include "mec_defs.h"
 #include "mec_retval.h"
+#include <mec_i2c_regs.h>
+#include "mec_mmcr.h"
 
 /* Interfaces to any C modules */
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-#define MEC_I2C_SMB_BASE(i) (MEC_I2C_SMB0_BASE + ((uint32_t)(i) * 0x400u))
 
 #define MEC_I2C_SMB_BAUD_CLK_FREQ_HZ 16000000u
 
@@ -141,12 +141,9 @@ struct mec_i2c_smb_cfg {
     uint8_t target_addr2;
 };
 
-/* forward declaration */
-struct mec_i2c_smb_regs;
-
 /* MEC I2C-SMB Control structure required by API */
 struct mec_i2c_smb_ctx {
-    struct mec_i2c_smb_regs *base;
+    uintptr_t regbase;
     uint32_t devi;
     uint16_t wrcnt;
     uint16_t rdcnt;
@@ -160,14 +157,14 @@ int mec_hal_i2c_smb_reset(struct mec_i2c_smb_ctx *ctx);
 int mec_hal_i2c_smb_init(struct mec_i2c_smb_ctx *ctx, struct mec_i2c_smb_cfg *config,
                          struct mec_i2c_freq_cfg *custom_freq_cfg);
 
-int mec_hal_i2c_smb_get_id(struct mec_i2c_smb_regs *regs, uint8_t *ctrl_id);
+int mec_hal_i2c_smb_get_id(uintptr_t regbase, uint8_t *ctrl_id);
 
-int mec_hal_i2c_smb_bus_freq_get(struct mec_i2c_smb_regs *regs, uint32_t *bus_freq_hz);
+int mec_hal_i2c_smb_bus_freq_get(uintptr_t regbase, uint32_t *bus_freq_hz);
 int mec_hal_i2c_smb_bus_freq_get_by_ctx(struct mec_i2c_smb_ctx *ctx, uint32_t *bus_freq_hz);
 int mec_hal_i2c_smb_bus_freq_get_by_id(uint8_t i2c_id, uint32_t *bus_freq_hz);
 
-uint8_t mec_hal_i2c_smb_port_get(struct mec_i2c_smb_regs *regs);
-uint8_t mec_hal_i2c_smb_port_set(struct mec_i2c_smb_regs *regs, uint8_t port);
+uint8_t mec_hal_i2c_smb_port_get(uintptr_t regbase);
+uint8_t mec_hal_i2c_smb_port_set(uintptr_t regbase, uint8_t port);
 
 int mec_hal_i2c_smb_ctrl_set(struct mec_i2c_smb_ctx *ctx, uint8_t ctrl);
 uint8_t mec_hal_i2c_smb_ctrl_get(struct mec_i2c_smb_ctx *ctx);
@@ -251,7 +248,7 @@ int mec_hal_i2c_nl_cm_cfg_start(struct mec_i2c_smb_ctx *ctx, uint16_t ntx, uint1
 /* I2C-NL CM start without context. If cm_cm_val is not NULL it saves the synthesized
  * CM_CMD register value into cm_cm_val before writing HW CM_CMD register.
  */
-int mec_hal_i2c_nl_cm_start(struct mec_i2c_smb_regs *i2c_regs, uint16_t ntx, uint16_t nrx,
+int mec_hal_i2c_nl_cm_start(uintptr_t rebgase, uint16_t ntx, uint16_t nrx,
                             uint32_t flags, uint32_t *cm_cmd_val);
 
 int mec_hal_i2c_nl_cm_start_by_id(uint8_t i2c_ctrl_id, uint16_t ntx, uint16_t nrx, uint32_t flags,
@@ -266,7 +263,7 @@ int mec_hal_i2c_nl_tm_proceed(struct mec_i2c_smb_ctx *ctx);
 
 uint32_t mec_hal_i2c_nl_cmd_get(struct mec_i2c_smb_ctx *ctx, uint8_t is_tm);
 
-int mec_hal_i2c_nl_state_get(struct mec_i2c_smb_regs *regs, struct mec_i2c_smb_nl_state *state,
+int mec_hal_i2c_nl_state_get(uintptr_t regbase, struct mec_i2c_smb_nl_state *state,
                              uint8_t is_tm);
 
 uint32_t mec_hal_i2c_nl_get_events(struct mec_i2c_smb_ctx *ctx, uint8_t is_tm);
@@ -274,32 +271,32 @@ uint32_t mec_hal_i2c_nl_get_events(struct mec_i2c_smb_ctx *ctx, uint8_t is_tm);
 #define MEC_I2C_NL_CM_DIR_WR 0
 #define MEC_I2C_NL_CM_DIR_RD 1
 
-uint32_t mec_hal_i2c_nl_cm_xfr_count_get(struct mec_i2c_smb_regs *regs, uint8_t is_read);
-int mec_hal_i2c_nl_cm_xfr_count_set(struct mec_i2c_smb_regs *regs, uint8_t is_read, uint32_t cnt);
+uint32_t mec_hal_i2c_nl_cm_xfr_count_get(uintptr_t regbase, uint8_t is_read);
+int mec_hal_i2c_nl_cm_xfr_count_set(uintptr_t regbase, uint8_t is_read, uint32_t cnt);
 
-static inline void mec_hal_i2c_nl_flush_buffers(struct mec_i2c_smb_regs *regs)
+static inline void mec_hal_i2c_nl_flush_buffers(uintptr_t regbase)
 {
-    regs->CONFIG |= (MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_TM_TXB_Pos)
-                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_TM_RXB_Pos)
-                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_CTXB_Pos)
-                     | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_CRXB_Pos));
+    uint32_t mask = (MEC_BIT(MEC_I2C_CFG_FTTX_POS) | MEC_BIT(MEC_I2C_CFG_FTRX_POS) |
+                     MEC_BIT(MEC_I2C_CFG_FHTX_POS) | MEC_BIT(MEC_I2C_CFG_FHRX_POS));
+
+    mmcr32_set_bits(regbase + MEC_I2C_CFG_OFS, mask);
 }
 
 /* Get copy of address transmitted by external controller.
  * b[0]=nW/R, b[7:1]=7-bit I2C target address.
  * Reading this register does not trigger HW FSM to change state.
  */
-static inline uint8_t mec_hal_i2c_nl_shad_addr_get(struct mec_i2c_smb_regs *regs)
+static inline uint8_t mec_hal_i2c_nl_shad_addr_get(uintptr_t regbase)
 {
-    return (uint8_t)(regs->SHAD_ADDR & 0xffu);
+    return mmcr8_rd(regbase + MEC_I2C_IAS_OFS);
 }
 
 /* Get copy of last data byte transmitted or received.
  * Reading this register does not trigger HW FSM to change state.
  */
-static inline uint8_t mec_hal_i2c_nl_shad_data_get(struct mec_i2c_smb_regs *regs)
+static inline uint8_t mec_hal_i2c_nl_shad_data_get(uintptr_t regbase)
 {
-    return (uint8_t)(regs->SHAD_DATA & 0xffu);
+    return mmcr8_rd(regbase + MEC_I2C_IDS_OFS);
 }
 
 /* ---- I2C-NL Target Mode ---- */
@@ -317,7 +314,7 @@ int mec_hal_i2c_nl_tm_config(struct mec_i2c_smb_ctx *ctx, uint16_t ntx, uint16_t
 #define MEC_I2C_NL_TM_DIR_RX 1 /* We clock in data from external Controller */
 
 uint32_t mec_hal_i2c_nl_tm_xfr_count_get(struct mec_i2c_smb_ctx *ctx, uint8_t is_rx);
-int mec_hal_i2c_nl_tm_xfr_count_set(struct mec_i2c_smb_regs *regs, uint8_t is_read, uint32_t cnt);
+int mec_hal_i2c_nl_tm_xfr_count_set(uintptr_t regbase, uint8_t is_read, uint32_t cnt);
 uint32_t mec_hal_i2c_nl_tm_transfered(struct mec_i2c_smb_ctx *ctx, uint8_t is_rx);
 
 /* ---- Power Management ---- */

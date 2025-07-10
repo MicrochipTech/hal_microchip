@@ -68,17 +68,17 @@
  * a minimum 1/2 I2C clock period after the 9th clock pulse of the previous
  * data on the bus.
  */
-#define MEC_I2C_SMB_COMPL_STS_RW1C_MSK 0xe1397f00u
-#define MEC_I2C_SMB_COMPL_STS_RO_MSK   0x02020040u
-#define MEC_I2C_SMB_COMPL_EN_RW_MSK    0x3cu
+#define MEC_I2C_SMB_COMPL_STS_RW1C_MSK    0xe1397f00u
+#define MEC_I2C_SMB_COMPL_STS_RO_MSK      0x02020040u
+#define MEC_I2C_SMB_COMPL_EN_RW_MSK       0x3cu
 #define MEC_I2C_SMB_COMPL_TM_STS_RW1C_MSK 0x80390000u
-#define MEC_I2C_SMB_COMPL_TM_STS_ALL_MSK 0x803b0000u
+#define MEC_I2C_SMB_COMPL_TM_STS_ALL_MSK  0x803b0000u
 
-#define MEC_I2C_SMB0_ECIA_INFO MEC5_ECIA_INFO(13, 0, 5, 20)
-#define MEC_I2C_SMB1_ECIA_INFO MEC5_ECIA_INFO(13, 1, 5, 21)
-#define MEC_I2C_SMB2_ECIA_INFO MEC5_ECIA_INFO(13, 2, 5, 22)
-#define MEC_I2C_SMB3_ECIA_INFO MEC5_ECIA_INFO(13, 3, 5, 23)
-#define MEC_I2C_SMB4_ECIA_INFO MEC5_ECIA_INFO(13, 4, 5, 158)
+#define MEC_I2C_SMB0_ECIA_INFO MEC_ECIA_INFO(13, 0, 5, 20)
+#define MEC_I2C_SMB1_ECIA_INFO MEC_ECIA_INFO(13, 1, 5, 21)
+#define MEC_I2C_SMB2_ECIA_INFO MEC_ECIA_INFO(13, 2, 5, 22)
+#define MEC_I2C_SMB3_ECIA_INFO MEC_ECIA_INFO(13, 3, 5, 23)
+#define MEC_I2C_SMB4_ECIA_INFO MEC_ECIA_INFO(13, 4, 5, 158)
 
 /* #define MEC_I2C_NL_DEBUG_SAVE_CM_CMD */
 
@@ -123,12 +123,12 @@ static const struct mec_i2c_info i2c_instances[MEC5_I2C_SMB_INSTANCES] = {
     {MEC_I2C_SMB4_BASE, MEC_I2C_SMB4_ECIA_INFO, MEC_PCR_I2C_SMB4 },
 };
 
-static struct mec_i2c_info const *get_i2c_smb_info(struct mec_i2c_smb_regs *base)
+static struct mec_i2c_info const *get_i2c_smb_info(uintptr_t regbase)
 {
     for (int i = 0; i < MEC5_I2C_SMB_INSTANCES; i++) {
         const struct mec_i2c_info *p = &i2c_instances[i];
 
-        if (p->base_addr == (uintptr_t)base) {
+        if (p->base_addr == regbase) {
             return p;
         }
     }
@@ -142,7 +142,7 @@ int mec_hal_i2c_smb_reset(struct mec_i2c_smb_ctx *ctx)
         return MEC_RET_ERR_INVAL;
     }
 
-    const struct mec_i2c_info *info = get_i2c_smb_info(ctx->base);
+    const struct mec_i2c_info *info = get_i2c_smb_info(ctx->regbase);
 
     if (!info) {
         return MEC_RET_ERR_INVAL;
@@ -153,89 +153,89 @@ int mec_hal_i2c_smb_reset(struct mec_i2c_smb_ctx *ctx)
     return MEC_RET_OK;
 }
 
-static void i2c_timing(struct mec_i2c_smb_regs *base, const struct mec_i2c_freq_cfg *freq_cfg)
+static void i2c_timing(uintptr_t regbase, const struct mec_i2c_freq_cfg *freq_cfg)
 {
-    base->BUSCLK = freq_cfg->bus_clk;
-    base->RSHT = freq_cfg->rpt_start_hold_time;
-    base->DATATM = freq_cfg->data_timing;
-    base->IDLESC = freq_cfg->idle_scaling;
-    base->TMOUTSC = freq_cfg->timeout_scaling;
+    mmcr32_wr(freq_cfg->bus_clk, regbase + MEC_I2C_BCLK_OFS);
+    mmcr32_wr(freq_cfg->rpt_start_hold_time, regbase + MEC_I2C_RSHT_OFS);
+    mmcr32_wr(freq_cfg->data_timing, regbase + MEC_I2C_DT_OFS);
+    mmcr32_wr(freq_cfg->idle_scaling, regbase + MEC_I2C_ISC_OFS);
+    mmcr32_wr(freq_cfg->timeout_scaling, regbase + MEC_I2C_TOSC_OFS);
 }
 
 static void i2c_config(struct mec_i2c_smb_ctx *ctx, struct mec_i2c_smb_cfg *config,
                        struct mec_i2c_freq_cfg *custom_freq_cfg)
 {
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint8_t control = MEC_BIT(MEC_I2C_SMB_CTRL_PIN_Pos); /* clear low level HW status */
+    uintptr_t rb = ctx->regbase;
+    uint32_t v = 0;
+    uint8_t control = 0;
 
-    /* disable and set port MUX */
-    base->CONFIG = (((uint32_t)config->port << MEC_I2C_SMB_CONFIG_PORT_SEL_Pos)
-                    & MEC_I2C_SMB_CONFIG_PORT_SEL_Msk);
-    base->CONFIG |= MEC_BIT(MEC_I2C_SMB_CONFIG_FEN_Pos); /* enable digital filter */
+    /* disable, set port MUX, and enable digitial filter */
+    v = MEC_I2C_CFG_PORT_SET(config->port) | MEC_BIT(MEC_I2C_CFG_FEN_POS);
+    mmcr32_wr(v, rb + MEC_I2C_CFG_OFS);
 
-    base->CTRL = control;
-    ctx->i2c_ctrl_cached = control;
-
-    /* GCC 12 is generating a 16-bit load from an odd aligned address!
-     * base->OWN_ADDR = (uint32_t)config->target_addr1 | ((uint32_t)config->target_addr2 << 8);
-     * Try forcing it not to do that.
-     */
-    base->OWN_ADDR = config->target_addr2;
-    base->OWN_ADDR = (base->OWN_ADDR << 8) | config->target_addr1;
+    v = MEC_I2C_OA_1_SET(config->target_addr1) | MEC_I2C_OA_2_SET(config->target_addr2);
+    mmcr32_wr(v, rb + MEC_I2C_OA_OFS);
 
     if (config->cfg_flags & MEC_I2C_SMB_CFG_CUST_FREQ) {
-        i2c_timing(base, custom_freq_cfg);
+        i2c_timing(rb, custom_freq_cfg);
     } else {
-        i2c_timing(base, &freq_cfg_dflt[config->std_freq]);
+        i2c_timing(rb, &freq_cfg_dflt[config->std_freq]);
     }
 
-    base->COMPL = MEC_I2C_SMB_COMPL_STS_RW1C_MSK;
+    /* clear latched status in completion register */
+    mmcr32_wr(MEC_I2C_COMP_RW1C_MSK, rb + MEC_I2C_COMP_OFS);
 
-    /* Enable output drive and HW ACK generation */
-    control = (MEC_BIT(MEC_I2C_SMB_CTRL_PIN_Pos) | MEC_BIT(MEC_I2C_SMB_CTRL_ESO_Pos)
-               | MEC_BIT(MEC_I2C_SMB_CTRL_ACK_Pos));
+    /* Clear I2C PIN status, enable output drive and HW ACK generation */
+    control = (MEC_BIT(MEC_I2C_CR_PIN_POS) | MEC_BIT(MEC_I2C_SMB_CTRL_PIN_Pos) |
+               MEC_BIT(MEC_I2C_SMB_CTRL_ESO_Pos) | MEC_BIT(MEC_I2C_SMB_CTRL_ACK_Pos));
     ctx->i2c_ctrl_cached = control;
-    base->CTRL = control;
+    mmcr8_wr(control, rb + MEC_I2C_CR_OFS);
 
-    base->CONFIG |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENAB_Pos);
-    for (int i = 0; i < 8; i++) {
-        base->EXTLEN = 0;
+    /* enable I2C controller */
+    mmcr32_set_bit(rb + MEC_I2C_CFG_OFS, MEC_I2C_CFG_ENAB_POS);
+    for (int i = 0; i < 8; i++) { /* delay */
+        mmcr32_wr(0, rb + MEC_I2C_ELEN_OFS);
     }
-    base->COMPL |= MEC_I2C_SMB_COMPL_STS_RW1C_MSK;
+
+    /* clear latched status in completion register */
+    mmcr32_wr(MEC_I2C_COMP_RW1C_MSK, rb + MEC_I2C_COMP_OFS);
 }
 
-uint8_t mec_hal_i2c_smb_port_get(struct mec_i2c_smb_regs *regs)
+uint8_t mec_hal_i2c_smb_port_get(uintptr_t regbase)
 {
-    if (!regs) {
+    uint32_t v = 0;
+
+    if (regbase == 0) {
         return MEC_I2C_PORT_MAX;
     }
 
-    return (uint8_t)((regs->CONFIG & MEC_I2C_SMB_CONFIG_PORT_SEL_Msk)
-                     >> MEC_I2C_SMB_CONFIG_PORT_SEL_Pos);
+    v = mmcr32_rd(regbase + MEC_I2C_CFG_OFS);
+    return (uint8_t)MEC_I2C_CFG_PORT_GET(v);
 }
 
-uint8_t mec_hal_i2c_smb_port_set(struct mec_i2c_smb_regs *regs, uint8_t port)
+uint8_t mec_hal_i2c_smb_port_set(uintptr_t regbase, uint8_t port)
 {
-    if (!regs || (port >= MEC_I2C_PORT_MAX)) {
+    uint32_t v = 0;
+
+    if ((regbase == 0) || (port >= MEC_I2C_PORT_MAX)) {
         return MEC_I2C_PORT_MAX;
     }
 
-    uint32_t temp = (((uint32_t)port << MEC_I2C_SMB_CONFIG_PORT_SEL_Pos)
-                     | MEC_I2C_SMB_CONFIG_PORT_SEL_Msk);
+    v = MEC_I2C_CFG_PORT_SET(port);
 
-    regs->CONFIG = (regs->CONFIG & (uint32_t)~MEC_I2C_SMB_CONFIG_PORT_SEL_Msk) | temp;
+    mmcr32_update_field(regbase + MEC_I2C_CFG_OFS, v, MEC_I2C_CFG_PORT_MSK);
 
     return port;
 }
 
-int mec_hal_i2c_smb_get_id(struct mec_i2c_smb_regs *regs, uint8_t *ctrl_id)
+int mec_hal_i2c_smb_get_id(uintptr_t regbase, uint8_t *ctrl_id)
 {
-    if (!ctrl_id) {
+    if (ctrl_id == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
     for (uint8_t i = 0; i < MEC5_I2C_SMB_INSTANCES; i++) {
-        if (i2c_instances[i].base_addr == (uintptr_t)regs) {
+        if (i2c_instances[i].base_addr == regbase) {
             *ctrl_id = i;
             return MEC_RET_OK;
         }
@@ -244,17 +244,17 @@ int mec_hal_i2c_smb_get_id(struct mec_i2c_smb_regs *regs, uint8_t *ctrl_id)
     return MEC_RET_ERR_INVAL;
 }
 
-int mec_hal_i2c_smb_bus_freq_get(struct mec_i2c_smb_regs *regs, uint32_t *bus_freq_hz)
+int mec_hal_i2c_smb_bus_freq_get(uintptr_t regbase, uint32_t *bus_freq_hz)
 {
-    uint32_t busclk = 0, lcnt = 0, hcnt = 0;
+    uint32_t v = 0, lcnt = 0, hcnt = 0;
 
-    if (!regs || !bus_freq_hz) {
+    if ((regbase == 0) || (bus_freq_hz == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    busclk = regs->BUSCLK;
-    lcnt = busclk & 0xffu;
-    hcnt = (busclk >> 8) & 0xffu;
+    v = mmcr32_rd(regbase + MEC_I2C_BCLK_OFS);
+    lcnt = MEC_I2C_BCLK_LOP_GET(v);
+    hcnt = MEC_I2C_BCLK_HIP_GET(v);
 
     *bus_freq_hz = MEC_I2C_SMB_BAUD_CLK_FREQ_HZ / ((lcnt + 1u) + (hcnt + 1u));
 
@@ -266,59 +266,57 @@ int mec_hal_i2c_smb_bus_freq_get(struct mec_i2c_smb_regs *regs, uint32_t *bus_fr
  */
 int mec_hal_i2c_smb_bus_freq_get_by_ctx(struct mec_i2c_smb_ctx *ctx, uint32_t *bus_freq_hz)
 {
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 
-    struct mec_i2c_smb_regs *regs = ctx->base;
-
-    return mec_hal_i2c_smb_bus_freq_get(regs, bus_freq_hz);
+    return mec_hal_i2c_smb_bus_freq_get(ctx->regbase, bus_freq_hz);
 }
 
 int mec_hal_i2c_smb_bus_freq_get_by_id(uint8_t i2c_id, uint32_t *bus_freq_hz)
 {
-    struct mec_i2c_smb_regs *regs = NULL;
+    uintptr_t regbase = 0;
 
     if (i2c_id >= MEC5_I2C_SMB_INSTANCES) {
         return MEC_RET_ERR_INVAL;
     }
 
-    regs = (struct mec_i2c_smb_regs *)MEC_I2C_SMB_BASE(i2c_id);
+    regbase = MEC_I2C_SMB_BASE(i2c_id);
 
-    return mec_hal_i2c_smb_bus_freq_get(regs, bus_freq_hz);
+    return mec_hal_i2c_smb_bus_freq_get(regbase, bus_freq_hz);
 }
 
 int mec_hal_i2c_smb_init(struct mec_i2c_smb_ctx *ctx, struct mec_i2c_smb_cfg *config,
                          struct mec_i2c_freq_cfg *custom_freq_cfg)
 {
-    uint32_t own_addrs = 0;
+    uint32_t v = 0;
 
-    if (!ctx) {
+    if (ctx == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
-    const struct mec_i2c_info *info = get_i2c_smb_info(ctx->base);
+    const struct mec_i2c_info *info = get_i2c_smb_info(ctx->regbase);
 
-    if (!info || !config) {
+    if ((info == NULL) || (config == NULL)) {
         return MEC_RET_ERR_INVAL;
     }
 
     ctx->devi = info->devi;
 
     if (config->cfg_flags & MEC_I2C_SMB_CFG_PRESERVE_TARGET_ADDRS) {
-        own_addrs = ctx->base->OWN_ADDR;
-        config->target_addr1 = (uint8_t)(own_addrs & 0x7fu);
-        config->target_addr2 = (uint8_t)((own_addrs >> 8) & 0x7fu);
+        v = mmcr32_rd(ctx->regbase + MEC_I2C_OA_OFS);
+        config->target_addr1 = (uint8_t)MEC_I2C_OA_1_GET(v);
+        config->target_addr2 = (uint8_t)MEC_I2C_OA_2_GET(v);
     }
 
     mec_hal_pcr_clr_blk_slp_en(info->pcr_id);
     mec_hal_pcr_blk_reset(info->pcr_id);
 
-    if (!(MEC_BIT(config->port) & MEC5_I2C_SMB_PORT_MAP)) {
+    if ((MEC_BIT(config->port) & MEC5_I2C_SMB_PORT_MAP) == 0) {
         return MEC_RET_ERR_INVAL;
     }
 
-    if ((config->cfg_flags & MEC_I2C_SMB_CFG_CUST_FREQ) && !custom_freq_cfg) {
+    if (((config->cfg_flags & MEC_I2C_SMB_CFG_CUST_FREQ) != 0) && (custom_freq_cfg == 0)) {
         return MEC_RET_ERR_INVAL;
     } else if (config->std_freq >= MEC_I2C_STD_FREQ_MAX) {
         return MEC_RET_ERR_INVAL;
@@ -340,39 +338,41 @@ int mec_hal_i2c_smb_init(struct mec_i2c_smb_ctx *ctx, struct mec_i2c_smb_cfg *co
 static int mec_hal_i2c_smb_own_addr(struct mec_i2c_smb_ctx *ctx, uint8_t tid,
                                     uint16_t new_addr, uint16_t *curr_addr)
 {
-    uint32_t msk = 0;
-    uint8_t pos = 0;
+    uint32_t v = 0;
 
-    if (!ctx) {
+    if (ctx == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
-    const struct mec_i2c_info *info = get_i2c_smb_info(ctx->base);
+    const struct mec_i2c_info *info = get_i2c_smb_info(ctx->regbase);
 
-    if (!info) {
+    if (info == NULL) {
         return MEC_RET_ERR_INVAL;
     }
+
+    v = mmcr32_rd(ctx->regbase + MEC_I2C_OA_OFS);
 
     switch (tid) {
     case MEC_I2C_TARGET_ADDR_0:
-        msk = MEC_I2C_SMB_OWN_ADDR_OAD0_Msk;
-        pos = MEC_I2C_SMB_OWN_ADDR_OAD0_Pos;
+        if (curr_addr == NULL) { /* set */
+            v &= (uint32_t)~MEC_I2C_OA_1_MSK;
+            v |= MEC_I2C_OA_1_SET((uint32_t)new_addr);
+            mmcr32_wr(v, ctx->regbase + MEC_I2C_OA_OFS);
+        } else { /* get */
+            *curr_addr = (uint16_t)MEC_I2C_OA_1_GET(v);
+        }
         break;
     case MEC_I2C_TARGET_ADDR_1:
-        msk = MEC_I2C_SMB_OWN_ADDR_OAD1_Msk;
-        pos = MEC_I2C_SMB_OWN_ADDR_OAD1_Pos;
+        if (curr_addr == NULL) { /* set */
+            v &= (uint32_t)~MEC_I2C_OA_2_MSK;
+            v |= MEC_I2C_OA_2_SET((uint32_t)new_addr);
+            mmcr32_wr(v, ctx->regbase + MEC_I2C_OA_OFS);
+        } else { /* get */
+            *curr_addr = (uint16_t)MEC_I2C_OA_2_GET(v);
+        }
         break;
     default:
         return MEC_RET_ERR_INVAL;
-    }
-
-    struct mec_i2c_smb_regs *regs = ctx->base;
-
-    if (curr_addr) {
-        *curr_addr = (uint16_t)((regs->OWN_ADDR & msk) >> pos);
-    } else {
-        regs->OWN_ADDR = ((regs->OWN_ADDR & (uint32_t)~msk)
-                          | (((uint32_t)new_addr << pos) & msk));
     }
 
     return MEC_RET_OK;
@@ -381,7 +381,7 @@ static int mec_hal_i2c_smb_own_addr(struct mec_i2c_smb_ctx *ctx, uint8_t tid,
 int mec_hal_i2c_smb_get_target_addr(struct mec_i2c_smb_ctx *ctx, uint8_t target_id,
                                     uint16_t *target_addr)
 {
-    if (!target_addr) {
+    if (target_addr == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
@@ -396,20 +396,20 @@ int mec_hal_i2c_smb_set_target_addr(struct mec_i2c_smb_ctx *ctx, uint8_t target_
 
 int mec_hal_i2c_smb_clr_target_addr(struct mec_i2c_smb_ctx *ctx, uint16_t target_addr)
 {
-    if (!ctx) {
+    if (ctx == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
-    struct mec_i2c_smb_regs *regs = ctx->base;
-    uint32_t oaddr = regs->OWN_ADDR;
-    uint32_t taddr = (oaddr & MEC_I2C_SMB_OWN_ADDR_OAD0_Msk) >> MEC_I2C_SMB_OWN_ADDR_OAD0_Pos;
+    uintptr_t rb = ctx->regbase + MEC_I2C_OA_OFS;
+    uint32_t oaddr = mmcr32_rd(rb);
+    uint32_t taddr = MEC_I2C_OA_1_GET(oaddr);
 
     if (taddr == (uint32_t)target_addr) {
-        regs->OWN_ADDR &= (uint32_t)~MEC_I2C_SMB_OWN_ADDR_OAD0_Msk;
+        mmcr32_clr_bits(rb, MEC_I2C_OA_1_MSK);
     } else {
-        taddr = (oaddr & MEC_I2C_SMB_OWN_ADDR_OAD1_Msk) >> MEC_I2C_SMB_OWN_ADDR_OAD1_Pos;
+        taddr = MEC_I2C_OA_2_GET(oaddr);
         if (taddr == (uint32_t)target_addr) {
-            regs->OWN_ADDR &= (uint32_t)~MEC_I2C_SMB_OWN_ADDR_OAD1_Msk;
+            mmcr32_clr_bits(rb, MEC_I2C_OA_2_MSK);
         }
     }
 
@@ -418,7 +418,7 @@ int mec_hal_i2c_smb_clr_target_addr(struct mec_i2c_smb_ctx *ctx, uint16_t target
 
 int mec_hal_i2c_smb_girq_status_clr(struct mec_i2c_smb_ctx *ctx)
 {
-    if (!ctx) {
+    if (ctx == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
@@ -430,7 +430,7 @@ int mec_hal_i2c_smb_girq_status_clr(struct mec_i2c_smb_ctx *ctx)
 /* Enable/disable I2C controller interrupt signal from propagating to NVIC */
 int mec_hal_i2c_smb_girq_ctrl(struct mec_i2c_smb_ctx *ctx, int flags)
 {
-    if (!ctx) {
+    if (ctx == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
@@ -452,15 +452,15 @@ int mec_hal_i2c_smb_girq_ctrl(struct mec_i2c_smb_ctx *ctx, int flags)
 uint32_t mec_hal_i2c_smb_get_nvic_id(uint8_t i2c_ctrl_id)
 {
     if (i2c_ctrl_id >= MEC5_I2C_SMB_INSTANCES) {
-        return 0xffffffffu;
+        return UINT32_MAX;
     }
 
-    return MEC5_ECIA_INFO_NVIC_DIRECT(i2c_instances[i2c_ctrl_id].devi);
+    return MEC_ECIA_INFO_NVIC_DIRECT(i2c_instances[i2c_ctrl_id].devi);
 }
 
 int mec_hal_i2c_smb_girq_status(struct mec_i2c_smb_ctx *ctx)
 {
-    if (!ctx) {
+    if (ctx == NULL) {
         return 0;
     }
 
@@ -469,7 +469,7 @@ int mec_hal_i2c_smb_girq_status(struct mec_i2c_smb_ctx *ctx)
 
 int mec_hal_i2c_smb_girq_result(struct mec_i2c_smb_ctx *ctx)
 {
-    if (!ctx) {
+    if (ctx == NULL) {
         return 0;
     }
 
@@ -483,13 +483,13 @@ int mec_hal_i2c_smb_girq_result(struct mec_i2c_smb_ctx *ctx)
 int mec_hal_i2c_smb_is_bus_owned(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
+    uintptr_t rb = ctx->regbase + MEC_I2C_SR_OFS;
 
-    if (base->STATUS & MEC_BIT(MEC_I2C_SMB_STATUS_NBB_Pos)) {
+    if (mmcr8_test_bit(rb, MEC_I2C_SR_NBB_POS) != 0) {
         return 0;
     }
 
@@ -499,21 +499,21 @@ int mec_hal_i2c_smb_is_bus_owned(struct mec_i2c_smb_ctx *ctx)
 int mec_hal_i2c_smb_ctrl_set(struct mec_i2c_smb_ctx *ctx, uint8_t ctrl)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
+    uintptr_t rb = ctx->regbase + MEC_I2C_CR_OFS;
 
     ctx->i2c_ctrl_cached = ctrl;
-    base->CTRL = ctrl;
+    mmcr8_wr(ctrl, rb);
 
     return MEC_RET_OK;
 }
 
 uint8_t mec_hal_i2c_smb_ctrl_get(struct mec_i2c_smb_ctx *ctx)
 {
-    if (!ctx) {
+    if (ctx == NULL) {
         return 0u;
     }
 
@@ -523,21 +523,21 @@ uint8_t mec_hal_i2c_smb_ctrl_get(struct mec_i2c_smb_ctx *ctx)
 int mec_hal_i2c_cmd_ack_ctrl(struct mec_i2c_smb_ctx *ctx, uint8_t ack_en)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
+    uintptr_t rb = ctx->regbase + MEC_I2C_CR_OFS;
     uint8_t ctrl = ctx->i2c_ctrl_cached;
 
-    if (ack_en) {
-        ctrl |= MEC_BIT(MEC_I2C_SMB_CTRL_ACK_Pos);
+    if (ack_en != 0) {
+        ctrl |= MEC_BIT(MEC_I2C_CR_ACK_POS);
     } else {
-        ctrl &= (uint8_t)~MEC_BIT(MEC_I2C_SMB_CTRL_ACK_Pos);
+        ctrl &= (uint8_t)~MEC_BIT(MEC_I2C_CR_ACK_POS);
     }
 
     ctx->i2c_ctrl_cached = ctrl;
-    base->CTRL = ctrl;
+    mmcr8_wr(ctrl, rb);
 
     return MEC_RET_OK;
 }
@@ -545,64 +545,66 @@ int mec_hal_i2c_cmd_ack_ctrl(struct mec_i2c_smb_ctx *ctx, uint8_t ack_en)
 /* Re-arm Target mode receive after an external STOP.  */
 int mec_hal_i2c_smb_rearm_target_rx(struct mec_i2c_smb_ctx *ctx)
 {
-    uint8_t ctr = (MEC_BIT(MEC_I2C_SMB_CTRL_PIN_Pos) | MEC_BIT(MEC_I2C_SMB_CTRL_ESO_Pos)
-                   | MEC_BIT(MEC_I2C_SMB_CTRL_ACK_Pos));
+    uint8_t ctrl = (MEC_BIT(MEC_I2C_CR_PIN_POS) | MEC_BIT(MEC_I2C_CR_ESO_POS) |
+                    MEC_BIT(MEC_I2C_CR_ACK_POS));
 
-    return mec_hal_i2c_smb_ctrl_set(ctx, ctr);
+    return mec_hal_i2c_smb_ctrl_set(ctx, ctrl);
 }
 
 int mec_hal_i2c_smb_auto_ack_enable(struct mec_i2c_smb_ctx *ctx, uint8_t ien)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint8_t ctr = MEC_BIT(MEC_I2C_SMB_CTRL_ESO_Pos) | MEC_BIT(MEC_I2C_SMB_CTRL_ACK_Pos);
+    uintptr_t rb = ctx->regbase + MEC_I2C_CR_OFS;
+    uint8_t ctr = MEC_BIT(MEC_I2C_CR_ESO_POS) | MEC_BIT(MEC_I2C_CR_ACK_POS);
 
-    if (ien) {
-        ctr |= MEC_BIT(MEC_I2C_SMB_CTRL_ENI_Pos);
+    if (ien != 0) {
+        ctr |= MEC_BIT(MEC_I2C_CR_ENI_POS);
     }
 
     ctx->i2c_ctrl_cached = ctr;
-    base->CTRL = ctr;
+    mmcr8_wr(ctr, rb);
+
     return MEC_RET_OK;
 }
 
 int mec_hal_i2c_smb_auto_ack_disable(struct mec_i2c_smb_ctx *ctx, uint8_t ien)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint8_t ctr = MEC_BIT(MEC_I2C_SMB_CTRL_ESO_Pos);
+    uintptr_t rb = ctx->regbase + MEC_I2C_CR_OFS;
+    uint8_t ctr = MEC_BIT(MEC_I2C_CR_ESO_POS);
 
     if (ien) {
-        ctr |= MEC_BIT(MEC_I2C_SMB_CTRL_ENI_Pos);
+        ctr |= MEC_BIT(MEC_I2C_CR_ENI_POS);
     }
 
     ctx->i2c_ctrl_cached = ctr;
-    base->CTRL = ctr;
+    mmcr8_wr(ctr, rb);
+
     return MEC_RET_OK;
 }
 
 int mec_hal_i2c_smb_idle_intr_enable(struct mec_i2c_smb_ctx *ctx, uint8_t enable)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
 
-    struct mec_i2c_smb_regs *base = ctx->base;
+    uintptr_t rb = ctx->regbase + MEC_I2C_CFG_OFS;
 
-    if (enable) {
-        base->CONFIG |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_IDLE_Pos);
+    if (enable != 0) {
+        mmcr32_set_bit(rb, MEC_I2C_CFG_IDLE_IEN_POS);
     } else {
-        base->CONFIG &= (uint32_t)~MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_IDLE_Pos);
+        mmcr32_clr_bit(rb, MEC_I2C_CFG_IDLE_IEN_POS);
     }
 
     return MEC_RET_OK;
@@ -610,42 +612,41 @@ int mec_hal_i2c_smb_idle_intr_enable(struct mec_i2c_smb_ctx *ctx, uint8_t enable
 
 int mec_hal_i2c_smb_intr_ctrl(struct mec_i2c_smb_ctx *ctx, uint32_t mask, uint8_t enable)
 {
-    uint32_t cfg = 0;
-
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
 
-    struct mec_i2c_smb_regs *regs = ctx->base;
+    uintptr_t rb = ctx->regbase;
+    uint32_t cfg = 0;
 
-    if (mask & MEC_BIT(MEC_I2C_IEN_BYTE_MODE_POS)) {
+    if ((mask & MEC_BIT(MEC_I2C_IEN_BYTE_MODE_POS)) != 0) {
         if (enable) {
-            ctx->i2c_ctrl_cached |= MEC_BIT(MEC_I2C_SMB_CTRL_ENI_Pos);
+            ctx->i2c_ctrl_cached |= MEC_BIT(MEC_I2C_CR_ENI_POS);
         } else {
-            ctx->i2c_ctrl_cached &= (uint8_t)~MEC_BIT(MEC_I2C_SMB_CTRL_ENI_Pos);
+            ctx->i2c_ctrl_cached &= (uint8_t)~MEC_BIT(MEC_I2C_CR_ENI_POS);
         }
-        regs->CTRL = ctx->i2c_ctrl_cached;
+        mmcr8_wr(ctx->i2c_ctrl_cached, rb + MEC_I2C_CR_OFS);
     }
 
     if (mask & MEC_BIT(MEC_I2C_IEN_IDLE_POS)) {
-        cfg |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_IDLE_Pos);
+        cfg |= MEC_BIT(MEC_I2C_CFG_IDLE_IEN_POS);
     }
     if (mask & MEC_BIT(MEC_I2C_NL_IEN_CM_DONE_POS)) {
-        cfg |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_HOST_Pos);
+        cfg |= MEC_BIT(MEC_I2C_CFG_HD_IEN_POS);
     }
     if (mask & MEC_BIT(MEC_I2C_NL_IEN_TM_DONE_POS)) {
-        cfg |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_TARG_Pos);
+        cfg |= MEC_BIT(MEC_I2C_CFG_TD_IEN_POS);
     }
     if (mask & MEC_BIT(MEC_I2C_NL_IEN_AAT_POS)) {
-        cfg |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_AAT_Pos);
+        cfg |= MEC_BIT(MEC_I2C_CFG_AAT_IEN_POS);
     }
 
-    if (enable) {
-        regs->CONFIG |= cfg;
+    if (enable != 0) {
+        mmcr32_set_bits(rb + MEC_I2C_CFG_OFS, cfg);
     } else {
-        regs->CONFIG &= (uint32_t)~cfg;
+        mmcr32_clr_bits(rb + MEC_I2C_CFG_OFS, cfg);
     }
 
     return MEC_RET_OK;
@@ -662,19 +663,20 @@ int mec_hal_i2c_smb_intr_ctrl(struct mec_i2c_smb_ctx *ctx, uint32_t mask, uint8_
 uint32_t mec_hal_i2c_smb_status(struct mec_i2c_smb_ctx *ctx, uint8_t clear)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
-        return 0;
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
+        return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
+
+    uintptr_t rb = ctx->regbase;
     uint32_t compl = 0, status = 0;
 
     /* Read completion first. Not sure if low-level read-only I2C.STATUS has read side-effects. */
-    compl = base->COMPL;
-    status = base->STATUS;
+    compl = mmcr32_rd(rb + MEC_I2C_COMP_OFS);
+    status = mmcr8_rd(rb + MEC_I2C_SR_OFS);
 
-    if (clear) {
-        base->COMPL = compl;
+    if (clear != 0) {
+        mmcr32_wr(compl, rb + MEC_I2C_COMP_OFS);
     }
 
     /* completion b[7:0] are control not status bits. Store 8-bit I2C status there */
@@ -686,38 +688,37 @@ uint32_t mec_hal_i2c_smb_status(struct mec_i2c_smb_ctx *ctx, uint8_t clear)
 
 uint32_t mec_hal_i2c_smb_wake_status(struct mec_i2c_smb_ctx *ctx)
 {
-    if (!ctx) {
+#ifdef MEC_I2C_BASE_CHECK
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0;
     }
+#endif
 
-    struct mec_i2c_smb_regs *base = ctx->base;
-
-    return base->WAKE_STS;
+    return mmcr32_rd(ctx->regbase + MEC_I2C_WKSR_OFS);
 }
 
 void mec_hal_i2c_smb_wake_status_clr(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return;
     }
 #endif
 
-    struct mec_i2c_smb_regs *base = ctx->base;
-
-    base->WAKE_STS = MEC_BIT(MEC_I2C_SMB_WAKE_STS_START_DET_Pos);
+    mmcr32_wr(MEC_BIT(MEC_I2C_WKSR_SB_POS), ctx->regbase + MEC_I2C_WKSR_OFS);
 }
 
 int mec_hal_i2c_smb_is_idle_ien(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0;
     }
 #endif
-    struct mec_i2c_smb_regs *regs = ctx->base;
 
-    if (regs->CONFIG & MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_IDLE_Pos)) {
+    uintptr_t rb = ctx->regbase + MEC_I2C_CFG_OFS;
+
+    if (mmcr32_test_bit(rb, MEC_I2C_CFG_IDLE_IEN_POS) != 0) {
         return 1;
     }
 
@@ -727,15 +728,15 @@ int mec_hal_i2c_smb_is_idle_ien(struct mec_i2c_smb_ctx *ctx)
 int mec_hal_i2c_smb_is_idle_intr(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint32_t cfg = base->CONFIG & MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_IDLE_Pos);
-    uint32_t compl = base->COMPL & MEC_BIT(MEC_I2C_SMB_COMPL_IDLE_Pos);
 
-    if (cfg && compl) {
+    uintptr_t rb = ctx->regbase;
+
+    if ((mmcr32_test_bit(rb + MEC_I2C_CFG_OFS, MEC_I2C_CFG_IDLE_IEN_POS) != 0) &&
+        (mmcr32_test_bit(rb + MEC_I2C_COMP_OFS, MEC_I2C_COMP_IDLE_POS) != 0)) {
         return 1;
     }
 
@@ -750,14 +751,14 @@ int mec_hal_i2c_smb_is_idle_intr(struct mec_i2c_smb_ctx *ctx)
 bool mec_hal_i2c_smb_is_aat_ien(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return false;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint32_t cfg = base->CONFIG & MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_AAT_Pos);
 
-    if (cfg) {
+    uintptr_t rb = ctx->regbase + MEC_I2C_CFG_OFS;
+
+    if (mmcr32_test_bit(rb, MEC_I2C_CFG_AAT_IEN_POS) != 0) {
         return true;
     }
 
@@ -767,15 +768,14 @@ bool mec_hal_i2c_smb_is_aat_ien(struct mec_i2c_smb_ctx *ctx)
 int mec_hal_i2c_smb_idle_status_clr(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
-        return 0;
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
+        return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
 
-    base->COMPL |= MEC_BIT(MEC_I2C_SMB_COMPL_IDLE_Pos);
+    mmcr32_set_bit(ctx->regbase + MEC_I2C_COMP_OFS, MEC_I2C_COMP_IDLE_POS);
 
-    return 0;
+    return MEC_RET_OK;
 }
 
 /* Controller specification sequence:
@@ -789,27 +789,28 @@ int mec_hal_i2c_smb_idle_status_clr(struct mec_i2c_smb_ctx *ctx)
 int mec_hal_i2c_smb_start_gen(struct mec_i2c_smb_ctx *ctx, uint8_t target_addr, int flags)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint8_t ctr = (MEC_BIT(MEC_I2C_SMB_CTRL_ESO_Pos) | MEC_BIT(MEC_I2C_SMB_CTRL_STA_Pos)
-                   | MEC_BIT(MEC_I2C_SMB_CTRL_ACK_Pos));
+
+    uintptr_t rb = ctx->regbase;
+    uint8_t ctr = (MEC_BIT(MEC_I2C_CR_ESO_POS) | MEC_BIT(MEC_I2C_CR_STA_POS)
+                   | MEC_BIT(MEC_I2C_CR_ACK_POS));
 
     if (flags & MEC_I2C_SMB_BYTE_ENI) {
-        ctr |= MEC_BIT(MEC_I2C_SMB_CTRL_ENI_Pos);
+        ctr |= MEC_BIT(MEC_I2C_CR_ENI_POS);
     }
 
-    if (base->STATUS & MEC_BIT(MEC_I2C_SMB_STATUS_NBB_Pos)) {
-        ctr |= MEC_BIT(MEC_I2C_SMB_CTRL_PIN_Pos);
+    if (mmcr8_test_bit(rb + MEC_I2C_SR_OFS, MEC_I2C_SR_NBB_POS) != 0) {
+        ctr |= MEC_BIT(MEC_I2C_CR_PIN_POS);
         ctx->i2c_ctrl_cached = ctr;
-        base->DATA = target_addr;
-        base->CTRL = ctr;
+        mmcr8_wr(target_addr, rb + MEC_I2C_DATA_OFS);
+        mmcr8_wr(ctr, rb + MEC_I2C_CR_OFS);
     } else {
         ctx->i2c_ctrl_cached = ctr;
-        base->CTRL = ctr;
-        base->DATA = target_addr;
+        mmcr8_wr(ctr, rb + MEC_I2C_CR_OFS);
+        mmcr8_wr(target_addr, rb + MEC_I2C_DATA_OFS);
     }
 
     return MEC_RET_OK;
@@ -818,21 +819,22 @@ int mec_hal_i2c_smb_start_gen(struct mec_i2c_smb_ctx *ctx, uint8_t target_addr, 
 int mec_hal_i2c_smb_stop_gen(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint8_t control = (MEC_BIT(MEC_I2C_SMB_CTRL_PIN_Pos) | MEC_BIT(MEC_I2C_SMB_CTRL_ESO_Pos)
-                       | MEC_BIT(MEC_I2C_SMB_CTRL_ACK_Pos) | MEC_BIT(MEC_I2C_SMB_CTRL_STO_Pos));
+
+    uintptr_t rb = ctx->regbase;
+    uint8_t ctrl = (MEC_BIT(MEC_I2C_CR_PIN_POS) | MEC_BIT(MEC_I2C_CR_ESO_POS)
+                       | MEC_BIT(MEC_I2C_CR_ACK_POS) | MEC_BIT(MEC_I2C_CR_STO_POS));
 
     /* Nothing to do. Controller does not own the bus at this time */
-    if (base->STATUS & MEC_BIT(MEC_I2C_SMB_STATUS_NBB_Pos)) {
-        return MEC_RET_ERR_NOP;
+    if (mmcr8_test_bit(rb + MEC_I2C_SR_OFS, MEC_I2C_SR_NBB_POS) != 0) {
+        return MEC_RET_OK;
     }
 
-    ctx->i2c_ctrl_cached = control;
-    base->CTRL = control;
+    ctx->i2c_ctrl_cached = ctrl;
+    mmcr8_wr(ctrl, rb + MEC_I2C_CR_OFS);
 
     return MEC_RET_OK;
 }
@@ -846,11 +848,10 @@ int mec_hal_i2c_smb_stop_gen(struct mec_i2c_smb_ctx *ctx)
 int mec_hal_i2c_smb_xmit_byte(struct mec_i2c_smb_ctx *ctx, uint8_t msg_byte)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
 
     /* TODO should we check for NBB==1 and return error?
      * Only for data bytes. In the case of START we write target
@@ -858,8 +859,7 @@ int mec_hal_i2c_smb_xmit_byte(struct mec_i2c_smb_ctx *ctx, uint8_t msg_byte)
      * If this function is only used for data then we can add the
      * check of NBB.
      */
-
-    base->DATA = msg_byte;
+    mmcr8_wr(msg_byte, ctx->regbase + MEC_I2C_DATA_OFS);
 
     return MEC_RET_OK;
 }
@@ -870,14 +870,15 @@ int mec_hal_i2c_smb_xmit_byte(struct mec_i2c_smb_ctx *ctx, uint8_t msg_byte)
 int mec_hal_i2c_smb_read_byte(struct mec_i2c_smb_ctx *ctx, uint8_t *msg_byte)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint8_t b = base->DATA;
 
-    if (msg_byte) {
+    uintptr_t rb = ctx->regbase;
+    uint8_t b = mmcr8_rd(rb + MEC_I2C_DATA_OFS);
+
+    if (msg_byte != NULL) {
         *msg_byte = b;
     }
 
@@ -887,24 +888,25 @@ int mec_hal_i2c_smb_read_byte(struct mec_i2c_smb_ctx *ctx, uint8_t *msg_byte)
 int mec_hal_i2c_smb_bbctrl(struct mec_i2c_smb_ctx *ctx, uint8_t enable, uint8_t pin_drive)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
-    uint8_t bbctr = 0u;
 
-    if (enable) {
-        bbctr |= MEC_BIT(MEC_I2C_SMB_BBCTRL_BBEN_Pos);
-        if (!(pin_drive & MEC_BIT(MEC_I2C_BB_SCL_POS))) { /* drive low? */
-            bbctr |= MEC_BIT(MEC_I2C_SMB_BBCTRL_CLDIR_Pos);
+    uintptr_t rb = ctx->regbase;
+    uint8_t bbctr = MEC_BIT(MEC_I2C_BBCR_CM_POS);
+
+    if (enable != 0) {
+        bbctr |= MEC_BIT(MEC_I2C_BBCR_EN_POS);
+        if ((pin_drive & MEC_BIT(MEC_I2C_BB_SCL_POS)) != 0) { /* drive low? */
+            bbctr |= MEC_BIT(MEC_I2C_BBCR_SCL_POS);
         }
-        if (!(pin_drive & MEC_BIT(MEC_I2C_BB_SDA_POS))) { /* drive low? */
-            bbctr |= MEC_BIT(MEC_I2C_SMB_BBCTRL_DADIR_Pos);
+        if ((pin_drive & MEC_BIT(MEC_I2C_BB_SDA_POS)) != 0) { /* drive low? */
+            bbctr |= MEC_BIT(MEC_I2C_BBCR_SDA_POS);
         }
     }
 
-    base->BBCTRL = bbctr;
+    mmcr8_wr(bbctr, rb + MEC_I2C_BBCR_OFS);
 
     return MEC_RET_OK;
 }
@@ -919,13 +921,14 @@ int mec_hal_i2c_smb_bbctrl(struct mec_i2c_smb_ctx *ctx, uint8_t enable, uint8_t 
 uint8_t mec_hal_i2c_smb_bbctrl_pin_states(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0x3u;
     }
 #endif
-    struct mec_i2c_smb_regs *base = ctx->base;
 
-    return (base->BBCTRL >> MEC_I2C_SMB_BBCTRL_BBCLKI_Pos) & 0x3u;
+    uintptr_t rb = ctx->regbase;
+
+    return ((mmcr8_rd(rb + MEC_I2C_BBCR_OFS) >> MEC_I2C_BBCR_SCL_IN_POS) & 0x3u);
 }
 
 /* -------- I2C-NL -------- */
@@ -938,132 +941,135 @@ int mec_hal_i2c_nl_cm_cfg_start(struct mec_i2c_smb_ctx *ctx, uint16_t ntx, uint1
                                 uint32_t flags)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    struct mec_i2c_smb_regs *regs = ctx->base;
-    uint32_t cmd = 0, primask = 0;
 
-    if (!ntx) { /* Any I2C transaction requires transmit of target address! */
+    uintptr_t rb = ctx->regbase;
+    uint32_t v = 0, cmd = 0;
+
+    if (ntx == 0) { /* Any I2C transaction requires transmit of target address! */
         return MEC_RET_ERR_INVAL;
     }
 
     ctx->wrcnt = ntx;
     ctx->rdcnt = nrx;
 
-    regs->CONFIG &= (uint32_t)~MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_HOST_Pos);
-    if (flags & MEC_I2C_NL_FLAG_FLUSH_BUF) {
-        regs->CONFIG |= (MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_CTXB_Pos)
-                         | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_CRXB_Pos));
-    }
-    regs->COMPL |= MEC_BIT(MEC_I2C_SMB_COMPL_CM_DONE_Pos);
-
-    regs->EXTLEN = ((ntx >> 8) & 0xffu) | (nrx & 0xff00u);
-
-    cmd = (uint32_t)(ntx & 0xffu) << MEC_I2C_SMB_CM_CMD_WRCNT_LSB_Pos;
-    cmd |= ((uint32_t)(nrx & 0xffu) << MEC_I2C_SMB_CM_CMD_RDCNT_LSB_Pos);
-    cmd |= (MEC_BIT(MEC_I2C_SMB_CM_CMD_RUN_Pos) | MEC_BIT(MEC_I2C_SMB_CM_CMD_PROCEED_Pos));
-
-    if (flags & MEC_I2C_NL_FLAG_START) {
-        cmd |= MEC_BIT(MEC_I2C_SMB_CM_CMD_START0_Pos);
+    mmcr32_clr_bit(rb + MEC_I2C_CFG_OFS, MEC_I2C_CFG_HD_IEN_POS);
+    
+    if ((flags & MEC_I2C_NL_FLAG_FLUSH_BUF) != 0) {
+        v = MEC_BIT(MEC_I2C_CFG_FHTX_POS) | MEC_BIT(MEC_I2C_CFG_FHRX_POS);
+        mmcr32_set_bits(rb + MEC_I2C_CFG_OFS, v);
     }
 
-    if (flags & MEC_I2C_NL_FLAG_RPT_START) {
-        cmd |= MEC_BIT(MEC_I2C_SMB_CM_CMD_STARTN_Pos);
+    mmcr32_set_bit(rb + MEC_I2C_COMP_OFS, MEC_I2C_COMP_HDONE_POS);
+
+    /* program bits[15:8] of TX and RX byte counts */
+    v = ((ntx >> 8) & 0xffu) | (nrx & 0xff00u);
+    mmcr32_wr(v, rb + MEC_I2C_ELEN_OFS);
+
+    /* build host command register value */
+    v = MEC_I2C_HC_WCL_SET((uint32_t)(ntx & 0xffu));
+    v |= MEC_I2C_HC_RCL_SET((uint32_t)(nrx & 0xffu));
+    v |= MEC_BIT(MEC_I2C_HC_RUN_POS) | MEC_BIT(MEC_I2C_HC_PROC_POS);
+    
+    if ((flags & MEC_I2C_NL_FLAG_START) != 0) {
+        cmd |= MEC_BIT(MEC_I2C_HC_START0_POS);
     }
 
-    if (flags & MEC_I2C_NL_FLAG_STOP) {
-        cmd |= MEC_BIT(MEC_I2C_SMB_CM_CMD_STOP_Pos);
+    if ((flags & MEC_I2C_NL_FLAG_RPT_START) != 0) {
+        cmd |= MEC_BIT(MEC_I2C_HC_STARTN_POS);
     }
 
-    if (flags & MEC_I2C_NL_FLAG_CM_DONE_IEN) {
-        regs->CONFIG |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_HOST_Pos);
+    if ((flags & MEC_I2C_NL_FLAG_STOP) != 0) {
+        cmd |= MEC_BIT(MEC_I2C_HC_STOP_POS);
+    }
+
+    if ((flags & MEC_I2C_NL_FLAG_CM_DONE_IEN) != 0) {
+        mmcr32_set_bit(rb + MEC_I2C_CFG_OFS, MEC_I2C_CFG_HD_IEN_POS);
     }
 
 #ifdef MEC_I2C_NL_DEBUG_SAVE_CM_CMD
     mec_i2c_nl_dbg_save[0] = cmd;
-    mec_i2c_nl_dbg_save[1] = regs->CONFIG;
-    mec_i2c_nl_dbg_save[2] = regs->COMPL;
-    mec_i2c_nl_dbg_save[3] = regs->EXTLEN;
+    mec_i2c_nl_dbg_save[1] = mmcr32_rd(rb + MEC_I2C_CFG_OFS);
+    mec_i2c_nl_dbg_save[2] = mmcr32_rd(rb + MEC_I2C_COMP_OFS);
+    mec_i2c_nl_dbg_save[3] = mmcr32_rd(rb + MEC_I2C_ELEN_OFS);
 #endif
 
-    /* save CM_CMD in context */
+    /* save CM_CMD b[15:0] in context */
     ctx->cmdctrl = (uint16_t)(cmd & 0xffffu);
 
     /* clear IDLE status just before starting HW
-     * It may be futile because the bus is idle before starting and the status
-     * bit may immediately be set by HW again.
+     * Only enable IDLE interrupt if I2C NBB bit is 0.
      */
-    regs->COMPL |= MEC_BIT(MEC_I2C_SMB_COMPL_IDLE_Pos);
-    if (flags & MEC_I2C_NL_FLAG_IDLE_IEN) {
-        primask = __get_PRIMASK();
-        __disable_irq();
-        regs->CM_CMD = cmd;
-        MEC_CPU_STALL->STALL = 1u; /* 2 us = 32 16 MHz I2C BAUD clocks */
-        regs->COMPL |= MEC_BIT(MEC_I2C_SMB_COMPL_IDLE_Pos);
-        regs->CONFIG |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_IDLE_Pos);
-        if (!primask) {
-            __enable_irq();
-        }
-    } else {
-        regs->CM_CMD = cmd;
+    mmcr32_set_bit(rb + MEC_I2C_COMP_OFS, MEC_I2C_COMP_IDLE_POS);
+    if (((flags & MEC_I2C_NL_FLAG_IDLE_IEN) != 0) &&
+        (mmcr8_test_bit(rb + MEC_I2C_SR_OFS, MEC_I2C_SR_NBB_POS) == 0)) {
+        mmcr32_set_bit(rb + MEC_I2C_CFG_OFS, MEC_I2C_CFG_IDLE_IEN_POS);
     }
+
+    /* host or target command register must be written once.
+     * I2C-NL will being processing the operation.
+     * NOTE: due to I2C FSM checking state of SCL and SDA in time window
+     * the FSM will not generate the I2C START immediately.
+     */
+    mmcr32_wr(cmd, rb + MEC_I2C_HC_OFS);
 
     return MEC_RET_OK;
 }
 
-int mec_hal_i2c_nl_cm_start(struct mec_i2c_smb_regs *i2c_regs, uint16_t ntx, uint16_t nrx,
-                            uint32_t flags, uint32_t *cm_cmd_val)
+int mec_hal_i2c_nl_cm_start(uintptr_t regbase, uint16_t ntx, uint16_t nrx, uint32_t flags,
+                            uint32_t *cm_cmd_val)
 {
-    uint32_t cmd = 0;
+    uint32_t cmd = 0, v = 0;
 
-    if (!i2c_regs) {
+    if (regbase == 0) {
         return MEC_RET_ERR_INVAL;
     }
 
-    i2c_regs->CONFIG &= (uint32_t)~MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_HOST_Pos);
-    if (flags & MEC_I2C_NL_FLAG_FLUSH_BUF) {
-        i2c_regs->CONFIG |= (MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_CTXB_Pos)
-                             | MEC_BIT(MEC_I2C_SMB_CONFIG_FLUSH_CRXB_Pos));
+    /* disable Host done interrupt */
+    mmcr32_clr_bit(regbase + MEC_I2C_CFG_OFS, MEC_I2C_CFG_HD_IEN_POS);
+
+    if ((flags & MEC_I2C_NL_FLAG_FLUSH_BUF) != 0) {
+        v = MEC_BIT(MEC_I2C_CFG_FHTX_POS) | MEC_BIT(MEC_I2C_CFG_FHRX_POS);
+        mmcr32_set_bits(regbase + MEC_I2C_CFG_OFS, v);
     }
 
     /* clear CM R/W1C status bits */
-    i2c_regs->COMPL |= (MEC_BIT(MEC_I2C_SMB_COMPL_CM_DONE_Pos)
-                        | MEC_BIT(MEC_I2C_SMB_COMPL_IDLE_Pos)
-                        | MEC_BIT(MEC_I2C_SMB_COMPL_CM_NAKX_Pos)
-                        | MEC_BIT(MEC_I2C_SMB_COMPL_LABSTS_Pos)
-                        | MEC_BIT(MEC_I2C_SMB_COMPL_BUSERR_Pos));
-
+    mmcr32_set_bits(regbase + MEC_I2C_COMP_OFS, MEC_I2C_COMP_RW1C_MSK);
+ 
     /* upper 8-bits of write and read counts */
-    i2c_regs->EXTLEN = ((ntx >> 8) & 0xffu) | (nrx & 0xff00u);
+    v = ((ntx >> 8) & 0xffu) | (nrx & 0xff00u);
+    mmcr32_wr(v, regbase + MEC_I2C_ELEN_OFS);
 
-    cmd = (uint32_t)(ntx & 0xffu) << MEC_I2C_SMB_CM_CMD_WRCNT_LSB_Pos;
-    cmd |= ((uint32_t)(nrx & 0xffu) << MEC_I2C_SMB_CM_CMD_RDCNT_LSB_Pos);
-    cmd |= (MEC_BIT(MEC_I2C_SMB_CM_CMD_RUN_Pos) | MEC_BIT(MEC_I2C_SMB_CM_CMD_PROCEED_Pos));
-
-    if (flags & MEC_I2C_NL_FLAG_START) {
-        cmd |= MEC_BIT(MEC_I2C_SMB_CM_CMD_START0_Pos);
+    /* build host command register value */
+    v = MEC_I2C_HC_WCL_SET((uint32_t)(ntx & 0xffu));
+    v |= MEC_I2C_HC_RCL_SET((uint32_t)(nrx & 0xffu));
+    v |= MEC_BIT(MEC_I2C_HC_RUN_POS) | MEC_BIT(MEC_I2C_HC_PROC_POS);
+    
+    if ((flags & MEC_I2C_NL_FLAG_START) != 0) {
+        cmd |= MEC_BIT(MEC_I2C_HC_START0_POS);
     }
 
-    if (flags & MEC_I2C_NL_FLAG_RPT_START) {
-        cmd |= MEC_BIT(MEC_I2C_SMB_CM_CMD_STARTN_Pos);
+    if ((flags & MEC_I2C_NL_FLAG_RPT_START) != 0) {
+        cmd |= MEC_BIT(MEC_I2C_HC_STARTN_POS);
     }
 
     if (flags & MEC_I2C_NL_FLAG_STOP) {
-        cmd |= MEC_BIT(MEC_I2C_SMB_CM_CMD_STOP_Pos);
+        cmd |= MEC_BIT(MEC_I2C_HC_STOP_POS);
     }
 
     if (flags & MEC_I2C_NL_FLAG_CM_DONE_IEN) {
-        i2c_regs->CONFIG |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_HOST_Pos);
+        mmcr32_set_bit(regbase + MEC_I2C_CFG_OFS, MEC_I2C_CFG_HD_IEN_POS);
     }
 
-    if (cm_cmd_val) {
+    if (cm_cmd_val != NULL) {
         *cm_cmd_val = cmd;
     }
 
     /* write I2C CM_CMD triggering HW FSM to begin processing */
-    i2c_regs->CM_CMD = cmd;
+    mmcr32_wr(cmd, regbase + MEC_I2C_HC_OFS);
 
     return MEC_RET_OK;
 }
@@ -1071,15 +1077,15 @@ int mec_hal_i2c_nl_cm_start(struct mec_i2c_smb_regs *i2c_regs, uint16_t ntx, uin
 int mec_hal_i2c_nl_cm_start_by_id(uint8_t i2c_ctrl_id, uint16_t ntx, uint16_t nrx, uint32_t flags,
                                   uint32_t *cm_cmd_val)
 {
-    struct mec_i2c_smb_regs *regs = NULL;
+    uintptr_t regbase = 0;
 
     if (i2c_ctrl_id >= MEC5_I2C_SMB_INSTANCES) {
         return MEC_RET_ERR_INVAL;
     }
 
-    regs = (struct mec_i2c_smb_regs *)MEC_I2C_SMB_BASE(i2c_ctrl_id);
+    regbase = MEC_I2C_SMB_BASE(i2c_ctrl_id);
 
-    return mec_hal_i2c_nl_cm_start(regs, ntx, nrx, flags, cm_cmd_val);
+    return mec_hal_i2c_nl_cm_start(regbase, ntx, nrx, flags, cm_cmd_val);
 }
 
 /* I2C-NL FSM clears MRUN and MPROCEED when both wrCnt and rdCnt transition to
@@ -1091,151 +1097,185 @@ int mec_hal_i2c_nl_cm_start_by_id(uint8_t i2c_ctrl_id, uint16_t ntx, uint16_t nr
 uint32_t mec_hal_i2c_nl_get_events(struct mec_i2c_smb_ctx *ctx, uint8_t is_tm)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0;
     }
 #endif
-    struct mec_i2c_smb_regs *regs = ctx->base;
+
+    uintptr_t rb = ctx->regbase;
     uint32_t cfg = 0, cmd = 0, sts = 0, events = 0, extlen = 0;
     uint32_t rdcnt = 0, wrcnt = 0;
 
-    cmd = regs->CM_CMD;
-    if (is_tm) {
-        cmd = regs->TM_CMD;
+    cmd = mmcr32_rd(rb + MEC_I2C_HC_OFS);
+    if (is_tm != 0) {
+        cmd = mmcr32_rd(rb + MEC_I2C_TC_OFS);
     }
 
-    extlen = regs->EXTLEN;
+    extlen = mmcr32_rd(rb + MEC_I2C_ELEN_OFS);
     wrcnt = ((extlen & 0xffu) << 8) | ((cmd >> 16) & 0xffu);
     rdcnt = (extlen & 0xff00u) | ((cmd >> 24) & 0xffu);
 
-    cfg = regs->CONFIG;
-    sts = (regs->COMPL & 0xffffff00u) | (regs->STATUS & 0xffu);
+    cfg = mmcr32_rd(rb + MEC_I2C_CFG_OFS);
+    sts = (mmcr32_rd(rb + MEC_I2C_COMP_OFS) & 0xffffff00u) |
+        (mmcr8_rd(rb + MEC_I2C_SR_OFS) & 0xffu);
 
-    if ((cfg & sts) & MEC_BIT(MEC_I2C_SMB_COMPL_IDLE_Pos)) { /* same bit position */
+    if (((cfg & MEC_BIT(MEC_I2C_CFG_IDLE_IEN_POS)) != 0) &&
+        ((sts & MEC_BIT(MEC_I2C_COMP_IDLE_POS)) != 0)) {
         events |= MEC_BIT(MEC_I2C_NL_EVENT_IDLE_POS);
     }
 
-    if (sts & MEC_BIT(4)) {
+    if (sts & MEC_BIT(MEC_I2C_SR_BER_POS)) {
         events |= MEC_BIT(MEC_I2C_NL_EVENT_BERR_POS);
     }
 
-    if (sts & MEC_BIT(1)) {
+    if (sts & MEC_BIT(MEC_I2C_SR_LAB_POS)) {
         events |= MEC_BIT(MEC_I2C_NL_EVENT_LAB_POS);
     }
 
-    if (sts & MEC_BIT(24)) {
+    if (sts & MEC_BIT(MEC_I2C_COMP_HNAKX_POS)) {
         events |= MEC_BIT(MEC_I2C_NL_EVENT_NACK_POS);
     }
 
     /* Write-to-Read turn around is wrcnt==0, rdcnd!=0, and cmd[1:0]==01b */
-    if ((cmd & 0x03u) == 0x01u) {
+    cmd &= (MEC_BIT(MEC_I2C_HC_RUN_POS) | MEC_BIT(MEC_I2C_HC_PROC_POS));
+    if (cmd == MEC_BIT(MEC_I2C_HC_RUN_POS)) {
         events |= MEC_BIT(MEC_I2C_NL_EVENT_PAUSE_POS);
     }
 
-    if (!rdcnt && !wrcnt && !(cmd & 0x03u)) {
+    if ((rdcnt == 0) && (wrcnt == 0) && (cmd == 0)) {
         events |= MEC_BIT(MEC_I2C_NL_EVENT_DONE_POS);
     }
 
-	return events;
+    return events;
 }
 
 int mec_hal_i2c_nl_cmd_clear(struct mec_i2c_smb_ctx *ctx, uint8_t is_tm)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
+
+    uintptr_t rb = ctx->regbase;
+    uint32_t msk = 0;
+
     if (is_tm) {
-        ctx->base->TM_CMD = 0;
+        mmcr32_wr(0, rb + MEC_I2C_TC_OFS);
+        msk = MEC_I2C_ELEN_TWRM_MSK | MEC_I2C_ELEN_TRDM_MSK;
     } else {
-        ctx->base->CM_CMD = 0;
+        mmcr32_wr(0, rb + MEC_I2C_HC_OFS);
+        msk = MEC_I2C_ELEN_HWRM_MSK | MEC_I2C_ELEN_HRDM_MSK;
     }
-    ctx->base->EXTLEN = 0;
+
+    mmcr32_clr_bits(rb + MEC_I2C_ELEN_OFS, msk);
 
     return MEC_RET_OK;
 }
 
+/* I2C-NL has paused clearing proceed bit. Write RUN=PROC=1 to
+ * continue processing.
+ */
 int mec_hal_i2c_nl_cm_proceed(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    ctx->base->CM_CMD |= (MEC_BIT(MEC_I2C_SMB_CM_CMD_RUN_Pos)
-                          | MEC_BIT(MEC_I2C_SMB_CM_CMD_PROCEED_Pos));
+
+    uintptr_t rb = ctx->regbase + MEC_I2C_HC_OFS;
+    uint32_t msk = MEC_BIT(MEC_I2C_HC_RUN_POS) | MEC_BIT(MEC_I2C_HC_PROC_POS);
+
+    mmcr32_set_bits(rb, msk);
+
     return MEC_RET_OK;
 }
 
 int mec_hal_i2c_nl_tm_proceed(struct mec_i2c_smb_ctx *ctx)
 {
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    ctx->base->TM_CMD |= (MEC_BIT(MEC_I2C_SMB_TM_CMD_RUN_Pos)
-                          | MEC_BIT(MEC_I2C_SMB_TM_CMD_PROCEED_Pos));
+
+    uintptr_t rb = ctx->regbase + MEC_I2C_TC_OFS;
+    uint32_t msk = MEC_BIT(MEC_I2C_TC_RUN_POS) | MEC_BIT(MEC_I2C_TC_PROC_POS);
+
+    mmcr32_set_bits(rb, msk);
+
     return MEC_RET_OK;
 }
 
-int mec_hal_i2c_nl_state_get(struct mec_i2c_smb_regs *regs, struct mec_i2c_smb_nl_state *state,
-                             uint8_t is_tm)
+int mec_hal_i2c_nl_state_get(uintptr_t regbase, struct mec_i2c_smb_nl_state *state, uint8_t is_tm)
 {
     uint32_t elen = 0, r = 0;
+    uint16_t wrcnt = 0, rdcnt = 0;
 
 #ifdef MEC_I2C_BASE_CHECK
-    if (!regs) {
+    if (regbase == 0) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
-    if (!state) {
+
+    if (state == NULL) {
         return MEC_RET_ERR_INVAL;
     }
 
-    elen = regs->EXTLEN;
+    elen = mmcr32_rd(regbase + MEC_I2C_ELEN_OFS);
 
     if (is_tm) {
-        elen >>= 16; /* TM wrCnt_MSB shifted to b[7:0] and TM rdCnt_MSB to b[15:0] */
-        r = regs->TM_CMD;
-        state->wrcnt = (uint16_t)((r >> 8) & 0xffu);
-        state->rdcnt = (uint16_t)((r >> 16) & 0xffu);
+        r = mmcr32_rd(regbase + MEC_I2C_TC_OFS);
         state->ctrl = (uint16_t)(r & 0xffu);
+
+        wrcnt = MEC_I2C_ELEN_TWRM_GET(elen);
+        wrcnt <<= 8;
+        wrcnt |= MEC_I2C_TC_WCL_GET(r);
+
+        rdcnt = MEC_I2C_ELEN_TRDM_GET(elen);
+        rdcnt <<= 8;
+        rdcnt |= MEC_I2C_TC_RCL_GET(r);
     } else {
-        r = regs->CM_CMD;
-        state->wrcnt = (uint16_t)((r >> 16) & 0xffu);
-        state->rdcnt = (uint16_t)((r >> 24) & 0xffu);
+        r = mmcr32_rd(regbase + MEC_I2C_HC_OFS);
         state->ctrl = (uint16_t)(r & 0xffffu);
+        
+        wrcnt = MEC_I2C_ELEN_HWRM_GET(elen);
+        wrcnt <<= 8;
+        wrcnt |= MEC_I2C_HC_WCL_GET(r);
+
+        rdcnt = MEC_I2C_ELEN_HRDM_GET(elen);
+        rdcnt <<= 8;
+        rdcnt |= MEC_I2C_HC_RCL_GET(r);
     }
 
-    state->wrcnt |= (uint16_t)((elen & 0xffu) << 8);
-    state->rdcnt |= (uint16_t)((elen & 0xff00u));
+    state->wrcnt = wrcnt;
+    state->rdcnt = rdcnt;
 
     return MEC_RET_OK;
 }
 
-uint32_t mec_hal_i2c_nl_cm_xfr_count_get(struct mec_i2c_smb_regs *regs, uint8_t is_read)
+uint32_t mec_hal_i2c_nl_cm_xfr_count_get(uintptr_t regbase, uint8_t is_read)
 {
-    uint32_t cnt = 0;
+    uint32_t cm = 0, cnt = 0;
 
 #ifdef MEC_I2C_BASE_CHECK
-    if (!regs) {
+    if (regbase == 0) {
         return cnt;
     }
 #endif
 
-    cnt = regs->EXTLEN;
-    if (is_read) {
-        cnt = (cnt & MEC_I2C_SMB_ELEN_CM_RDCNT_MSB_Msk) >> MEC_I2C_SMB_ELEN_CM_RDCNT_MSB_Pos;
+    cm = mmcr32_rd(regbase + MEC_I2C_HC_OFS);
+    cnt = mmcr32_rd(regbase + MEC_I2C_ELEN_OFS);
+
+    if (is_read != 0) {
+        cnt = MEC_I2C_ELEN_HWRM_GET(cnt);
         cnt <<= 8;
-        cnt |= ((regs->CM_CMD & MEC_I2C_SMB_CM_CMD_RDCNT_LSB_Msk)
-                >> MEC_I2C_SMB_CM_CMD_RDCNT_LSB_Pos);
+        cnt |= MEC_I2C_HC_RCL_GET(cm);
     } else {
-        cnt = (cnt & MEC_I2C_SMB_ELEN_CM_WRCNT_MSB_Msk) >> MEC_I2C_SMB_ELEN_CM_WRCNT_MSB_Pos;
+        cnt = MEC_I2C_ELEN_HRDM_GET(cnt);
         cnt <<= 8;
-        cnt |= ((regs->CM_CMD & MEC_I2C_SMB_CM_CMD_WRCNT_LSB_Msk)
-                >> MEC_I2C_SMB_CM_CMD_WRCNT_LSB_Pos);
+        cnt |= MEC_I2C_HC_WCL_GET(cm);
     }
 
     return cnt;
@@ -1247,16 +1287,12 @@ uint32_t mec_hal_i2c_nl_cm_xfr_count_get(struct mec_i2c_smb_regs *regs, uint8_t 
  * We access count LSB's using byte access.
  * write count LSB is in bits[15:8], read count LSB is in bits[32:26].
  */
-int mec_hal_i2c_nl_cm_xfr_count_set(struct mec_i2c_smb_regs *regs, uint8_t is_read, uint32_t cnt)
+int mec_hal_i2c_nl_cm_xfr_count_set(uintptr_t regbase, uint8_t is_read, uint32_t cnt)
 {
     uint32_t cnt_lsb = 0, cnt_msb = 0;
-    uint32_t cmsk = MEC_I2C_SMB_CM_CMD_WRCNT_LSB_Msk;
-    uint32_t emsk = MEC_I2C_SMB_ELEN_CM_WRCNT_MSB_Msk;
-    uint8_t cpos = MEC_I2C_SMB_CM_CMD_WRCNT_LSB_Pos;
-    uint8_t epos = MEC_I2C_SMB_ELEN_CM_WRCNT_MSB_Pos;
 
 #ifdef MEC_I2C_BASE_CHECK
-    if (!regs) {
+    if (regbase == 0) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
@@ -1265,34 +1301,40 @@ int mec_hal_i2c_nl_cm_xfr_count_set(struct mec_i2c_smb_regs *regs, uint8_t is_re
         return MEC_RET_ERR_INVAL;
     }
 
-    /* Set MSB first in case LSB is 0 */
-    if (is_read) {
-        cmsk = MEC_I2C_SMB_CM_CMD_RDCNT_LSB_Msk;
-        emsk = MEC_I2C_SMB_ELEN_CM_RDCNT_MSB_Msk;
-        cpos = MEC_I2C_SMB_CM_CMD_RDCNT_LSB_Pos;
-        epos = MEC_I2C_SMB_ELEN_CM_RDCNT_MSB_Pos;
-    }
-
     cnt_lsb = cnt & 0xffu;
     cnt_msb = (cnt >> 8) & 0xffu;
 
-    regs->EXTLEN = (regs->EXTLEN & (uint32_t)~emsk) | ((cnt_msb << epos) & emsk);
-    regs->CM_CMD = (regs->CM_CMD & (uint32_t)~cmsk) | ((cnt_lsb << cpos) & cmsk);
+    /* Set MSB first in case LSB is 0 */
+    if (is_read == 0) {
+        cnt_lsb = MEC_I2C_HC_WCL_SET(cnt_lsb);
+        cnt_msb = MEC_I2C_ELEN_HWRM_SET(cnt_msb);
+        mmcr32_update_field(regbase + MEC_I2C_ELEN_OFS, cnt_msb, MEC_I2C_ELEN_HWRM_MSK);
+        mmcr32_update_field(regbase + MEC_I2C_HC_OFS, cnt_lsb, MEC_I2C_HC_WCL_MSK);
+    } else {
+        cnt_lsb = MEC_I2C_HC_RCL_SET(cnt_lsb);
+        cnt_msb = MEC_I2C_ELEN_HRDM_SET(cnt_msb);
+        mmcr32_update_field(regbase + MEC_I2C_ELEN_OFS, cnt_msb, MEC_I2C_ELEN_HRDM_MSK);
+        mmcr32_update_field(regbase + MEC_I2C_HC_OFS, cnt_lsb, MEC_I2C_HC_RCL_MSK);
+    }
 
     return MEC_RET_OK;
 }
 
 uint32_t mec_hal_i2c_nl_cmd_get(struct mec_i2c_smb_ctx *ctx, uint8_t is_tm)
 {
-    if (!ctx || !ctx->base) {
+    uint32_t ofs = MEC_I2C_HC_OFS;
+
+#ifdef MEC_I2C_BASE_CHECK
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0;
     }
+#endif
 
-    if (!is_tm) {
-        return ctx->base->CM_CMD;
+    if (is_tm != 0) {
+        ofs = MEC_I2C_TC_OFS;
     }
 
-    return ctx->base->TM_CMD;
+    return mmcr32_rd(ctx->regbase + ofs);
 }
 
 
@@ -1347,96 +1389,91 @@ int mec_hal_i2c_nl_tm_config(struct mec_i2c_smb_ctx *ctx, uint16_t ntx, uint16_t
     uint32_t tm_cmd = 0;
     uint32_t tm_ien = 0;
     uint32_t elen = 0;
-    uint32_t tm_ien_msk = (MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_TARG_Pos)
-                           | MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_AAT_Pos));
+    uint32_t tm_ien_msk = (MEC_BIT(MEC_I2C_CFG_TD_IEN_POS) | MEC_BIT(MEC_I2C_CFG_AAT_IEN_POS));
 
-    if (!ctx) {
+#ifdef MEC_I2C_BASE_CHECK
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return MEC_RET_ERR_INVAL;
     }
+#endif
 
-    struct mec_i2c_smb_regs *regs = ctx->base;
+    uintptr_t rb = ctx->regbase;
 
     ctx->wrcnt = ntx;
     ctx->rdcnt = nrx;
 
-    regs->CONFIG &= (uint32_t)~tm_ien_msk;
-    regs->COMPL |= (uint32_t)MEC_I2C_SMB_COMPL_TM_STS_ALL_MSK;
+    mmcr32_clr_bits(rb + MEC_I2C_CFG_OFS, tm_ien_msk);
+    mmcr32_wr(MEC_I2C_COMP_RW1C_MSK, rb + MEC_I2C_COMP_OFS);
 
-    if (flags & MEC_I2C_NL_TM_FLAG_DONE_IEN) {
-        tm_ien |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_TARG_Pos);
+    if ((flags & MEC_I2C_NL_TM_FLAG_DONE_IEN) != 0) {
+        tm_ien |= MEC_BIT(MEC_I2C_CFG_TD_IEN_POS);
     }
 
-    if (flags & MEC_I2C_NL_TM_FLAG_AAT_IEN) {
-        tm_ien |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_AAT_Pos);
+    if ((flags & MEC_I2C_NL_TM_FLAG_AAT_IEN) != 0) {
+        tm_ien |= MEC_BIT(MEC_I2C_CFG_AAT_IEN_POS);
     }
 
 #ifdef MEC5_I2C_SMB_HAS_STOP_DETECT_IRQ
-    if (flags & MEC_I2C_NL_TM_FLAG_STOP_IEN) {
-        tm_ien |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENI_NL_STS_Pos);
+    if ((flags & MEC_I2C_NL_TM_FLAG_STOP_IEN) != 0) {
+        tm_ien |= MEC_BIT(MEC_I2C_CFG_STD_NL_IEN_POS);
     }
 #endif
 
-    tm_cmd = (((uint32_t)nrx << MEC_I2C_SMB_TM_CMD_RDCNT_LSB_Pos)
-              & MEC_I2C_SMB_TM_CMD_RDCNT_LSB_Msk);
-    tm_cmd |= (((uint32_t)ntx << MEC_I2C_SMB_TM_CMD_WRCNT_LSB_Pos)
-               & MEC_I2C_SMB_TM_CMD_WRCNT_LSB_Msk);
-
-    if (flags & MEC_I2C_NL_TM_FLAG_RUN) {
-        tm_cmd |= (MEC_BIT(MEC_I2C_SMB_TM_CMD_RUN_Pos)
-                   | MEC_BIT(MEC_I2C_SMB_TM_CMD_PROCEED_Pos));
+    /* build target command register value */
+    tm_cmd = MEC_I2C_TC_WCL_SET(((uint32_t)ntx & 0xffu));
+    tm_cmd |= MEC_I2C_TC_RCL_SET(((uint32_t)nrx & 0xffu));
+    elen = MEC_I2C_ELEN_TWRM_SET(((uint32_t)ntx >> 8) & 0xffu);
+    elen |= MEC_I2C_ELEN_TRDM_SET(((uint32_t)nrx >> 8) & 0xffu);
+    
+    if ((flags & MEC_I2C_NL_TM_FLAG_RUN) != 0) {
+        tm_cmd |= (MEC_BIT(MEC_I2C_TC_RUN_POS) | MEC_BIT(MEC_I2C_TC_PROC_POS));
     }
 
-    /* save TM_CMD in context */
+    /* save target command b[7:0]  in context */
     ctx->cmdctrl = (uint16_t)(tm_cmd & 0xffu);
 
-    /* b[23:16] = TM wrCnt MSB, b[31:24] = TM rdCnt MSB */
-    elen = (ntx & 0xff00u) >> 8;
-    elen |= nrx & 0xff00u;
-    elen <<= 16;
-    regs->EXTLEN = (regs->EXTLEN & 0xffffu) | elen;
-    regs->TM_CMD = tm_cmd;
-    regs->CONFIG |= tm_ien;
+    mmcr32_update_field(rb + MEC_I2C_ELEN_OFS, elen,
+                        (MEC_I2C_ELEN_TWRM_MSK | MEC_I2C_ELEN_TRDM_MSK));
+    mmcr32_wr(tm_cmd, rb + MEC_I2C_TC_OFS);
+    mmcr32_set_bits(rb + MEC_I2C_CFG_OFS, tm_ien);
 
     return MEC_RET_OK;
 }
 
 uint32_t mec_hal_i2c_nl_tm_xfr_count_get(struct mec_i2c_smb_ctx *ctx, uint8_t is_rx)
 {
-    uint32_t cnt = 0;
+    uint32_t tm_cmd = 0, cnt = 0;
 
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0;
     }
 #endif
-    struct mec_i2c_smb_regs *regs = ctx->base;
 
-    cnt = regs->EXTLEN;
-    if (is_rx) { /* External Controller transmits clocks and data. We capture(receive) data */
-        cnt = (cnt & MEC_I2C_SMB_ELEN_TM_RDCNT_MSB_Msk) >> MEC_I2C_SMB_ELEN_TM_RDCNT_MSB_Pos;
+    uintptr_t rb = ctx->regbase;
+
+    cnt = mmcr32_rd(rb + MEC_I2C_ELEN_OFS);
+    tm_cmd = mmcr32_rd(rb + MEC_I2C_TC_OFS);
+
+    if (is_rx != 0) { /* External Controller transmits clocks and data. We capture(receive) data */
+        cnt = MEC_I2C_ELEN_TRDM_GET(cnt);
         cnt <<= 8;
-        cnt |= ((regs->TM_CMD & MEC_I2C_SMB_TM_CMD_RDCNT_LSB_Msk)
-                >> MEC_I2C_SMB_TM_CMD_RDCNT_LSB_Pos);
+        cnt |= MEC_I2C_TC_RCL_GET(tm_cmd);
     } else { /* External Controller generates clocks and we supply(transmit) data */
-        cnt = (cnt & MEC_I2C_SMB_ELEN_TM_WRCNT_MSB_Msk) >> MEC_I2C_SMB_ELEN_TM_WRCNT_MSB_Pos;
+        cnt = MEC_I2C_ELEN_TWRM_GET(cnt);
         cnt <<= 8;
-        cnt |= ((regs->TM_CMD & MEC_I2C_SMB_TM_CMD_WRCNT_LSB_Msk)
-                >> MEC_I2C_SMB_TM_CMD_WRCNT_LSB_Pos);
+        cnt |= MEC_I2C_TC_WCL_GET(tm_cmd);        
     }
 
     return cnt;
 }
 
-int mec_hal_i2c_nl_tm_xfr_count_set(struct mec_i2c_smb_regs *regs, uint8_t is_read, uint32_t cnt)
+int mec_hal_i2c_nl_tm_xfr_count_set(uintptr_t regbase, uint8_t is_read, uint32_t cnt)
 {
-    uint32_t cnt_lsb = 0, cnt_msb = 0;
-    uint32_t cmsk = MEC_I2C_SMB_TM_CMD_WRCNT_LSB_Msk;
-    uint32_t emsk = MEC_I2C_SMB_ELEN_TM_WRCNT_MSB_Msk;
-    uint8_t cpos = MEC_I2C_SMB_TM_CMD_WRCNT_LSB_Pos;
-    uint8_t epos = MEC_I2C_SMB_ELEN_TM_WRCNT_MSB_Pos;
+    uint32_t v = 0;
 
 #ifdef MEC_I2C_BASE_CHECK
-    if (!regs) {
+    if (regbase == 0) {
         return MEC_RET_ERR_INVAL;
     }
 #endif
@@ -1446,18 +1483,17 @@ int mec_hal_i2c_nl_tm_xfr_count_set(struct mec_i2c_smb_regs *regs, uint8_t is_re
     }
 
     /* Set MSB first in case LSB is 0 */
-    if (is_read) {
-        cmsk = MEC_I2C_SMB_TM_CMD_RDCNT_LSB_Msk;
-        emsk = MEC_I2C_SMB_ELEN_TM_RDCNT_MSB_Msk;
-        cpos = MEC_I2C_SMB_TM_CMD_RDCNT_LSB_Pos;
-        epos = MEC_I2C_SMB_ELEN_TM_RDCNT_MSB_Pos;
+    if (is_read != 0) {
+        v = MEC_I2C_ELEN_TRDM_SET(cnt >> 8); 
+        mmcr32_update_field(regbase + MEC_I2C_ELEN_OFS, v, MEC_I2C_ELEN_TRDM_MSK);
+        v = MEC_I2C_TC_RCL_SET(cnt);
+        mmcr32_update_field(regbase + MEC_I2C_TC_OFS, v, MEC_I2C_TC_RCL_MSK);
+    } else {
+        v = MEC_I2C_ELEN_TWRM_SET(cnt >> 8); 
+        mmcr32_update_field(regbase + MEC_I2C_ELEN_OFS, v, MEC_I2C_ELEN_TWRM_MSK);
+        v = MEC_I2C_TC_WCL_SET(cnt);
+        mmcr32_update_field(regbase + MEC_I2C_TC_OFS, v, MEC_I2C_TC_WCL_MSK);
     }
-
-    cnt_lsb = cnt & 0xffu;
-    cnt_msb = (cnt >> 8) & 0xffu;
-
-    regs->EXTLEN = (regs->EXTLEN & (uint32_t)~emsk) | ((cnt_msb << epos) & emsk);
-    regs->TM_CMD = (regs->TM_CMD & (uint32_t)~cmsk) | ((cnt_lsb << cpos) & cmsk);
 
     return MEC_RET_OK;
 }
@@ -1467,14 +1503,14 @@ uint32_t mec_hal_i2c_nl_tm_transfered(struct mec_i2c_smb_ctx *ctx, uint8_t is_rx
     uint32_t nxfr = 0, hwcnt = 0;
 
 #ifdef MEC_I2C_BASE_CHECK
-    if (!ctx || !ctx->base) {
+    if ((ctx == NULL) || (ctx->regbase == 0)) {
         return 0;
     }
 #endif
 
     hwcnt = mec_hal_i2c_nl_tm_xfr_count_get(ctx, is_rx);
 
-    if (is_rx) {
+    if (is_rx != 0) {
         if (ctx->rdcnt >= hwcnt) {
             nxfr = ctx->rdcnt - hwcnt;
         }
@@ -1494,30 +1530,30 @@ uint32_t mec_hal_i2c_nl_tm_transfered(struct mec_i2c_smb_ctx *ctx, uint8_t is_rx
  * being used in target mode.
  */
 
-static uint8_t i2c_pm_save_buf[MEC5_I2C_SMB_INSTANCES];
+static uint32_t i2c_pm_save_buf;
 
 /* Save and disable the controller */
 void mec_hal_i2c_pm_save_disable(void)
 {
-    for (int i = 0; i < MEC5_I2C_SMB_INSTANCES; i++) {
-        struct mec_i2c_smb_regs *regs = (struct mec_i2c_smb_regs *)i2c_instances[i].base_addr;
+    for (uint32_t i = 0; i < MEC5_I2C_SMB_INSTANCES; i++) {
+        uintptr_t rb = i2c_instances[i].base_addr;
 
-        if (regs->CONFIG & MEC_BIT(MEC_I2C_SMB_CONFIG_ENAB_Pos)) {
-            regs->CONFIG &= (uint32_t)~MEC_BIT(MEC_I2C_SMB_CONFIG_ENAB_Pos);
-            i2c_pm_save_buf[i] = 1;
+        if (mmcr32_test_bit(rb + MEC_I2C_CFG_OFS, MEC_I2C_CFG_ENAB_POS) != 0) {
+            mmcr32_clr_bit(rb + MEC_I2C_CFG_OFS, MEC_I2C_CFG_ENAB_POS);
+            i2c_pm_save_buf |= MEC_BIT(i);
         } else {
-            i2c_pm_save_buf[i] = 0;
+            i2c_pm_save_buf &= (uint32_t)~MEC_BIT(i);
         }
     }
 }
 
 void mec_hal_i2c_pm_restore(void)
 {
-    for (int i = 0; i < MEC5_I2C_SMB_INSTANCES; i++) {
-        struct mec_i2c_smb_regs *regs = (struct mec_i2c_smb_regs *)i2c_instances[i].base_addr;
+    for (uint32_t i = 0; i < MEC5_I2C_SMB_INSTANCES; i++) {
+        uintptr_t rb  = i2c_instances[i].base_addr;
 
-        if (i2c_pm_save_buf[i]) {
-            regs->CONFIG |= MEC_BIT(MEC_I2C_SMB_CONFIG_ENAB_Pos);
+        if ((i2c_pm_save_buf & MEC_BIT(i)) != 0) {
+            mmcr32_set_bit(rb + MEC_I2C_CFG_OFS, MEC_I2C_CFG_ENAB_POS);
         }
     }
 }
