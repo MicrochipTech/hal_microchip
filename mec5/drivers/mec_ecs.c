@@ -6,43 +6,48 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <device_mec5.h>
+#include <mec_ecs_regs.h>
+
 #include "mec_defs.h"
-#include "device_mec5.h"
 #include "mec_ecs_api.h"
+#include "mec_mmcr.h"
+#include "mec_retval.h"
 
 void mec_hal_ecs_ictrl(uint8_t direct_en)
 {
+    uintptr_t raddr = MEC_ECS_BASE + MEC_ECS_ICR_OFS;
+
     if (direct_en) {
-        MEC_ECS->INTR_CTRL |= MEC_BIT(MEC_ECS_INTR_CTRL_DIRECT_Pos);
+        mmcr32_set_bit(raddr, MEC_ECS_ICR_DIRECT_EN_POS);
     } else {
-        MEC_ECS->INTR_CTRL &= (uint32_t)~MEC_BIT(MEC_ECS_INTR_CTRL_DIRECT_Pos);
+        mmcr32_clr_bit(raddr, MEC_ECS_ICR_DIRECT_EN_POS);
     }
 }
 
 int mec_hal_ecs_is_idirect(void)
 {
-    if (MEC_ECS->INTR_CTRL & MEC_BIT(MEC_ECS_INTR_CTRL_DIRECT_Pos)) {
-        return 1;
-    }
-
-    return 0;
+    return mmcr32_test_bit(MEC_ECS_BASE + MEC_ECS_ICR_OFS, MEC_ECS_ICR_DIRECT_EN_POS);
 }
 
 void mec_hal_ecs_ahb_error_ctrl(uint8_t ahb_err_enable)
 {
+    uintptr_t raddr = MEC_ECS_BASE + MEC_ECS_AERC_OFS;
+
     if (ahb_err_enable) { /* clear AHB error capture disable bit */
-        MEC_ECS->AERRC &= (uint32_t)~MEC_BIT(MEC_ECS_AERRC_CAP_Pos);
+        mmcr32_clr_bit(raddr, MEC_ECS_AERC_DIS_POS);
     } else {
-        MEC_ECS->AERRC |= MEC_BIT(MEC_ECS_AERRC_CAP_Pos);
+        mmcr32_set_bit(raddr, MEC_ECS_AERC_DIS_POS);
     }
 }
 
 uint32_t mec_hal_ecs_ahb_error_val(uint8_t clr_after_read)
 {
-    uint32_t ahb_error_val = MEC_ECS->AERRA;
+    uintptr_t raddr = MEC_ECS_BASE + MEC_ECS_AERC_OFS;
+    uint32_t ahb_error_val = mmcr32_rd(raddr);
 
-    if (clr_after_read) {
-        MEC_ECS->AERRA = 0u;
+    if (clr_after_read != 0) {
+        mmcr32_wr(0, raddr);
     }
 
     return ahb_error_val;
@@ -50,15 +55,13 @@ uint32_t mec_hal_ecs_ahb_error_val(uint8_t clr_after_read)
 
 int mec_hal_ecs_is_feature_disabled(uint8_t feature)
 {
+    uintptr_t ecs_base = MEC_ECS_BASE;
+
     if (feature < 32) {
-        if (MEC_ECS->FEAT_LOCK & MEC_BIT(feature)) {
-            return 1;
-        }
+        return mmcr32_test_bit(ecs_base + MEC_ECS_FLOCK_OFS, feature);
     } else if (feature < 64) {
         feature -= 32;
-        if (MEC_ECS->MISC_LOCK & MEC_BIT(feature)) {
-            return 1;
-        }
+        return mmcr32_test_bit(ecs_base + MEC_ECS_MLOCK_OFS, feature);
     }
 
     return 0;
@@ -66,44 +69,40 @@ int mec_hal_ecs_is_feature_disabled(uint8_t feature)
 
 void mec_hal_ecs_etm_pins(uint8_t enable)
 {
+    uintptr_t ecs_base = MEC_ECS_BASE;
+
     if (enable) {
-        MEC_ECS->ETM_CTRL |= MEC_BIT(MEC_ECS_ETM_CTRL_TRACE_EN_Pos);
+        mmcr32_set_bit(ecs_base + MEC_ECS_DTR_OFS, MEC_ECS_DTR_ETM_EN_POS);
     } else {
-        MEC_ECS->ETM_CTRL &= (uint32_t)~MEC_BIT(MEC_ECS_ETM_CTRL_TRACE_EN_Pos);
+        mmcr32_clr_bit(ecs_base + MEC_ECS_DTR_OFS, MEC_ECS_DTR_ETM_EN_POS);
     }
 }
 
-void mec_hal_ecs_debug_port(enum mec_debug_mode mode)
+int mec_hal_ecs_debug_port(enum mec_debug_mode mode)
 {
-    uint32_t msk, temp, val;
+    uintptr_t ecs_base = MEC_ECS_BASE;
+    uint32_t val = 0;
 
     switch (mode) {
     case MEC_DEBUG_MODE_DISABLE:
-        msk = (uint32_t)~MEC_BIT(MEC_ECS_DBG_CTRL_EN_Pos);
-        val = 0u;
-        break;
+        mmcr32_clr_bit(ecs_base + MEC_ECS_DCR_OFS, MEC_ECS_DCR_EN_POS);
+        return MEC_RET_OK;
     case MEC_DEBUG_MODE_JTAG:
-        msk = MEC_ECS_DBG_CTRL_CFG_Msk;
-        val = MEC_BIT(MEC_ECS_DBG_CTRL_EN_Pos) |
-            (uint32_t)(MEC_ECS_DBG_CTRL_CFG_JTAG << MEC_ECS_DBG_CTRL_CFG_Pos);
+        val = MEC_ECS_DCR_CFG_SET(MEC_ECS_DCR_CFG_JTAG);
         break;
     case MEC_DEBUG_MODE_SWD:
-        msk = MEC_ECS_DBG_CTRL_CFG_Msk;
-        val = MEC_BIT(MEC_ECS_DBG_CTRL_EN_Pos) |
-            (uint32_t)(MEC_ECS_DBG_CTRL_CFG_SWD_ONLY << MEC_ECS_DBG_CTRL_CFG_Pos);
+        val = MEC_ECS_DCR_CFG_SET(MEC_ECS_DCR_CFG_SWD);
         break;
     case MEC_DEBUG_MODE_SWD_SWV:
-        msk = MEC_ECS_DBG_CTRL_CFG_Msk;
-        val = MEC_BIT(MEC_ECS_DBG_CTRL_EN_Pos) |
-            (uint32_t)(MEC_ECS_DBG_CTRL_CFG_SWD_SWV << MEC_ECS_DBG_CTRL_CFG_Pos);
+        val = MEC_ECS_DCR_CFG_SET(MEC_ECS_DCR_CFG_SWD_SWV);
         break;
     default:
-        return;
+        return MEC_RET_ERR_INVAL;
     }
 
-    temp = MEC_ECS->DBG_CTRL & ~msk;
-    temp |= val;
-    MEC_ECS->DBG_CTRL = temp;
+    mmcr32_update_field(ecs_base + MEC_ECS_DCR_OFS, val, MEC_ECS_DCR_CFG_MSK);
+
+    return MEC_RET_OK;
 }
 
 /* -------- Analog Comparator -------- */
@@ -114,97 +113,110 @@ void mec_hal_ecs_debug_port(enum mec_debug_mode mode)
  */
 void mec_hal_ecs_analog_comparator_config(uint32_t config)
 {
-    uint32_t msk = 0, val = 0;
+    uintptr_t ecs_base = MEC_ECS_BASE;
+    uint32_t msk = MEC_ECS_ACMP_CR_MSK;
+    uint32_t val = 0;
 
-    msk = MEC_BIT(MEC_ECS_CMPSC_DSLP0_Pos) | MEC_BIT(MEC_ECS_CMPSC_DSLP1_Pos);
-    if (config & MEC_ACMP_CFG_DS0) {
-        val |= MEC_BIT(MEC_ECS_CMPSC_DSLP0_Pos);
+    /* enables and lock */
+    if ((config & MEC_ACMP_CFG_EN0) != 0) {
+        val |= MEC_BIT(MEC_ECS_ACMP_CR_EN0_POS);
     }
 
-    if (config & MEC_ACMP_CFG_DS1) {
-        val |= MEC_BIT(MEC_ECS_CMPSC_DSLP1_Pos);
+    if ((config & MEC_ACMP_CFG_LOCK0) != 0) {
+        val |= MEC_BIT(MEC_ECS_ACMP_CR_LOCK0_POS);
     }
 
-    MEC_ECS->CMPSC = (MEC_ECS->CMPSC & (uint32_t)~msk) | val;
-
-    msk = (MEC_BIT(MEC_ECS_CMPC_EN0_Pos) | MEC_BIT(MEC_ECS_CMPC_LKCFG0_Pos)
-           | MEC_BIT(MEC_ECS_CMPC_EN1_Pos));
-    val = 0;
-    if (config & MEC_ACMP_CFG_EN0) {
-        val |= MEC_BIT(MEC_ECS_CMPC_EN0_Pos);
-    }
-    if (config & MEC_ACMP_CFG_LOCK0) {
-        val |= MEC_BIT(MEC_ECS_CMPC_LKCFG0_Pos);
-    }
-    if (config & MEC_ACMP_CFG_EN1) {
-        val |= MEC_BIT(MEC_ECS_CMPC_EN1_Pos);
+    if ((config & MEC_ACMP_CFG_EN1) != 0) {
+        val |= MEC_BIT(MEC_ECS_ACMP_CR_EN1_POS);
     }
 
-    MEC_ECS->CMPC = (MEC_ECS->CMPC & (uint32_t)~msk) | val;
+    mmcr32_update_field(ecs_base + MEC_ECS_ACMP_CR_OFS, val, msk);
+
+    /* deep sleep bits. program after enables */
+    msk = MEC_BIT(MEC_ECS_ACMP_SLP_EN0_POS) | MEC_BIT(MEC_ECS_ACMP_SLP_EN1_POS);
+
+    if ((config & MEC_ACMP_CFG_DS0) != 0) {
+        val |= MEC_BIT(MEC_ECS_ACMP_SLP_EN0_POS);
+    }
+
+    if ((config & MEC_ACMP_CFG_DS1) != 0) {
+        val |= MEC_BIT(MEC_ECS_ACMP_SLP_EN1_POS);
+    }
+
+    mmcr32_update_field(ecs_base + MEC_ECS_ACMP_SLP_CR_OFS, val, msk);
 }
 
 /* -------- Embedded Reset -------- */
 
 bool mec_hal_ecs_emb_reset_is_enabled(void)
 {
-    if (MEC_ECS->EMBRST_EN & MEC_BIT(MEC_ECS_EMBRST_EN_EN_Pos)) {
+    if (mmcr32_test_bit(MEC_ECS_BASE + MEC_ECS_ERST_CR_OFS, MEC_ECS_ERST_CR_EN_POS) != 0) {
         return true;
     }
+
     return false;
 }
 
 void mec_hal_ecs_emb_reset_enable(uint8_t enable)
 {
     if (enable) {
-        MEC_ECS->EMBRST_EN |= MEC_BIT(MEC_ECS_EMBRST_EN_EN_Pos);
+        mmcr32_set_bit(MEC_ECS_BASE + MEC_ECS_ERST_CR_OFS, MEC_ECS_ERST_CR_EN_POS);
     } else {
-        MEC_ECS->EMBRST_EN &= (uint32_t)~MEC_BIT(MEC_ECS_EMBRST_EN_EN_Pos);
+        mmcr32_clr_bit(MEC_ECS_BASE + MEC_ECS_ERST_CR_OFS, MEC_ECS_ERST_CR_EN_POS);
     }
 }
 
 uint8_t mec_hal_ecs_emb_reset_timeout_get(void)
 {
-    return (uint8_t)((MEC_ECS->EMBRST_TMOUT & MEC_ECS_EMBRST_TMOUT_TM1_Msk)
-                     >> MEC_ECS_EMBRST_TMOUT_TM1_Pos);
+    uint32_t val = mmcr32_rd(MEC_ECS_BASE + MEC_ECS_ERST_TMCR_OFS);
+
+    return (uint8_t)MEC_ECS_ERST_TMV_GET(val);
 }
 
 void mec_hal_ecs_emb_reset_timeout(uint8_t timeout)
 {
-    MEC_ECS->EMBRST_TMOUT = ((MEC_ECS->EMBRST_TMOUT & (uint32_t)~MEC_ECS_EMBRST_TMOUT_TM1_Msk)
-                             | (((uint32_t)timeout << MEC_ECS_EMBRST_TMOUT_TM1_Msk)
-                                & MEC_ECS_EMBRST_TMOUT_TM1_Msk));
+    uint32_t v = MEC_ECS_ERST_TMV_SET(timeout);
+
+    mmcr32_update_field(MEC_ECS_BASE + MEC_ECS_ERST_TMCR_OFS, v, MEC_ECS_ERST_TMV_MSK);
 }
 
 uint32_t mec_hal_ecs_emb_reset_status(void)
 {
-    return MEC_ECS->EMBRST_STS;
+    return mmcr32_rd(MEC_ECS_BASE + MEC_ECS_ERST_SR_OFS);
 }
 
 void mec_hal_ecs_emb_reset_status_clear(void)
 {
-    MEC_ECS->EMBRST_STS &= (uint32_t)~MEC_BIT(MEC_ECS_EMBRST_STS_RST_Pos);
+    mmcr32_wr(MEC_BIT(MEC_ECS_ERST_SR_ACTV_POS), MEC_ECS_BASE + MEC_ECS_ERST_SR_OFS);
 }
 
 uint32_t mec_hal_ecs_emb_reset_count(void)
 {
-    return MEC_ECS->EMBRST_CNT;
+    uint32_t v = mmcr32_rd(MEC_ECS_BASE + MEC_ECS_ERST_CNTR_OFS);
+
+    return MEC_ECS_ERST_CNT_GET(v);
 }
 
 /* ---- PECI VTT Vref pin control ---- */
 void mec_hal_ecs_peci_vtt_ref_pin_ctrl(uint8_t enable)
 {
+    uintptr_t ecs_base = MEC_ECS_BASE;
+
     if (enable) {
-        MEC_ECS->PECI_CTRL |= MEC_BIT(MEC_ECS_PECI_CTRL_PINS_Pos);
+        mmcr32_set_bit(ecs_base + MEC_ECS_PECI_DIS_OFS, MEC_ECS_PECI_VREF_OFF_POS);
     } else {
-        MEC_ECS->PECI_CTRL &= (uint32_t)~MEC_BIT(MEC_ECS_PECI_CTRL_PINS_Pos);
+        mmcr32_clr_bit(ecs_base + MEC_ECS_PECI_DIS_OFS, MEC_ECS_PECI_VREF_OFF_POS);
     }
 }
 
 uint8_t mec_hal_ecs_peci_vtt_ref_pin_is_enabled(void)
 {
-    if (MEC_ECS->PECI_CTRL & MEC_BIT(MEC_ECS_PECI_CTRL_PINS_Pos)) {
-        return 1;
+    uintptr_t ecs_base = MEC_ECS_BASE;
+
+    if (mmcr32_test_bit(ecs_base + MEC_ECS_PECI_DIS_OFS, MEC_ECS_PECI_VREF_OFF_POS) == 0) {
+        return 1u;
     }
+
     return 0;
 }
 
@@ -217,41 +229,48 @@ static uint8_t ecs_pm_save_buf[MEC_ECS_PM_SAVE_ITEMS_CNT];
 
 void mec_hal_ecs_debug_ifc_save_disable(void)
 {
-    ecs_pm_save_buf[0] = (uint8_t)(MEC_ECS->ETM_CTRL & 0xffu);
-    MEC_ECS->ETM_CTRL = 0;
+    uintptr_t ecs_base = MEC_ECS_BASE;
 
-    ecs_pm_save_buf[1] = (uint8_t)(MEC_ECS->DBG_CTRL & 0xffu);
-    MEC_ECS->DBG_CTRL = 0;
+    ecs_pm_save_buf[0] = (uint8_t)(mmcr32_rd(ecs_base + MEC_ECS_DTR_OFS) & 0xffu);
+    ecs_pm_save_buf[1] = (uint8_t)(mmcr32_rd(ecs_base + MEC_ECS_DCR_OFS) & 0xffu);
+
+    mmcr32_wr(0, ecs_base + MEC_ECS_DTR_OFS);
+    mmcr32_wr(0, ecs_base + MEC_ECS_DCR_OFS);
 }
 
 void mec_hal_ecs_debug_ifc_restore(void)
 {
-    MEC_ECS->ETM_CTRL = ecs_pm_save_buf[0];
-    MEC_ECS->DBG_CTRL = ecs_pm_save_buf[1];
+    uintptr_t ecs_base = MEC_ECS_BASE;
+
+    mmcr32_wr(ecs_pm_save_buf[0], ecs_base + MEC_ECS_DTR_OFS);
+    mmcr32_wr(ecs_pm_save_buf[1], ecs_base + MEC_ECS_DCR_OFS);
 }
 
 
 void mec_hal_ecs_pm_save_disable(void)
 {
-    ecs_pm_save_buf[0] = (uint8_t)(MEC_ECS->ETM_CTRL & 0xffu);
-    ecs_pm_save_buf[1] = (uint8_t)(MEC_ECS->DBG_CTRL & 0xffu);
-    ecs_pm_save_buf[2] = (uint8_t)(MEC_ECS->PECI_CTRL & 0xffu);
+    uintptr_t ecs_base = MEC_ECS_BASE;
 
-    MEC_ECS->ETM_CTRL = 0;
-    MEC_ECS->DBG_CTRL = 0;
-    MEC_ECS->PECI_CTRL = 1; /* disable VREF_VTT function */
-    /* TODO comparators
-     * The EC Subystem Analog Comparators each have a deep sleep enable
-     * bit which must be set when the comparator is enabled. Check with DE
-     * if these bits allow the comparators to respect SLP_EN from PCR.
-     * PCR SLP_EN[1] bit[29] is EC register bank (ECS).
-     */
+    mec_hal_ecs_debug_ifc_save_disable();
+
+    ecs_pm_save_buf[2] = (uint8_t)(mmcr32_rd(ecs_base + MEC_ECS_PECI_DIS_OFS) & 0xffu);
+
+    mec_hal_ecs_peci_vtt_ref_pin_ctrl(0);
+
+    mmcr32_set_bits(ecs_base + MEC_ECS_ACMP_SLP_CR_OFS,
+                    MEC_BIT(MEC_ECS_ACMP_SLP_EN0_POS) | MEC_BIT(MEC_ECS_ACMP_SLP_EN1_POS));
 }
 
 void mec_hal_ecs_pm_restore(void)
 {
-    MEC_ECS->PECI_CTRL = ecs_pm_save_buf[2];
-    MEC_ECS->ETM_CTRL = ecs_pm_save_buf[0];
-    MEC_ECS->DBG_CTRL = ecs_pm_save_buf[1];
+    uintptr_t ecs_base = MEC_ECS_BASE;
+
+    mec_hal_ecs_debug_ifc_restore();
+
+    mmcr32_update_field(ecs_base + MEC_ECS_PECI_DIS_OFS, ecs_pm_save_buf[2], 0xffu);
+
+    mmcr32_clr_bits(ecs_base + MEC_ECS_ACMP_SLP_CR_OFS,
+                    MEC_BIT(MEC_ECS_ACMP_SLP_EN0_POS) | MEC_BIT(MEC_ECS_ACMP_SLP_EN1_POS));
 }
+
 /* end mec_ecs.c */

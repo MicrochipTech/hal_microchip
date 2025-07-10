@@ -62,7 +62,7 @@ enum mec_debug_mode {
     MEC_DEBUG_MODE_MAX,
 };
 
-void mec_hal_ecs_debug_port(enum mec_debug_mode mode);
+int mec_hal_ecs_debug_port(enum mec_debug_mode mode);
 
 enum mec_analog_comparator_config {
     MEC_ACMP_CFG_EN0 = MEC_BIT(0),
